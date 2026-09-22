@@ -14,6 +14,8 @@ import de.raindancer118.hypixelscout.ui.ScoutTheme;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
+import de.raindancer118.hypixelscout.game.PartyReport;
 import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -74,6 +76,7 @@ public final class ProfileScreen extends Screen {
 
 	@Override
 	protected void init() {
+		sendButtons.clear();
 		int left = left();
 		int top = 10;
 
@@ -90,14 +93,20 @@ public final class ProfileScreen extends Screen {
 						button -> lookUp(search.getValue()))
 				.bounds(left + contentWidth() - 80, top, 80, 20).build());
 
+		// Refresh, the link, the two chats and Done — narrower where the window is.
 		int bottom = height - 28;
+		int buttonWidth = Math.min(100, (width - 20 - 4 * 4) / 5);
+		int x = width / 2 - (5 * buttonWidth + 4 * 4) / 2;
+
 		addRenderableWidget(Button.builder(Component.translatable("message.hypixelscout.refresh"), button -> {
 					if (uuid != null) {
 						stats.forget(uuid);
 						stats.request(uuid, name);
 					}
 				})
-				.bounds(width / 2 - 154, bottom, 100, 20).build());
+				.bounds(x, bottom, buttonWidth, 20).build());
+		x += buttonWidth + 4;
+
 		addRenderableWidget(Button.builder(Component.translatable("message.hypixelscout.profile.plancke"),
 						button -> {
 							if (name != null) {
@@ -105,9 +114,36 @@ public final class ProfileScreen extends Screen {
 										+ name + "#BedWars");
 							}
 						})
-				.bounds(width / 2 - 50, bottom, 100, 20).build());
+				.bounds(x, bottom, buttonWidth, 20).build());
+		x += buttonWidth + 4;
+
+		for (PartyReport.Channel channel : PartyReport.Channel.values()) {
+			String key = "message.hypixelscout.profile.send." + channel.name().toLowerCase(java.util.Locale.ROOT);
+			Button send = addRenderableWidget(Button.builder(Component.translatable(key), button -> {
+						PlayerStats profile = uuid == null ? null : stats.peek(uuid);
+						mod.partyReport().sendPlayer(channel, name, profile);
+					})
+					.tooltip(Tooltip.create(Component.translatable(key + ".tooltip")))
+					.bounds(x, bottom, buttonWidth, 20).build());
+			send.active = mod.partyReport().canSendPlayer(channel);
+			sendButtons.add(send);
+			x += buttonWidth + 4;
+		}
+
 		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> minecraft.gui.setScreen(null))
-				.bounds(width / 2 + 54, bottom, 100, 20).build());
+				.bounds(x, bottom, buttonWidth, 20).build());
+	}
+
+	/** The two send buttons, dimmed until there are stats to send. */
+	private final java.util.List<Button> sendButtons = new java.util.ArrayList<>();
+
+	@Override
+	public void tick() {
+		boolean known = name != null && uuid != null && stats.peek(uuid) != null;
+		for (int i = 0; i < sendButtons.size(); i++) {
+			sendButtons.get(i).active = known
+					&& mod.partyReport().canSendPlayer(PartyReport.Channel.values()[i]);
+		}
 	}
 
 	private void lookUp(String typed) {

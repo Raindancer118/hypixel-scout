@@ -4,6 +4,7 @@ import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.BedwarsModes;
 import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.Roster;
+import de.raindancer118.hypixelscout.core.StatLines;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.core.TeamReport;
 import de.raindancer118.hypixelscout.ui.Chat;
@@ -113,6 +114,32 @@ public final class PartyReport {
 		reports.forEach(report -> pending.add(new Line(channel, report.toThreatMessage(threshold))));
 		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.sending_team"
 				: "message.hypixelscout.party.sending", reports.size());
+	}
+
+	/**
+	 * Whether one player's stats can go into this channel right now: party chat anywhere on
+	 * Hypixel, team chat only inside a game that has teams.
+	 */
+	public boolean canSendPlayer(Channel channel) {
+		return channel == Channel.PARTY ? roster.isInGame() || QuickQueue.onHypixel() : canSend(channel);
+	}
+
+	/** Sends one player's stats as a single line. Queued behind anything already going out. */
+	public void sendPlayer(Channel channel, String name, PlayerStats playerStats) {
+		if (!canSendPlayer(channel)) {
+			Chat.sayTranslated(channel == Channel.TEAM && roster.isInGame()
+					? "message.hypixelscout.report.solo" : "message.hypixelscout.report.nowhere");
+			return;
+		}
+
+		if (playerStats == null) {
+			Chat.sayTranslated("message.hypixelscout.report.no_stats", name);
+			return;
+		}
+
+		pending.add(new Line(channel, StatLines.chatLine(name, playerStats)));
+		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.player_team"
+				: "message.hypixelscout.report.player_party", name);
 	}
 
 	/** The lines the report is about to send, for the client game test. */

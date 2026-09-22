@@ -282,6 +282,24 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.waitTicks(4);
 			context.takeScreenshot("scout_profile");
 
+			// One player's stats into team chat, from the profile, with one click.
+			context.clickScreenButton("message.hypixelscout.profile.send.team");
+			context.runOnClient(client -> {
+				List<String> lines = mod.partyReport().pendingLines();
+				if (lines.isEmpty() || !lines.getLast().equals(
+						"Sundial [MVP+] 1502* EXTREME | FKDR 13.83 | WLR 5.27 | WS 104 | Beds/g 1.7 | Kills/g 8.5")) {
+					throw new AssertionError("Unexpected player line: " + lines);
+				}
+			});
+			context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
+			context.setScreen(() -> null);
+			context.runOnClient(client -> client.player.connection.sendCommand("scout Brickmason party"));
+			context.waitFor(client -> mod.partyReport().pendingLines().stream()
+					.anyMatch(line -> line.startsWith("Brickmason [MVP+] 488*")), 100);
+			context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
+			context.waitTicks(3);
+			context.takeScreenshot("scout_player_sent");
+
 			context.setScreen(() -> mod.profileScreen("Technoblade", null, null));
 			context.waitFor(client -> client.gui.screen() instanceof ProfileScreen profile && profile.uuid() != null
 					&& mod.stats().peek(profile.uuid()) != null, 200);

@@ -15,10 +15,15 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   - **Lookup**: any player at all, in your game or not, with your recent lookups as clickable faces.
   - **Queue**: the nine quick-queue slots, each bound to a key, set and played from here.
 - **Profile screen**: head, rank, level, karma, account age, last login, threat, and cards for
-  combat, games and beds, plus the per-game rates and linked socials.
+  combat, games and beds, plus the per-game rates and linked socials. **Team chat** and **Party
+  chat** buttons send the player's stats in one line, e.g.
+  `Sundial [MVP+] 1502* EXTREME | FKDR 13.83 | WLR 5.27 | WS 104 | Beds/g 1.7 | Kills/g 8.5`.
+  Two bindings do the same for whoever you are aiming at, without opening anything.
 - **Peek** (hold `R`, rebindable under **Settings → Keys**): while the key is down, the full profile of whoever you aim at — or, aiming
   at nobody, the whole game's table — drawn over the game. Let go and it is gone. Nothing pauses and
   the mouse stays with the camera, so you can keep moving while you look.
+- **Beds and kills per game** (B/G, K/G) for every player, coloured from harmless to dangerous:
+  who rushes beds and who wins fights.
 - **Stats table** on the HUD (`Y`): a card you open and close, placed anywhere with the built-in
   drag editor. It can toggle, need the key held, open itself at game start, or stay up.
 - **Look tooltip**: the stats of whoever you aim at — across the map, but *not* through walls.
@@ -61,6 +66,7 @@ free on purpose.
 | `/scout` | Opens the Scout screen |
 | `/scout game \| teams \| lookup \| queue` | Opens it on that tab |
 | `/scout <player>` | Opens that player's profile |
+| `/scout <player> team \| party` | Sends that player's stats to team or party chat |
 | `/scout settings` | Opens the settings |
 | `/scout move` | Opens the table editor |
 | `/scout key <key>` / `/scout testkey` | Stores / checks your API key |

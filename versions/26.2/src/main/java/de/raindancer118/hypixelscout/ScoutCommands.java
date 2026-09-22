@@ -87,7 +87,20 @@ public final class ScoutCommands {
 							String player = StringArgumentType.getString(context, "player");
 							HypixelScout.open(mod.profileScreen(player, mod.roster().uuidOf(player), null));
 							return 1;
-						}));
+						})
+						.then(ClientCommands.literal("team").executes(context -> sendPlayer(context, mod,
+								PartyReport.Channel.TEAM)))
+						.then(ClientCommands.literal("party").executes(context -> sendPlayer(context, mod,
+								PartyReport.Channel.PARTY))));
+	}
+
+	/** Somebody in the game straight into chat; anybody else has to be looked up first. */
+	private static int sendPlayer(CommandContext<FabricClientCommandSource> context, HypixelScout mod,
+			PartyReport.Channel channel) {
+		String player = StringArgumentType.getString(context, "player");
+		UUID uuid = mod.roster().uuidOf(player);
+		mod.partyReport().sendPlayer(channel, player, uuid == null ? null : mod.stats().peek(uuid));
+		return 1;
 	}
 
 	private static int openTab(HypixelScout mod, ScoutScreen.Page page) {

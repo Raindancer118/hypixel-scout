@@ -76,6 +76,37 @@ public final class StatLines {
 		return lines;
 	}
 
+	/**
+	 * One player as a line for team or party chat: name, rank, star, threat, then the figures that
+	 * decide a fight. Plain ASCII — Hypixel's chat drops some symbols — and at most 100 characters.
+	 * A winstreak the player hides is left out rather than sent as zero.
+	 */
+	public static String chatLine(String name, PlayerStats stats) {
+		if (stats.isNicked()) {
+			return name + " is nicked - Hypixel has no profile under that name";
+		}
+
+		String rank = plain(Ranks.tag(stats.getRank()));
+		StringBuilder line = new StringBuilder(name);
+		if (!rank.isEmpty()) {
+			line.append(' ').append(rank);
+		}
+		line.append(' ').append(stats.getStars()).append("* ").append(Threat.of(stats).label());
+		line.append(" | FKDR ").append(StatFormat.ratio(stats.getFkdr()));
+		line.append(" | WLR ").append(StatFormat.ratio(stats.getWlr()));
+		if (stats.getWinstreak() != null) {
+			line.append(" | WS ").append(stats.getWinstreak());
+		}
+		line.append(" | Beds/g ").append(oneDecimal(ProfileMetrics.bedsPerGame(stats)));
+		line.append(" | Kills/g ").append(oneDecimal(ProfileMetrics.killsPerGame(stats)));
+
+		return line.length() <= 100 ? line.toString() : line.substring(0, 100);
+	}
+
+	private static String oneDecimal(double value) {
+		return String.format(Locale.ROOT, "%.1f", value);
+	}
+
 	/** A formatted line with its colour codes taken out, for measuring and for narration. */
 	public static String plain(String formatted) {
 		return formatted == null ? "" : formatted.replaceAll("§.", "");

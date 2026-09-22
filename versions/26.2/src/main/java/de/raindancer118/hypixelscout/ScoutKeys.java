@@ -76,6 +76,9 @@ public final class ScoutKeys {
 
 		add("party_report", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().send(PartyReport.Channel.PARTY));
 		add("team_report", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().send(PartyReport.Channel.TEAM));
+		// Whoever is under the crosshair, into chat in one press: the call-out mid-fight.
+		add("send_target_team", GLFW.GLFW_KEY_UNKNOWN, () -> sendTarget(PartyReport.Channel.TEAM));
+		add("send_target_party", GLFW.GLFW_KEY_UNKNOWN, () -> sendTarget(PartyReport.Channel.PARTY));
 		add("refresh", GLFW.GLFW_KEY_UNKNOWN, () -> {
 			mod.refresh();
 			Chat.sayTranslated("message.hypixelscout.refreshed");
@@ -117,8 +120,8 @@ public final class ScoutKeys {
 
 	/** The bindings the mod's own settings offer to change, in the order they are shown. */
 	public List<KeyMapping> settingsMappings() {
-		List<String> shown = List.of("open", "peek", "table", "profile_target", "team_report", "party_report",
-				"move_table", "refresh");
+		List<String> shown = List.of("open", "peek", "table", "profile_target", "send_target_team",
+				"send_target_party", "team_report", "party_report", "move_table", "refresh");
 		return shown.stream()
 				.map(name -> "key.hypixelscout." + name)
 				.map(id -> actions.stream().map(Action::mapping).filter(m -> m.getName().equals(id)).findFirst()
@@ -145,6 +148,19 @@ public final class ScoutKeys {
 		Chat.say(Component.translatable("message.hypixelscout.toggle." + feature,
 				Component.translatable(on ? "options.on" : "options.off")
 						.withColor(on ? 0x55FF55 : 0xFF5555)));
+	}
+
+	private void sendTarget(PartyReport.Channel channel) {
+		ScoutSettings.Tooltip tooltip = mod.settings().tooltip;
+		AbstractClientPlayer target = LookTarget.pick(tooltip.cosine(), tooltip.throughWalls, 1.0f);
+		if (target == null) {
+			Chat.sayTranslated("message.hypixelscout.no_target");
+			return;
+		}
+
+		String name = target.getScoreboardName();
+		UUID uuid = mod.roster().uuidOf(name);
+		mod.partyReport().sendPlayer(channel, name, mod.stats().peek(uuid == null ? target.getUUID() : uuid));
 	}
 
 	private void profileOfTarget() {
