@@ -1,0 +1,100 @@
+plugins {
+	id 'java'
+	id 'xyz.wagyourtail.unimined' version "${unimined_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = "hypixelscout-mc${project.minecraft_version}-forge"
+}
+
+repositories {
+	mavenCentral()
+	maven {
+		name = 'MinecraftForge'
+		url = 'https://maven.minecraftforge.net/'
+	}
+	maven {
+		name = 'WagYourTail'
+		url = 'https://maven.wagyourtail.xyz/releases'
+	}
+	maven {
+		name = 'Hypixel'
+		url = 'https://repo.hypixel.net/repository/Hypixel/'
+	}
+	maven {
+		name = 'Sponge'
+		url = 'https://repo.spongepowered.org/maven'
+	}
+}
+
+// Java 8 bytecode, compiled by a modern JDK. The dev client loads these class files directly, so
+// anything newer than 8 fails at launch no matter what the finished jar looks like.
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+	sourceCompatibility = JavaVersion.VERSION_1_8
+	targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 8
+	it.options.encoding = 'UTF-8'
+	it.options.compilerArgs << '-Xlint:-options'
+}
+
+unimined.minecraft {
+	version project.minecraft_version
+
+	mappings {
+		searge()
+		mcp(project.mcp_channel, project.mcp_version)
+	}
+
+	minecraftForge {
+		loader project.forge_version
+	}
+}
+
+dependencies {
+	// Gson ships inside the 1.8.9 client, so it is compiled against and not bundled.
+	compileOnly 'com.google.code.gson:gson:2.2.4'
+
+	// The Hypixel Mod API is a separate mod the player installs. Compiled against, never
+	// bundled: if it is missing the mod falls back to reading chat and still works.
+	compileOnly "net.hypixel:mod-api:${hypixel_mod_api_version}"
+
+	testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
+	testImplementation 'com.google.code.gson:gson:2.2.4'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// The core package is plain Java with no Minecraft on its classpath, which is the whole reason it
+// is a separate package: the parsing, the cache and the rate limiter are tested without a game.
+tasks.named('test', Test) {
+	useJUnitPlatform()
+	testLogging {
+		events 'passed', 'skipped', 'failed'
+	}
+}
+
+tasks.named('processResources').configure {
+	def props = [version: project.version, minecraft_version: project.minecraft_version]
+	inputs.properties props
+
+	filesMatching('mcmod.info') {
+		expand props
+	}
+}
+
+// Minecraft 1.8.9 runs on Java 8, so the dev client has to as well.
+def java8 = javaToolchains.launcherFor {
+	languageVersion = JavaLanguageVersion.of(8)
+}
+
+tasks.matching { it.name in ['runClient', 'runServer'] }.configureEach {
+	javaLauncher = java8
+}

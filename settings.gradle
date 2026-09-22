@@ -1,0 +1,26 @@
+pluginManagement {
+	repositories {
+		mavenCentral()
+		maven {
+			name = 'MinecraftForge'
+			url = 'https://maven.minecraftforge.net/'
+		}
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		maven {
+			name = 'WagYourTail'
+			url = 'https://maven.wagyourtail.xyz/releases'
+		}
+		gradlePluginPortal()
+	}
+}
+
+plugins {
+	// Minecraft 1.8.9 runs the dev client on Java 8, which this machine does not have installed.
+	// Gradle fetches it itself.
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'hypixel-scout'

@@ -1,0 +1,14 @@
+// Applied from each build's settings.gradle. Spreads gradle/shared.properties over every project
+// so the whole composite agrees on one mod version and one set of shared dependency versions.
+// Version-specific settings (Minecraft, Loom, Fabric API) stay in each version module's own
+// gradle.properties, because a plugins {} block can only read properties from its own build.
+def props = new Properties()
+new File(buildscript.sourceFile.parentFile, 'shared.properties').withInputStream { props.load(it) }
+
+gradle.beforeProject { project ->
+	props.each { key, value ->
+		if (!project.hasProperty(key)) {
+			project.ext.set(key, value)
+		}
+	}
+}
