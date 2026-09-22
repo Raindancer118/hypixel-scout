@@ -1,0 +1,180 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+// The Minecraft version is in the file name, so a player downloading from a release page can tell
+// which game it is for.
+base {
+	archivesName = "hypixelscout-mc${project.minecraft_version}"
+}
+
+repositories {
+	mavenCentral()
+
+	maven {
+		name = 'Terraformers'
+		url = 'https://maven.terraformersmc.com/releases'
+		content {
+			includeGroup 'com.terraformersmc'
+		}
+	}
+
+	maven {
+		name = 'Hypixel'
+		url = 'https://repo.hypixel.net/repository/Hypixel/'
+		content {
+			includeGroup 'net.hypixel'
+		}
+	}
+
+	maven {
+		name = 'Modrinth'
+		url = 'https://api.modrinth.com/maven'
+		content {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+// Boots a real client and fails the build if the mod does not come up, then drives every screen.
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = 'hypixelscout-test'
+		eula = true
+		enableGameTests = false
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Every line that does not touch a Minecraft class lives in the shared build. Gradle
+	// substitutes this coordinate with ../../common through the composite in settings.gradle.
+	include implementation("de.raindancer118:hypixelscout-common:${project.mod_version}")
+
+	// The Hypixel Mod API is a separate mod the player installs. Compiled against the plain API,
+	// never bundled; the Fabric mod that carries it is in the dev client so the handshake runs.
+	//
+	// Plain compileOnly / localRuntime rather than Loom's mod* configurations: Minecraft 26.x ships
+	// non-obfuscated, so Loom refuses to create remap configurations at all, and nothing needs them.
+	compileOnly "net.hypixel:mod-api:${project.hypixel_mod_api_version}"
+	localRuntime "maven.modrinth:hypixel-mod-api:${project.hypixel_mod_api_fabric_version}"
+	gametestCompileOnly "net.hypixel:mod-api:${project.hypixel_mod_api_version}"
+
+	// Mod Menu is a soft dependency: compiled against and present in the dev client so the client
+	// game test exercises the integration, but never shipped.
+	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+	localRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+	gametestCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+	testImplementation "org.junit.jupiter:junit-jupiter:${project.junit_version}"
+	testImplementation "org.assertj:assertj-core:${project.assertj_version}"
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		events 'failed'
+		exceptionFormat 'full'
+	}
+}
+
+processResources {
+	def props = [
+		version           : project.version,
+		minecraft_version : project.minecraft_version,
+		loader_version    : project.loader_version,
+		hypixel_mod_api   : project.hypixel_mod_api_version
+	]
+	inputs.properties props
+
+	filesMatching('fabric.mod.json') {
+		expand props
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+	it.options.encoding = 'UTF-8'
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+// The mods the pack needs besides this one, resolved from Modrinth so the pack can name their
+// exact files: the launcher downloads them from Modrinth rather than the pack carrying copies.
+configurations {
+	packedMods {
+		canBeConsumed = false
+		transitive = false
+	}
+}
+
+dependencies {
+	packedMods "maven.modrinth:hypixel-mod-api:${project.hypixel_mod_api_fabric_version}"
+	packedMods "maven.modrinth:fabric-api:${project.fabric_api_version}"
+}
+
+// A Modrinth modpack: this mod as an override, Fabric API and the Hypixel Mod API as downloads.
+tasks.register('mrpack', Zip) {
+	group = 'distribution'
+	description = 'Bundles the mod with what it needs into an importable .mrpack.'
+	dependsOn tasks.named('jar')
+
+	archiveFileName = "hypixel-scout-${project.version}-mc${project.minecraft_version}.mrpack"
+	destinationDirectory = layout.buildDirectory
+
+	def index = layout.buildDirectory.file('tmp/mrpack/modrinth.index.json')
+	def packed = configurations.packedMods
+	inputs.files packed
+
+	from(index)
+	into('overrides/mods') {
+		from tasks.named('jar')
+	}
+
+	doFirst {
+		def files = packed.files.collect { jar ->
+			def sha1 = java.security.MessageDigest.getInstance('SHA-1').digest(jar.bytes).encodeHex().toString()
+			def sha512 = java.security.MessageDigest.getInstance('SHA-512').digest(jar.bytes).encodeHex().toString()
+
+			// Modrinth knows every file it hosts by hash, which gives the real download URL.
+			def version = new groovy.json.JsonSlurper().parse(
+					new URL("https://api.modrinth.com/v2/version_file/${sha1}?algorithm=sha1"))
+			def file = version.files.find { it.hashes.sha1 == sha1 }
+			if (file == null) {
+				throw new GradleException("Modrinth does not host ${jar.name}")
+			}
+
+			[path     : "mods/${file.filename}",
+			 hashes   : [sha1: sha1, sha512: sha512],
+			 env      : [client: 'required', server: 'unsupported'],
+			 downloads: [file.url],
+			 fileSize : jar.length()]
+		}
+
+		def out = index.get().asFile
+		out.parentFile.mkdirs()
+		out.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+				formatVersion: 1,
+				game         : 'minecraft',
+				versionId    : project.version.toString(),
+				name         : 'Hypixel Scout',
+				summary      : 'Bedwars opponent stats from the Hypixel API, with everything it needs.',
+				files        : files,
+				dependencies : [
+						minecraft      : project.minecraft_version,
+						'fabric-loader': project.loader_version
+				]
+		]))
+	}
+}

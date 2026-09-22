@@ -1,7 +1,22 @@
-build/
+# Gradle
 .gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Loom / dev runs
 run/
-*.log
+remappedSrc/
+
+# IDE
 .idea/
 *.iml
+.vscode/
+.eclipse/
+bin/
+
+# Local notes, not part of the mod
 Project.md
+
+# Stray client logs — the game test writes these into the project root
+logs/
+.serena/

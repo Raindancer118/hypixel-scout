@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "hypixelscout",
+	"version": "${version}",
+	"name": "Hypixel Scout",
+	"description": "Bedwars opponent stats inside the game: a table of everybody in your match, full profiles, a look tooltip, chat hover, nick and winstreak alerts and quick queue. Reads the official Hypixel API with your own key. Client-side only.",
+	"authors": [
+		"Raindancer118"
+	],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/hypixelscout/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"de.raindancer118.hypixelscout.HypixelScout"
+		],
+		"modmenu": [
+			"de.raindancer118.hypixelscout.compat.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"hypixelscout.mixins.json"
+	],
+	"suggests": {
+		"modmenu": "*"
+	},
+	"depends": {
+		"fabricloader": ">=${loader_version}",
+		"minecraft": "~${minecraft_version}",
+		"java": ">=25",
+		"fabric-api": "*",
+		"hypixel-mod-api": ">=${hypixel_mod_api}"
+	}
+}

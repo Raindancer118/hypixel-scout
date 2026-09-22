@@ -1,26 +1,7 @@
-pluginManagement {
-	repositories {
-		mavenCentral()
-		maven {
-			name = 'MinecraftForge'
-			url = 'https://maven.minecraftforge.net/'
-		}
-		maven {
-			name = 'Fabric'
-			url = 'https://maven.fabricmc.net/'
-		}
-		maven {
-			name = 'WagYourTail'
-			url = 'https://maven.wagyourtail.xyz/releases'
-		}
-		gradlePluginPortal()
-	}
-}
-
-plugins {
-	// Minecraft 1.8.9 runs the dev client on Java 8, which this machine does not have installed.
-	// Gradle fetches it itself.
-	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
-}
-
 rootProject.name = 'hypixel-scout'
+
+// Two independent builds rather than one with subprojects. Everything that never touches a
+// Minecraft class is its own build, so a version module can sit beside 26.2 without either one's
+// Loom, mappings or Java level leaking into the other — the 1.8.9-support branch is exactly that.
+includeBuild 'common'
+includeBuild 'versions/26.2'

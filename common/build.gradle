@@ -1,0 +1,40 @@
+plugins {
+	id 'java-library'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+repositories {
+	mavenCentral()
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+	it.options.encoding = 'UTF-8'
+}
+
+dependencies {
+	// Provided by the game; compiled against, never bundled.
+	compileOnly "com.google.code.gson:gson:${project.gson_version}"
+
+	testImplementation "com.google.code.gson:gson:${project.gson_version}"
+	testImplementation "org.junit.jupiter:junit-jupiter:${project.junit_version}"
+	testImplementation "org.assertj:assertj-core:${project.assertj_version}"
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// No Minecraft on this classpath, which is the whole point of the build: the parsing, the cache,
+// the rate limiter and the settings are tested without a game.
+test {
+	useJUnitPlatform()
+	testLogging {
+		events 'failed'
+		exceptionFormat 'full'
+	}
+}

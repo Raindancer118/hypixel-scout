@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "de.raindancer118.hypixelscout.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"AvatarRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

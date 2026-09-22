@@ -1,0 +1,3 @@
+apply from: '../gradle/shared.gradle'
+
+rootProject.name = 'hypixelscout-common'

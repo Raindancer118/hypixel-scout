@@ -1,0 +1,17 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+apply from: '../../gradle/shared.gradle'
+
+rootProject.name = 'hypixelscout-26.2'
+
+// Gradle substitutes de.raindancer118:hypixelscout-common with this build's output.
+includeBuild '../../common'

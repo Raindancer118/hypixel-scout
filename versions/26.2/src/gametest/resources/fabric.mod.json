@@ -1,0 +1,16 @@
+{
+	"schemaVersion": 1,
+	"id": "hypixelscout-test",
+	"version": "0.1.0",
+	"name": "Hypixel Scout Client Game Tests",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"de.raindancer118.hypixelscout.gametest.HypixelScoutStartupTest"
+		]
+	},
+	"depends": {
+		"hypixelscout": "*",
+		"fabric-client-gametest-api-v1": "*"
+	}
+}
