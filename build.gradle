@@ -98,3 +98,40 @@ def java8 = javaToolchains.launcherFor {
 tasks.matching { it.name in ['runClient', 'runServer'] }.configureEach {
 	javaLauncher = java8
 }
+
+// A Modrinth modpack carrying both jars as overrides. Lunar Client refuses to load a jar that was
+// merely copied into its mods folder — the launcher registers what it installed itself and passes
+// the game that list — but it will import a modpack, and a modpack may bring its own files.
+tasks.register('mrpack', Zip) {
+	group = 'distribution'
+	description = 'Bundles the mod and the Hypixel Mod API into an importable .mrpack.'
+	// remapJar, not jar: the plain one carries MCP names, which exist only in the dev client.
+	dependsOn tasks.named('remapJar')
+
+	archiveFileName = "hypixel-scout-${project.version}.mrpack"
+	destinationDirectory = layout.buildDirectory
+
+	from(layout.buildDirectory.file('tmp/mrpack/modrinth.index.json'))
+	into('overrides/mods') {
+		from tasks.named('remapJar')
+		from(layout.projectDirectory.file('run/client/mods/HypixelModAPI-1.0.2.jar'))
+	}
+
+	doFirst {
+		def index = layout.buildDirectory.file('tmp/mrpack/modrinth.index.json').get().asFile
+		index.parentFile.mkdirs()
+		index.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+				formatVersion: 1,
+				game         : 'minecraft',
+				versionId    : project.version.toString(),
+				name         : 'Hypixel Scout',
+				summary      : 'Bedwars opponent stats from the Hypixel API, with the Hypixel Mod '
+						+ 'API it needs.',
+				files        : [],
+				dependencies : [
+						minecraft: project.minecraft_version,
+						forge    : project.forge_version.toString().replace('-1.8.9', '')
+				]
+		]))
+	}
+}

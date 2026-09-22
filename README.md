@@ -28,6 +28,15 @@ profiles, read from the official Hypixel API with your own key.
 
 ## Setup
 
+### Lunar Client
+
+Lunar does not load jars dropped into its mods folder: the launcher passes the game an explicit
+file list and only registers what was installed through its own interface. Import
+`hypixel-scout-<version>.mrpack` (built by `./gradlew mrpack`) as a modpack instead — it carries
+both jars as overrides.
+
+### Forge
+
 1. Drop both jars into `mods/`.
 2. Start the game, join Hypixel.
 3. `/scout key <your-key>` — or paste it into the field the lobby screen shows while no key is
