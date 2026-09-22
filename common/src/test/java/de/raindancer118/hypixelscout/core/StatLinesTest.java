@@ -91,4 +91,18 @@ class StatLinesTest {
 		assertThat(line.length()).isLessThanOrEqualTo(100);
 		assertThat(line.chars()).allMatch(c -> c >= 32 && c < 127);
 	}
+
+	@Test
+	void theChatLineSaysTheThreatAgainstWhomeverItIsMeasuredAgainst() {
+		PlayerStats enemy = PlayerStats.builder("Sundial", UUID.randomUUID()).stars(1502)
+				.finals(40_100, 2_900).games(7_900, 1_500).build();
+		// Somebody far stronger than the Sundial of the test: to them it is an even match.
+		PlayerStats veteran = PlayerStats.builder("Me", UUID.randomUUID()).stars(3000)
+				.finals(100_000, 10_000).build();
+		ThreatScale scale = ThreatScale.of(ThreatScale.Basis.ME, veteran, java.util.List.of());
+
+		assertThat(StatLines.chatLine("Sundial", enemy, scale)).startsWith("Sundial 1502* MED |");
+		assertThat(StatLines.detail("Sundial", enemy, false, null, scale))
+				.extracting(StatLines::plain).anyMatch(line -> line.contains("Threat MED"));
+	}
 }

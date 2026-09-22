@@ -54,7 +54,7 @@ public final class ProfileView {
 						StatFormat.age(profile.getLastLogin(), now)), textX, top + 34, ScoutTheme.TEXT);
 			}
 
-			Threat threat = Threat.of(profile);
+			Threat threat = Threats.of(profile);
 			String badge = I18n.get("message.hypixelscout.profile.threat") + " " + threat.colour() + threat.label();
 			ScoutTheme.badge(g, badge, left + width - 8 - ScoutTheme.width(badge) - 6, top + 8, 0x60000000,
 					ScoutTheme.TEXT_DIM);

@@ -36,8 +36,49 @@ class RosterTest {
 	}
 
 	@Test
+	void theWaitingLobbyListsPlayersButLooksNobodyUp() throws Exception {
+		roster.onLocationChanged(true, "BEDWARS_FOUR_FOUR", "Lighthouse");
+		roster.refresh(List.of(member("Alpha", ALPHA), member("Bravo", BRAVO)));
+		Thread.sleep(50);
+
+		assertThat(roster.members()).hasSize(2);
+		assertThat(roster.hasStarted()).isFalse();
+		assertThat(asked).isEmpty();
+	}
+
+	@Test
+	void theStartLooksUpEverybodyAlreadyListedAndLaterArrivalsToo() throws Exception {
+		roster.onLocationChanged(true, "BEDWARS_FOUR_FOUR", "Lighthouse");
+		roster.refresh(List.of(member("Alpha", ALPHA)));
+		roster.markStarted();
+		roster.refresh(List.of(member("Alpha", ALPHA), member("Bravo", BRAVO)));
+
+		for (int i = 0; i < 100 && asked.size() < 2; i++) {
+			Thread.sleep(10);
+		}
+		assertThat(asked).containsExactlyInAnyOrder(ALPHA, BRAVO);
+	}
+
+	@Test
+	void leavingEndsTheStartedGameToo() {
+		roster.onLocationChanged(true, "BEDWARS_FOUR_FOUR", "Lighthouse");
+		roster.markStarted();
+		roster.onLocationChanged(false, null, null);
+
+		assertThat(roster.hasStarted()).isFalse();
+	}
+
+	@Test
+	void startingOutsideAGameDoesNothing() {
+		roster.markStarted();
+
+		assertThat(roster.hasStarted()).isFalse();
+	}
+
+	@Test
 	void aGameListsEveryPlayerAndAsksForEachOfThem() throws Exception {
 		roster.onLocationChanged(true, "BEDWARS_FOUR_FOUR", "Lighthouse");
+		roster.markStarted();
 		roster.refresh(List.of(member("Alpha", ALPHA), member("Bravo", BRAVO)));
 
 		assertThat(roster.members()).extracting(Roster.Member::name).containsExactly("Alpha", "Bravo");

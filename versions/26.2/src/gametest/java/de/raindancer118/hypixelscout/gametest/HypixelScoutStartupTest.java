@@ -98,8 +98,6 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.waitTick();
 			context.runOnClient(client -> assertCommandRegistered());
 
-			setUpTeams(context, singleplayer);
-
 			// Settings first, the way a player would: no key → the table says so.
 			context.runOnClient(client -> {
 				mod.settings().table.mode = HudMode.TOGGLE;
@@ -133,9 +131,30 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 			context.setScreen(() -> null);
 
+			// The waiting lobby: a key, a full tab list, no teams yet — and nobody may be looked up.
+			int beforeLobby = stub.playerRequests.get();
+			context.waitTicks(50);
+			context.runOnClient(client -> {
+				if (mod.roster().hasStarted()) {
+					throw new AssertionError("The waiting lobby was taken for the match");
+				}
+				if (stub.playerRequests.get() != beforeLobby) {
+					throw new AssertionError((stub.playerRequests.get() - beforeLobby) + " lookups in the waiting lobby");
+				}
+			});
+			context.setScreen(() -> mod.scoutScreen(null));
+			context.waitTicks(3);
+			context.takeScreenshot("scout_page_game_lobby");
+			context.setScreen(() -> null);
+
+			// The match starts: the scoreboard puts everybody into teams, and the mod sees it by itself.
+			setUpTeams(context, singleplayer);
+			context.waitFor(client -> mod.roster().hasStarted(), 100);
+
 			// Everybody in the game gets looked up, once, through the real HTTP client.
-			context.runOnClient(client -> mod.refresh());
 			context.waitFor(client -> members.stream().allMatch(member -> mod.stats().peek(member.uuid()) != null), 400);
+			context.waitTicks(25);
+			context.runOnClient(client -> assertRelativeThreat(mod, members));
 			context.runOnClient(client -> assertStats(mod, members));
 			context.runOnClient(client -> {
 				if (mod.client().getLimiter().limit() != 600) {
@@ -471,6 +490,31 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		if (ClientCommands.getActiveDispatcher().getRoot().getChild("hypixelscout") == null) {
 			throw new AssertionError("/hypixelscout alias is missing");
 		}
+	}
+
+	/**
+	 * Orchard (index about 770) is MED on the fixed bands but LOW against this team, which has a
+	 * 1123-star carry in it; Brickmason is HIGH either way.
+	 */
+	private static void assertRelativeThreat(HypixelScout mod, List<Roster.Member> members) {
+		var orchard = mod.stats().peek(uuidOf(members, "Orchard"));
+		var brickmason = mod.stats().peek(uuidOf(members, "Brickmason"));
+
+		if (!mod.threatScale().isRelative()) {
+			throw new AssertionError("No relative threat scale although the own stats are known");
+		}
+		if (de.raindancer118.hypixelscout.ui.Threats.of(orchard) != de.raindancer118.hypixelscout.core.Threat.LOW
+				|| de.raindancer118.hypixelscout.core.Threat.of(orchard) != de.raindancer118.hypixelscout.core.Threat.MEDIUM) {
+			throw new AssertionError("Orchard: relative " + de.raindancer118.hypixelscout.ui.Threats.of(orchard)
+					+ ", absolute " + de.raindancer118.hypixelscout.core.Threat.of(orchard));
+		}
+		if (de.raindancer118.hypixelscout.ui.Threats.of(brickmason) != de.raindancer118.hypixelscout.core.Threat.HIGH) {
+			throw new AssertionError("Brickmason: " + de.raindancer118.hypixelscout.ui.Threats.of(brickmason));
+		}
+	}
+
+	private static UUID uuidOf(List<Roster.Member> members, String name) {
+		return members.stream().filter(m -> m.name().equals(name)).findFirst().orElseThrow().uuid();
 	}
 
 	private static void assertStats(HypixelScout mod, List<Roster.Member> members) {

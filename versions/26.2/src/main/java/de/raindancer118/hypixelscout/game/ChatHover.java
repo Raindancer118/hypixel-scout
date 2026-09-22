@@ -5,6 +5,7 @@ import de.raindancer118.hypixelscout.core.ChatNames;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.core.StatLines;
 import de.raindancer118.hypixelscout.core.StatsService;
+import de.raindancer118.hypixelscout.ui.Threats;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -72,7 +73,8 @@ public final class ChatHover {
 	private Style decorate(Style style, String name) {
 		UUID uuid = roster.uuidOf(name);
 		List<String> lines = StatLines.detail(name, uuid == null ? null : stats.peek(uuid),
-				uuid != null && stats.isPending(uuid), uuid == null ? null : stats.failureFor(uuid));
+				uuid != null && stats.isPending(uuid), uuid == null ? null : stats.failureFor(uuid),
+				Threats.scale());
 
 		MutableComponent tooltip = Component.empty();
 		for (int i = 0; i < lines.size(); i++) {

@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.SortMode;
+import de.raindancer118.hypixelscout.core.ThreatScale;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -48,6 +49,16 @@ public final class ScoutSettings {
 
 	/** The colour every surface of the mod is tinted with. */
 	public Accent accent = Accent.GOLD;
+
+	/**
+	 * Whether players are looked up already in the waiting lobby before a match. Off, because the
+	 * lobby fills and empties for minutes and every player who leaves before the start is a
+	 * request spent on nothing.
+	 */
+	public boolean lookUpInLobby = false;
+
+	/** What the threat levels are measured against: fixed bands, the player, or player and team. */
+	public ThreatScale.Basis threatBasis = ThreatScale.Basis.TEAM;
 
 	/** How long a player's stats are reused before being fetched again. */
 	public int cacheMinutes = 10;
@@ -204,6 +215,7 @@ public final class ScoutSettings {
 	void sanitise() {
 		apiKey = apiKey == null ? "" : apiKey.trim();
 		accent = accent == null ? Accent.GOLD : accent;
+		threatBasis = threatBasis == null ? ThreatScale.Basis.TEAM : threatBasis;
 		cacheMinutes = Math.clamp(cacheMinutes, 1, MAX_CACHE_MINUTES);
 
 		table = table == null ? new Table() : table;

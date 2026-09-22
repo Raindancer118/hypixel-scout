@@ -5,7 +5,7 @@ import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.ProfileMetrics;
 import de.raindancer118.hypixelscout.core.SortMode;
 import de.raindancer118.hypixelscout.core.StatFormat;
-import de.raindancer118.hypixelscout.core.Threat;
+import de.raindancer118.hypixelscout.game.Teams;
 
 import java.util.List;
 import java.util.function.Function;
@@ -17,7 +17,7 @@ import java.util.function.Predicate;
  */
 public enum Column {
 	THREAT("column.threat", null, settings -> true,
-			stats -> Threat.of(stats).colour() + Threat.of(stats).label()),
+			stats -> Threats.of(stats).colour() + Threats.of(stats).label()),
 	FKDR("column.fkdr", SortMode.FKDR, settings -> true,
 			stats -> StatFormat.ratioColour(stats.getFkdr()) + StatFormat.ratio(stats.getFkdr())),
 	WLR("column.wlr", SortMode.WLR, settings -> settings.table.showWlr,
@@ -68,6 +68,11 @@ public enum Column {
 
 		if (row.nicked()) {
 			return this == FKDR ? "§dNICK" : "";
+		}
+
+		// A teammate is not a threat to the team; the column says so instead of rating them.
+		if (this == THREAT && row.team() != Teams.NONE && row.team().equals(Teams.own())) {
+			return "§8" + net.minecraft.client.resources.language.I18n.get("message.hypixelscout.column.ally");
 		}
 
 		return value.apply(row.stats());

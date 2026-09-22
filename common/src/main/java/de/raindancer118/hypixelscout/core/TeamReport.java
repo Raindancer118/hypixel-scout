@@ -158,6 +158,11 @@ public final class TeamReport {
 	 * not fit are counted at the end rather than cut off mid-name.
 	 */
 	public String toThreatMessage(int streakThreshold) {
+		return toThreatMessage(streakThreshold, ThreatScale.ABSOLUTE);
+	}
+
+	/** The same, with the threat levels measured on {@code scale}. */
+	public String toThreatMessage(int streakThreshold, ThreatScale scale) {
 		List<PlayerStats> ordered = new ArrayList<PlayerStats>(known);
 		ordered.sort((left, right) -> {
 			if (left.isNicked() != right.isNicked()) {
@@ -168,7 +173,7 @@ public final class TeamReport {
 
 		Threat worst = Threat.UNKNOWN;
 		for (PlayerStats member : known) {
-			Threat threat = Threat.of(member);
+			Threat threat = scale.threatOf(member);
 			if (!member.isNicked() && threat.compareTo(worst) > 0) {
 				worst = threat;
 			}

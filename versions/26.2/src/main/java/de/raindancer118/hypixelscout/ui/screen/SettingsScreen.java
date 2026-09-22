@@ -7,6 +7,7 @@ import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.KeyCheck;
 import de.raindancer118.hypixelscout.core.SortMode;
+import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.ui.widget.KeyBindButton;
 import de.raindancer118.hypixelscout.ui.widget.SettingSlider;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -182,6 +183,15 @@ public final class SettingsScreen extends Screen {
 
 			rows.addChild(toggle("hypixel_only", settings().queue.onlyOnHypixel,
 					value -> settings().queue.onlyOnHypixel = value));
+
+			rows.addChild(toggle("lobby", settings().lookUpInLobby, value -> settings().lookUpInLobby = value));
+			rows.addChild(CycleButton.builder((ThreatScale.Basis value) -> enumLabel("threat_basis", value),
+							settings().threatBasis)
+					.withValues(ThreatScale.Basis.values())
+					.withTooltip(value -> Tooltip.create(Component.translatable("message.hypixelscout.threat_basis."
+							+ value.name().toLowerCase(Locale.ROOT) + ".tooltip")))
+					.create(0, 0, NARROW, 20, Component.translatable("message.hypixelscout.settings.threat_basis"),
+							(button, value) -> settings().threatBasis = value));
 		}
 	}
 

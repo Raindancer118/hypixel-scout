@@ -37,6 +37,8 @@ public final class Roster {
 	private final Map<String, UUID> members = new LinkedHashMap<>();
 
 	private volatile boolean inGame;
+	/** On the game server and the match has begun, as opposed to the waiting lobby before it. */
+	private volatile boolean started;
 	private volatile String mode;
 	private volatile String map;
 	private volatile long gameStartedAt;
@@ -61,13 +63,33 @@ public final class Roster {
 
 		if (!inGame) {
 			gameStartedAt = 0L;
+			started = false;
 			clear();
 		}
 	}
 
 	/**
+	 * The match itself has begun. Until now the players were only listed: the waiting lobby fills
+	 * and empties for minutes, and looking up somebody who leaves before the start is a request
+	 * spent on nothing. Everybody listed at this moment is looked up now.
+	 */
+	public void markStarted() {
+		if (!inGame || started) {
+			return;
+		}
+
+		started = true;
+		gameStartedAt = System.currentTimeMillis();
+		members().forEach(member -> stats.request(member.uuid(), member.name()));
+	}
+
+	public boolean hasStarted() {
+		return started;
+	}
+
+	/**
 	 * Takes the tab list as it is now. Players who left are dropped, players who stayed keep their
-	 * place, and anybody new is looked up.
+	 * place, and — once the match has started — anybody new is looked up.
 	 */
 	public void refresh(Collection<Member> tabList) {
 		if (!inGame) {
@@ -95,7 +117,9 @@ public final class Roster {
 			members.putAll(merged);
 		}
 
-		seen.forEach((name, uuid) -> stats.request(uuid, name));
+		if (started) {
+			seen.forEach((name, uuid) -> stats.request(uuid, name));
+		}
 	}
 
 	public synchronized List<Member> members() {

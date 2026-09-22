@@ -135,4 +135,13 @@ class TeamReportTest {
 
 		assertTrue(line.chars().allMatch(c -> c >= 32 && c < 127), line);
 	}
+
+	@Test
+	void theTeamsThreatFollowsTheScaleToo() {
+		TeamReport report = TeamReport.of("Yellow", Arrays.asList(player("Sundial", 1502, 40_100, 2900, 7900, 1500, 104)));
+		PlayerStats veteran = PlayerStats.builder("Me", UUID.randomUUID()).stars(3000).finals(100_000, 10_000).build();
+
+		assertTrue(report.toThreatMessage(50, ThreatScale.of(ThreatScale.Basis.ME, veteran, java.util.List.of()))
+				.startsWith("Yellow MED:"));
+	}
 }

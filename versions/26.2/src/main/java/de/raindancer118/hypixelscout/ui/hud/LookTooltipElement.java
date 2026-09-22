@@ -9,6 +9,7 @@ import de.raindancer118.hypixelscout.game.LookTarget;
 import de.raindancer118.hypixelscout.game.Teams;
 import de.raindancer118.hypixelscout.ui.Heads;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
+import de.raindancer118.hypixelscout.ui.Threats;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -71,12 +72,14 @@ public final class LookTooltipElement implements HudElement {
 		}
 
 		// Asking here is what covers somebody who walked in late: one shared cache, so it costs a
-		// request only the first time.
-		stats.request(uuid, name);
+		// request only the first time. Not in the waiting lobby, where nobody is looked up.
+		if (roster.hasStarted()) {
+			stats.request(uuid, name);
+		}
 
 		PlayerStats playerStats = stats.peek(uuid);
 		List<String> lines = StatLines.detail(name, playerStats, stats.isPending(uuid),
-				stats.failureFor(uuid));
+				stats.failureFor(uuid), Threats.scale());
 
 		draw(graphics, uuid, Teams.of(name), lines, tooltip.offsetY);
 	}

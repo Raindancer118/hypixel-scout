@@ -82,7 +82,15 @@ class LanguageKeysTest {
 		for (String tab : new String[] {"general", "table", "overlays", "alerts", "keys"}) {
 			used.add("message.hypixelscout.settings.tab." + tab);
 		}
-		for (String toggle : new String[] {"hypixel_only", "group", "hide_own", "wlr", "winstreak", "beds", "beds_per_game", "kills_per_game", "age",
+		for (de.raindancer118.hypixelscout.core.ThreatScale.Basis basis
+				: de.raindancer118.hypixelscout.core.ThreatScale.Basis.values()) {
+			used.add("message.hypixelscout.threat_basis." + name(basis));
+			used.add("message.hypixelscout.threat_basis." + name(basis) + ".tooltip");
+			used.add("message.hypixelscout.threat_basis.short." + name(basis));
+		}
+		used.add("message.hypixelscout.game.look_up_now.tooltip");
+
+		for (String toggle : new String[] {"lobby", "hypixel_only", "group", "hide_own", "wlr", "winstreak", "beds", "beds_per_game", "kills_per_game", "age",
 				"tooltip", "walls", "tab", "nametag_stars", "nametag_fkdr", "chat_hover", "nick_alert", "streak_alert"}) {
 			used.add("message.hypixelscout.settings." + toggle);
 			used.add("message.hypixelscout.settings." + toggle + ".tooltip");

@@ -33,6 +33,10 @@ class ScoutSettingsTest {
 		// The per-game rates are what tells a rusher from a camper, so they are on from the start.
 		assertThat(settings.table.showBedsPerGame).isTrue();
 		assertThat(settings.table.showKillsPerGame).isTrue();
+		// Nothing is looked up in the waiting lobby unless asked for; threat is measured against
+		// the player and their team.
+		assertThat(settings.lookUpInLobby).isFalse();
+		assertThat(settings.threatBasis).isEqualTo(de.raindancer118.hypixelscout.core.ThreatScale.Basis.TEAM);
 		assertThat(file).exists();
 	}
 
@@ -102,6 +106,7 @@ class ScoutSettingsTest {
 		assertThat(settings.queue.slots[0]).isEqualTo("bedwars_four_four");
 		assertThat(settings.queue.slots[1]).isEmpty();
 		assertThat(settings.cacheMinutes).isEqualTo(1);
+		assertThat(settings.threatBasis).isEqualTo(de.raindancer118.hypixelscout.core.ThreatScale.Basis.TEAM);
 	}
 
 	@Test

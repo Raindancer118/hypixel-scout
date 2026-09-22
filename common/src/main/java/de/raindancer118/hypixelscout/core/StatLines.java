@@ -33,6 +33,12 @@ public final class StatLines {
 	/** The block shown when looking at a player, or hovering their name in chat. */
 	public static List<String> detail(String name, PlayerStats stats, boolean pending,
 			String failure) {
+		return detail(name, stats, pending, failure, ThreatScale.ABSOLUTE);
+	}
+
+	/** The same, with the threat level measured on {@code scale}. */
+	public static List<String> detail(String name, PlayerStats stats, boolean pending,
+			String failure, ThreatScale scale) {
 		List<String> lines = new ArrayList<>();
 
 		if (stats == null) {
@@ -48,7 +54,7 @@ public final class StatLines {
 			return lines;
 		}
 
-		Threat threat = Threat.of(stats);
+		Threat threat = scale.threatOf(stats);
 		lines.add(name(name, stats));
 		lines.add("§7FKDR " + StatFormat.ratioColour(stats.getFkdr())
 				+ StatFormat.ratio(stats.getFkdr()) + "  §7WLR "
@@ -82,6 +88,11 @@ public final class StatLines {
 	 * A winstreak the player hides is left out rather than sent as zero.
 	 */
 	public static String chatLine(String name, PlayerStats stats) {
+		return chatLine(name, stats, ThreatScale.ABSOLUTE);
+	}
+
+	/** The same, with the threat level measured on {@code scale}. */
+	public static String chatLine(String name, PlayerStats stats, ThreatScale scale) {
 		if (stats.isNicked()) {
 			return name + " is nicked - Hypixel has no profile under that name";
 		}
@@ -91,7 +102,7 @@ public final class StatLines {
 		if (!rank.isEmpty()) {
 			line.append(' ').append(rank);
 		}
-		line.append(' ').append(stats.getStars()).append("* ").append(Threat.of(stats).label());
+		line.append(' ').append(stats.getStars()).append("* ").append(scale.threatOf(stats).label());
 		line.append(" | FKDR ").append(StatFormat.ratio(stats.getFkdr()));
 		line.append(" | WLR ").append(StatFormat.ratio(stats.getWlr()));
 		if (stats.getWinstreak() != null) {

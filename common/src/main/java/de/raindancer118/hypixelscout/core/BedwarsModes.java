@@ -76,6 +76,25 @@ public final class BedwarsModes {
 		return !name.equals("EIGHT_ONE") && !name.startsWith("EIGHT_ONE_");
 	}
 
+	/** How many players one team of this mode holds, or {@link Integer#MAX_VALUE} if not known. */
+	public static int teamSize(String mode) {
+		if (mode == null) {
+			return Integer.MAX_VALUE;
+		}
+
+		String name = mode.trim().toUpperCase(Locale.ROOT).replaceFirst("^BEDWARS_", "");
+		for (Map.Entry<String, Integer> layout : SIZES.entrySet()) {
+			if (name.equals(layout.getKey()) || name.startsWith(layout.getKey() + "_")) {
+				return layout.getValue();
+			}
+		}
+
+		return Integer.MAX_VALUE;
+	}
+
+	private static final Map<String, Integer> SIZES = Map.of(
+			"EIGHT_ONE", 1, "EIGHT_TWO", 2, "FOUR_THREE", 3, "FOUR_FOUR", 4, "TWO_FOUR", 4);
+
 	/** {@code CASTLE} → {@code Castle}, {@code LUCKY_V2} → {@code Lucky V2}. */
 	private static String words(String snake) {
 		StringBuilder out = new StringBuilder();

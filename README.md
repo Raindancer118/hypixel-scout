@@ -76,6 +76,23 @@ free on purpose.
 | `/scout refresh` | Looks everybody up again |
 | `/scout status` | Key, request budget, Mod API and game state |
 
+## When players are looked up
+
+Not in the waiting lobby before a match: it fills and empties for minutes, and every player who
+leaves before the start would be a request spent on nothing. The players are listed there, and
+looked up the moment the match begins — seen from the scoreboard putting everybody into teams, or
+from the game's opening line in chat. **Look up now** in the Game tab starts it early, and
+Settings → General → *Look up in lobby* switches the wait off.
+
+## Threat levels
+
+Measured against **you and your team** by default: an enemy is LOW below half of that reference,
+MED up to 1.5 times it (an even match), HIGH up to 4 times, EXTREME beyond. The reference is the
+geometric mean of your own index (stars × FKDR²) and your teammates' average, so a strong teammate
+raises the bar and a weak one lowers it. Settings → General → *Threat vs* switches to measuring
+against **you** alone, or back to the fixed bands the same for everybody. Teammates are shown as
+allies, not rated. The team and party reports use the same scale.
+
 ## Colours
 
 - **Stars** are Hypixel's own prestige colours: one colour per hundred up to 999, the rainbow only at
@@ -84,7 +101,7 @@ free on purpose.
 - **Ranks** in Hypixel's chat colours: VIP green, MVP aqua, MVP++ gold, YouTube and admins red.
 - **FKDR and WLR** by how much trouble they mean: green under 1, yellow under 3, gold under 5, red
   under 10, dark red above. These bands are the mod's, not Hypixel's.
-- **Threat** is stars × FKDR²: LOW under 500, MED under 3 000, HIGH under 30 000, EXTREME above.
+- **Threat** from green (LOW) to dark red (EXTREME), measured as described above.
 - **Team bars** are the team's scoreboard colour; the **accent** (gold by default) is yours to pick.
 
 ## What it deliberately does not do

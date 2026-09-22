@@ -17,6 +17,7 @@ import de.raindancer118.hypixelscout.ui.Column;
 import de.raindancer118.hypixelscout.ui.Heads;
 import de.raindancer118.hypixelscout.ui.PlayerRow;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
+import de.raindancer118.hypixelscout.ui.Threats;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -179,9 +180,14 @@ public final class ScoutScreen extends Screen {
 			return;
 		}
 
-		addRenderableWidget(Button.builder(Component.translatable("message.hypixelscout.refresh"),
-						button -> mod.refresh())
-				.tooltip(Tooltip.create(Component.translatable("message.hypixelscout.refresh.tooltip")))
+		// In the waiting lobby nobody is looked up until the match starts — unless asked for here.
+		String refresh = roster.isInGame() && !roster.hasStarted()
+				? "message.hypixelscout.game.look_up_now" : "message.hypixelscout.refresh";
+		addRenderableWidget(Button.builder(Component.translatable(refresh), button -> {
+							mod.refresh();
+							rebuildWidgets();
+						})
+				.tooltip(Tooltip.create(Component.translatable(refresh + ".tooltip")))
 				.bounds(contentLeft() + contentWidth() - 70, contentTop - 2, 70, 16).build());
 
 		int listTop = contentTop + 30;
@@ -240,13 +246,15 @@ public final class ScoutScreen extends Screen {
 
 		// The status strip: where you are, how many, and how much of the key's budget is left.
 		String where = roster.isInGame()
-				? "§f" + roster.map() + " §7" + BedwarsModes.shortName(roster.mode()) + " §8· §7"
+				? (roster.hasStarted() ? "" : "§e" + I18n.get("message.hypixelscout.game.lobby.title") + " §8· ")
+						+ "§f" + roster.map() + " §7" + BedwarsModes.shortName(roster.mode()) + " §8· §7"
 						+ I18n.get("message.hypixelscout.table.players", roster.members().size())
 				: "§7" + I18n.get("message.hypixelscout.game.not_in_game.short");
-		ScoutTheme.text(g, where, left, contentTop + 2, ScoutTheme.TEXT);
-		String budget = I18n.get("message.hypixelscout.game.budget", mod.client().getLimiter().remaining(),
+		String budget = "§8" + I18n.get("message.hypixelscout.game.budget", mod.client().getLimiter().remaining(),
 				mod.client().getLimiter().limit());
-		ScoutTheme.textRight(g, "§8" + budget, right - 76, contentTop + 2, ScoutTheme.TEXT);
+		ScoutTheme.textRight(g, budget, right - 76, contentTop + 2, ScoutTheme.TEXT);
+		ScoutTheme.text(g, ScoutTheme.fit(where, contentWidth() - 76 - ScoutTheme.width(budget) - 10), left,
+				contentTop + 2, ScoutTheme.TEXT);
 
 		if (gameList.children().isEmpty()) {
 			String line = roster.isInGame() ? "message.hypixelscout.game.waiting" : "message.hypixelscout.game.not_in_game";
@@ -401,8 +409,11 @@ public final class ScoutScreen extends Screen {
 	}
 
 	/** The small line under a name: what is known about the account, or why nothing is. */
-	private static String subtitle(PlayerRow row) {
+	private String subtitle(PlayerRow row) {
 		PlayerStats stats = row.stats();
+		if (stats == null && !roster.hasStarted()) {
+			return I18n.get("message.hypixelscout.game.waiting_for_start");
+		}
 		if (stats == null) {
 			return row.pending() || row.failure() == null
 					? I18n.get("message.hypixelscout.game.looking_up") : "§c" + row.failure();
@@ -471,7 +482,9 @@ public final class ScoutScreen extends Screen {
 
 	private void drawTeams(GuiGraphicsExtractor g) {
 		int left = contentLeft();
-		ScoutTheme.text(g, ScoutTheme.fit("§7" + I18n.get("message.hypixelscout.teams.caption"), contentWidth() - 172),
+		ScoutTheme.text(g, ScoutTheme.fit("§7" + I18n.get("message.hypixelscout.teams.caption",
+				I18n.get("message.hypixelscout.threat_basis.short." + settings().threatBasis.name().toLowerCase(Locale.ROOT))),
+				contentWidth() - 172),
 				left, contentTop + 2, ScoutTheme.TEXT);
 
 		List<TeamGroup> groups = teamGroups();
@@ -513,10 +526,13 @@ public final class ScoutScreen extends Screen {
 		ScoutTheme.text(g, "§l" + name + (group.own() ? " §r§7" + I18n.get("message.hypixelscout.teams.you") : ""),
 				x + 6, y + 6, 0xFF000000 | group.team().rgb());
 
-		Threat threat = group.rows().stream().map(row -> Threat.of(row.stats()))
-				.max(Enum::compareTo).orElse(Threat.UNKNOWN);
-		String badge = threat.colour() + threat.label();
-		ScoutTheme.badge(g, badge, x + width - 6 - ScoutTheme.width(badge) - 6, y + 5, 0x60000000, ScoutTheme.TEXT);
+		// Allies are no threat; the own team's card says who is on it and nothing more.
+		if (!group.own()) {
+			Threat threat = group.rows().stream().map(row -> Threats.of(row.stats()))
+					.max(Enum::compareTo).orElse(Threat.UNKNOWN);
+			String badge = threat.colour() + threat.label();
+			ScoutTheme.badge(g, badge, x + width - 6 - ScoutTheme.width(badge) - 6, y + 5, 0x60000000, ScoutTheme.TEXT);
+		}
 
 		int rowY = y + ScoutTheme.HEADER_HEIGHT + 5;
 		for (PlayerRow row : group.rows()) {

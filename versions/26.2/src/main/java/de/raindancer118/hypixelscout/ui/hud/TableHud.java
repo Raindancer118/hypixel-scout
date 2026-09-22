@@ -200,6 +200,11 @@ public final class TableHud {
 
 	/** How many players, and how many are still being looked up. */
 	private String counter(List<PlayerRow> rows) {
+		if (roster.isInGame() && !roster.hasStarted()) {
+			return "§e" + I18n.get("message.hypixelscout.game.lobby") + " §7"
+					+ I18n.get("message.hypixelscout.table.players", rows.size());
+		}
+
 		long waiting = rows.stream().filter(row -> row.stats() == null && row.pending()).count();
 		String count = I18n.get("message.hypixelscout.table.players", rows.size());
 		return waiting > 0 ? "§8" + waiting + "… §7" + count : "§7" + count;

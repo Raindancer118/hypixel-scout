@@ -7,7 +7,11 @@ import de.raindancer118.hypixelscout.core.KeyCheck;
 import de.raindancer118.hypixelscout.core.LookupHistory;
 import de.raindancer118.hypixelscout.core.MojangClient;
 import de.raindancer118.hypixelscout.core.RateLimiter;
+import de.raindancer118.hypixelscout.core.GameStart;
 import de.raindancer118.hypixelscout.core.Roster;
+import de.raindancer118.hypixelscout.core.ThreatScale;
+import de.raindancer118.hypixelscout.game.Teams;
+import de.raindancer118.hypixelscout.ui.Threats;
 import de.raindancer118.hypixelscout.core.StatsCache;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.game.ChatHover;
@@ -90,6 +94,7 @@ public final class HypixelScout implements ClientModInitializer {
 	private ChatHover hover;
 	private boolean modApiPresent;
 	private int scanTicks;
+	private volatile ThreatScale threatScale = ThreatScale.ABSOLUTE;
 
 	public static HypixelScout get() {
 		return instance;
@@ -105,6 +110,7 @@ public final class HypixelScout implements ClientModInitializer {
 		}
 
 		ScoutTheme.useAccent(() -> settings.accent);
+		Threats.use(() -> threatScale);
 		Chat.useAccent(() -> settings.accent);
 
 		client = new HypixelClient(HypixelClient.DEFAULT_BASE_URL,
@@ -135,6 +141,12 @@ public final class HypixelScout implements ClientModInitializer {
 
 		hover = new ChatHover(roster, stats, () -> settings);
 		ClientReceiveMessageEvents.MODIFY_GAME.register(hover::modify);
+		// The opening line of a game, as a second way to see the start besides the scoreboard.
+		ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
+			if (!overlay && roster.isInGame() && !roster.hasStarted() && GameStart.isStartLine(message.getString())) {
+				Minecraft.getInstance().execute(this::matchStarted);
+			}
+		});
 
 		keys = new ScoutKeys(this);
 		keys.register();
@@ -144,7 +156,7 @@ public final class HypixelScout implements ClientModInitializer {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, minecraft) ->
 				minecraft.execute(this::leftServer));
 
-		new LocationBridge(roster, this::gameStarted).register();
+		new LocationBridge(roster, this::gameJoined).register();
 		modApiPresent = FabricLoader.getInstance().isModLoaded("hypixel-mod-api");
 
 		LOGGER.info("Hypixel Scout ready ({} API key)", client.hasApiKey() ? "with" : "without an");
@@ -161,10 +173,61 @@ public final class HypixelScout implements ClientModInitializer {
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
 			scanTicks = 0;
 			roster.refresh(TabListReader.current());
+
+			if (!roster.hasStarted() && (settings.lookUpInLobby || matchIsOn(minecraft))) {
+				matchStarted();
+			}
+
+			threatScale = currentThreatScale(minecraft);
 		}
 	}
 
-	private void gameStarted() {
+	/** The waiting lobby is over once the scoreboard has put everybody into real teams. */
+	private boolean matchIsOn(Minecraft minecraft) {
+		if (minecraft.player == null) {
+			return false;
+		}
+
+		java.util.Map<String, String> teams = new java.util.LinkedHashMap<>();
+		for (Roster.Member member : roster.members()) {
+			teams.put(member.name(), Teams.of(member.name()).name());
+		}
+		teams.put(minecraft.player.getScoreboardName(), Teams.own().name());
+
+		return GameStart.hasStarted(roster.mode(), teams, minecraft.player.getScoreboardName());
+	}
+
+	private void matchStarted() {
+		if (roster.isInGame() && !roster.hasStarted()) {
+			roster.markStarted();
+			LOGGER.debug("Match started in {} on {}", roster.mode(), roster.map());
+		}
+	}
+
+	/** The player's own stats and their teammates', for threat levels measured against them. */
+	private ThreatScale currentThreatScale(Minecraft minecraft) {
+		if (minecraft.player == null) {
+			return ThreatScale.ABSOLUTE;
+		}
+
+		java.util.List<de.raindancer118.hypixelscout.core.PlayerStats> mates = new java.util.ArrayList<>();
+		String self = minecraft.player.getScoreboardName();
+		for (Roster.Member member : roster.members()) {
+			if (!member.name().equals(self) && Teams.isOwnTeam(member.name())) {
+				mates.add(stats.peek(member.uuid()));
+			}
+		}
+
+		return ThreatScale.of(settings.threatBasis, stats.peek(minecraft.player.getUUID()), mates);
+	}
+
+	/** What the threat levels are measured against right now. */
+	public ThreatScale threatScale() {
+		return threatScale;
+	}
+
+	/** A new game server: the waiting lobby, which is not yet the match. */
+	private void gameJoined() {
 		alerts.reset();
 		table.close();
 		// Anybody who failed last game — a hiccup, a throttle — deserves another try in this one.
@@ -179,7 +242,7 @@ public final class HypixelScout implements ClientModInitializer {
 	 */
 	public void startGameForTest(String mode, String map) {
 		roster.onLocationChanged(true, mode, map);
-		gameStarted();
+		gameJoined();
 	}
 
 	/** Leaving the server ends the game as surely as the location packet would. */
@@ -208,14 +271,26 @@ public final class HypixelScout implements ClientModInitializer {
 	public void setApiKey(String key) {
 		settings.apiKey = key == null ? "" : key.trim();
 		saveSettings();
-		refresh();
+		// Everybody again with the new key, but a key alone is no reason to start in the lobby.
+		stats.invalidate();
+		if (roster.hasStarted()) {
+			roster.members().forEach(member -> stats.request(member.uuid(), member.name()));
+		}
 	}
 
-	/** Forgets every answer and asks again. */
+	/**
+	 * Forgets every answer and asks again. In the waiting lobby this is also the player saying
+	 * "look them up now" — the one way lookups start before the match does.
+	 */
 	public void refresh() {
 		stats.invalidate();
 		if (roster.isInGame()) {
 			roster.refresh(TabListReader.current());
+			if (!roster.hasStarted()) {
+				roster.markStarted();
+			} else {
+				roster.members().forEach(member -> stats.request(member.uuid(), member.name()));
+			}
 		}
 	}
 

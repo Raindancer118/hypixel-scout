@@ -8,6 +8,7 @@ import de.raindancer118.hypixelscout.core.StatLines;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.core.TeamReport;
 import de.raindancer118.hypixelscout.ui.Chat;
+import de.raindancer118.hypixelscout.ui.Threats;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
@@ -111,7 +112,7 @@ public final class PartyReport {
 		// A second press replaces the first report rather than queueing a duplicate behind it.
 		pending.clear();
 		int threshold = settings.get().alerts.streakThreshold;
-		reports.forEach(report -> pending.add(new Line(channel, report.toThreatMessage(threshold))));
+		reports.forEach(report -> pending.add(new Line(channel, report.toThreatMessage(threshold, Threats.scale()))));
 		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.sending_team"
 				: "message.hypixelscout.party.sending", reports.size());
 	}
@@ -137,7 +138,7 @@ public final class PartyReport {
 			return;
 		}
 
-		pending.add(new Line(channel, StatLines.chatLine(name, playerStats)));
+		pending.add(new Line(channel, StatLines.chatLine(name, playerStats, Threats.scale())));
 		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.player_team"
 				: "message.hypixelscout.report.player_party", name);
 	}

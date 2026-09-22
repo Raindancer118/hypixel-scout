@@ -57,7 +57,9 @@ public final class Nametags {
 		if (playerStats == null) {
 			// Nothing known yet: leave the tag alone rather than flicker a placeholder for the first
 			// second of every game.
-			stats.request(uuid, name);
+			if (roster.hasStarted()) {
+				stats.request(uuid, name);
+			}
 			return tag;
 		}
 
