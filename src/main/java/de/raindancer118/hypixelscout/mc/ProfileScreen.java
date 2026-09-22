@@ -6,6 +6,7 @@ import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.ProfileMetrics;
 import de.raindancer118.hypixelscout.core.StatFormat;
 import de.raindancer118.hypixelscout.core.StatsService;
+import de.raindancer118.hypixelscout.mc.ui.ScoutTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -27,10 +28,9 @@ import java.util.UUID;
  * screen only ever reads what has arrived.
  */
 public final class ProfileScreen extends GuiScreen {
-	private static final int PANEL = 0xC0101018;
-	private static final int PANEL_EDGE = 0x60FFFFFF;
-	private static final int WIDTH = 320;
-	private static final int HEIGHT = 200;
+	private static final int WIDTH = 330;
+	private static final int HEIGHT = 208;
+	private static final int PADDING = 8;
 
 	private final StatsService stats;
 	private final MojangClient mojang;
@@ -66,16 +66,17 @@ public final class ProfileScreen extends GuiScreen {
 		int left = (width - WIDTH) / 2;
 		int top = (height - HEIGHT) / 2;
 
-		search = new GuiTextField(0, fontRendererObj, left + 8, top + 8, WIDTH - 90, 14);
+		search = new GuiTextField(0, fontRendererObj, left + PADDING, top + 4,
+				WIDTH - PADDING * 2 - 76, 15);
 		search.setMaxStringLength(16);
 		search.setText(name == null ? "" : name);
 		search.setFocused(name == null);
 
 		buttonList.clear();
-		buttonList.add(new GuiButton(1, left + WIDTH - 78, top + 6, 70, 18, "Look up"));
+		buttonList.add(new GuiButton(1, left + WIDTH - PADDING - 70, top + 3, 70, 17, "Look up"));
 
 		if (parent != null) {
-			buttonList.add(new GuiButton(2, left + 8, top + HEIGHT - 24, 60, 18, "Back"));
+			buttonList.add(new GuiButton(2, left + PADDING, top + HEIGHT - 24, 60, 18, "Back"));
 		}
 	}
 
@@ -166,12 +167,11 @@ public final class ProfileScreen extends GuiScreen {
 		int left = (width - WIDTH) / 2;
 		int top = (height - HEIGHT) / 2;
 
-		drawRect(left, top, left + WIDTH, top + HEIGHT, PANEL);
-		drawHorizontalLine(left, left + WIDTH - 1, top, PANEL_EDGE);
-		drawHorizontalLine(left, left + WIDTH - 1, top + HEIGHT - 1, PANEL_EDGE);
+		ScoutTheme.panel(left, top, WIDTH, HEIGHT);
+		ScoutTheme.header(left, top, WIDTH);
 
 		search.drawTextBox();
-		drawBody(left + 8, top + 32);
+		drawBody(left + PADDING, top + ScoutTheme.HEADER_HEIGHT + 8);
 
 		super.drawScreen(mouseX, mouseY, partialTicks);
 	}
@@ -242,12 +242,12 @@ public final class ProfileScreen extends GuiScreen {
 				+ StatFormat.ratio(profile.getFkdr()) + "   §7WLR §f"
 				+ StatFormat.ratio(profile.getWlr()) + "   §7KDR §f"
 				+ StatFormat.ratio(ProfileMetrics.kdr(profile)) + "   §7Beds §f"
-				+ StatFormat.ratio(ProfileMetrics.bedRatio(profile)), x, derived, 0xFFFFFF);
+				+ StatFormat.ratio(ProfileMetrics.bedRatio(profile)), x, derived, ScoutTheme.TEXT);
 		fontRendererObj.drawStringWithShadow("§7F/Game §f"
 				+ StatFormat.ratio(ProfileMetrics.finalsPerGame(profile)) + "   §7F/Star §f"
 				+ StatFormat.ratio(ProfileMetrics.finalsPerStar(profile)) + "   §7K/Game §f"
 				+ StatFormat.ratio(ProfileMetrics.killsPerGame(profile)) + "   §7Streak §f"
-				+ StatFormat.winstreak(profile.getWinstreak()), x, derived + 11, 0xFFFFFF);
+				+ StatFormat.winstreak(profile.getWinstreak()), x, derived + 11, ScoutTheme.TEXT);
 
 		drawSocials(x, derived + 26, profile);
 	}
@@ -264,8 +264,8 @@ public final class ProfileScreen extends GuiScreen {
 					.append(" §8").append(shorten(social.getValue()));
 		}
 
-		fontRendererObj.drawStringWithShadow(
-				fontRendererObj.trimStringToWidth(line.toString(), WIDTH - 16), x, y, 0xFFFFFF);
+		ScoutTheme.text(fontRendererObj.trimStringToWidth(line.toString(), WIDTH - 16), x, y,
+				ScoutTheme.TEXT_DIM);
 	}
 
 	/** A link is worth showing as a handle, not as a hundred characters of URL. */
@@ -289,7 +289,8 @@ public final class ProfileScreen extends GuiScreen {
 				? null : mc.thePlayer.sendQueue.getPlayerInfo(profile.getUuid());
 
 		if (info == null) {
-			drawRect(x, y, x + 24, y + 24, 0x40FFFFFF);
+			// A stranger looked up by name has no skin loaded on this client; a plate stands in.
+			ScoutTheme.rounded(x, y, 24, 24, 0x30FFFFFF);
 			return;
 		}
 

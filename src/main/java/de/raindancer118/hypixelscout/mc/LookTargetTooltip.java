@@ -3,6 +3,7 @@ package de.raindancer118.hypixelscout.mc;
 import de.raindancer118.hypixelscout.core.Aim;
 import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.StatsService;
+import de.raindancer118.hypixelscout.mc.ui.ScoutTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.Gui;
@@ -29,9 +30,7 @@ import java.util.List;
  */
 public final class LookTargetTooltip extends Gui {
 	private static final int LINE_HEIGHT = 10;
-	private static final int PADDING = 3;
-	private static final int BACKGROUND = 0xC0100010;
-	private static final int BORDER = 0x80B0A0FF;
+	private static final int PADDING = 5;
 
 	private final StatsService stats;
 	private final ScoutConfig config;
@@ -142,21 +141,22 @@ public final class LookTargetTooltip extends Gui {
 	private void draw(Minecraft mc, List<String> lines) {
 		int width = 0;
 		for (String line : lines) {
-			width = Math.max(width, mc.fontRendererObj.getStringWidth(line));
+			width = Math.max(width, ScoutTheme.width(line));
 		}
 
+		int panelWidth = width + PADDING * 2;
+		int panelHeight = lines.size() * LINE_HEIGHT + PADDING * 2;
+
 		ScaledResolution resolution = new ScaledResolution(mc);
-		int x = (resolution.getScaledWidth() - width) / 2;
+		int left = (resolution.getScaledWidth() - panelWidth) / 2;
 		// Below the crosshair, clear of it: the tooltip must not sit where you are aiming.
-		int y = resolution.getScaledHeight() / 2 + 14;
-		int height = lines.size() * LINE_HEIGHT;
+		int top = resolution.getScaledHeight() / 2 + config.getLookOffsetY();
 
-		drawRect(x - PADDING, y - PADDING, x + width + PADDING, y + height + PADDING - 2,
-				BACKGROUND);
-		drawRect(x - PADDING, y - PADDING, x + width + PADDING, y - PADDING + 1, BORDER);
+		ScoutTheme.panel(left, top, panelWidth, panelHeight);
 
+		int y = top + PADDING;
 		for (String line : lines) {
-			mc.fontRendererObj.drawStringWithShadow(line, x, y, 0xFFFFFF);
+			ScoutTheme.text(line, left + PADDING, y, ScoutTheme.TEXT);
 			y += LINE_HEIGHT;
 		}
 	}

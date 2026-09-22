@@ -3,11 +3,10 @@ package de.raindancer118.hypixelscout.mc;
 import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.StatFormat;
 import de.raindancer118.hypixelscout.core.StatsService;
+import de.raindancer118.hypixelscout.mc.ui.ScoutTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.ScaledResolution;
-import net.minecraft.client.network.NetworkPlayerInfo;
-import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
@@ -15,7 +14,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * The stats inside the tab list itself, in place of the vanilla one.
@@ -28,11 +26,9 @@ import java.util.UUID;
  * texture work at the bottom.
  */
 public final class TabStatsOverlay extends Gui {
-	private static final int ROW_HEIGHT = 11;
-	private static final int HEAD_SIZE = 8;
-	private static final int PADDING = 4;
-	private static final int BACKGROUND = 0xA0000000;
-	private static final int HEADER = 0xC0000000;
+	private static final int ROW_HEIGHT = ScoutTheme.ROW_HEIGHT;
+	private static final int HEAD_SIZE = 9;
+	private static final int PADDING = 8;
 
 	private final RosterTracker roster;
 	private final StatsService stats;
@@ -84,28 +80,33 @@ public final class TabStatsOverlay extends Gui {
 			rows.add(row);
 		}
 
-		int contentWidth = HEAD_SIZE + 2 + nameWidth + 8 + statsWidth;
+		int contentWidth = HEAD_SIZE + 4 + nameWidth + 16 + statsWidth;
 		int width = contentWidth + PADDING * 2;
-		int height = (rows.size() + 1) * ROW_HEIGHT + PADDING * 2;
+		int height = ScoutTheme.HEADER_HEIGHT + PADDING + rows.size() * ROW_HEIGHT + PADDING;
 
 		int left = (resolution.getScaledWidth() - width) / 2;
 		int top = 10;
 
-		drawRect(left, top, left + width, top + height, BACKGROUND);
-		drawRect(left, top, left + width, top + ROW_HEIGHT + 2, HEADER);
+		ScoutTheme.panel(left, top, width, height);
+		ScoutTheme.header(left, top, width);
 
-		String title = "§6Hypixel Scout §8· §7" + rows.size() + " players";
-		mc.fontRendererObj.drawStringWithShadow(title,
-				left + PADDING, top + PADDING, 0xFFFFFF);
+		ScoutTheme.text("\u00a76\u00a7lSCOUT", left + PADDING, top + 7, ScoutTheme.TEXT);
+		ScoutTheme.textRight(rows.size() + " \u00a78players", left + PADDING + contentWidth,
+				top + 7, ScoutTheme.TEXT_DIM);
 
-		int y = top + PADDING + ROW_HEIGHT + 2;
+		int y = top + ScoutTheme.HEADER_HEIGHT + PADDING;
+		boolean stripe = false;
+
 		for (Row row : rows) {
-			drawHead(mc, row.member.getUuid(), left + PADDING, y);
-			mc.fontRendererObj.drawStringWithShadow(row.name,
-					left + PADDING + HEAD_SIZE + 2, y, 0xFFFFFF);
-			mc.fontRendererObj.drawStringWithShadow(row.stats,
-					left + PADDING + contentWidth - mc.fontRendererObj.getStringWidth(row.stats),
-					y, 0xFFFFFF);
+			if (stripe) {
+				ScoutTheme.fill(left + PADDING, y, contentWidth, ROW_HEIGHT, ScoutTheme.STRIPE);
+			}
+			stripe = !stripe;
+
+			ScoutTheme.head(row.member.getUuid(), left + PADDING, y + 3, HEAD_SIZE);
+			ScoutTheme.text(row.name, left + PADDING + HEAD_SIZE + 4, y + 4, ScoutTheme.TEXT);
+			ScoutTheme.textRight(row.stats, left + PADDING + contentWidth, y + 4,
+					ScoutTheme.TEXT);
 
 			y += ROW_HEIGHT;
 		}
@@ -172,25 +173,6 @@ public final class TabStatsOverlay extends Gui {
 	private static int starsOf(StatsService service, RosterTracker.Member member) {
 		PlayerStats stats = service.peek(member.getUuid());
 		return stats == null || stats.isNicked() ? -1 : stats.getStars();
-	}
-
-	/**
-	 * The face from the player's skin: the 8×8 patch at (8,8) of a 64×64 texture, with the hat
-	 * layer at (40,8) drawn over it.
-	 */
-	private void drawHead(Minecraft mc, UUID uuid, int x, int y) {
-		NetworkPlayerInfo info = mc.thePlayer.sendQueue.getPlayerInfo(uuid);
-		if (info == null) {
-			return;
-		}
-
-		GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
-		mc.getTextureManager().bindTexture(info.getLocationSkin());
-
-		Gui.drawScaledCustomSizeModalRect(x, y, 8.0f, 8.0f, 8, 8, HEAD_SIZE, HEAD_SIZE,
-				64.0f, 64.0f);
-		Gui.drawScaledCustomSizeModalRect(x, y, 40.0f, 8.0f, 8, 8, HEAD_SIZE, HEAD_SIZE,
-				64.0f, 64.0f);
 	}
 
 	private static final class Row {
