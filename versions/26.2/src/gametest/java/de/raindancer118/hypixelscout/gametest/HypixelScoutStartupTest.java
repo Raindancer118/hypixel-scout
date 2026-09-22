@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class HypixelScoutStartupTest implements FabricClientGameTest {
 	private static final List<String> EXPECTED_KEYS = List.of(
-			"key.hypixelscout.open", "key.hypixelscout.table", "key.hypixelscout.settings",
+			"key.hypixelscout.open", "key.hypixelscout.table", "key.hypixelscout.peek", "key.hypixelscout.settings",
 			"key.hypixelscout.move_table", "key.hypixelscout.profile_target", "key.hypixelscout.party_report",
 			"key.hypixelscout.queue_1", "key.hypixelscout.queue_9", "key.hypixelscout.queue_random");
 
@@ -189,6 +189,37 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 				}
 			});
 			context.takeScreenshot("scout_look_tooltip_nametag");
+
+			// Holding the peek key: the full profile of whoever is aimed at, gone on release.
+			context.getInput().holdKey(mod.keys().peekMapping());
+			context.waitTicks(3);
+			context.runOnClient(client -> {
+				if (mod.peek().showing() != de.raindancer118.hypixelscout.ui.hud.PeekElement.Showing.PLAYER
+						|| !"Sundial".equals(mod.peek().shownPlayer())) {
+					throw new AssertionError("Peek did not show the aimed-at player: " + mod.peek().showing());
+				}
+			});
+			context.takeScreenshot("scout_peek_player");
+
+			context.runOnClient(client -> client.player.snapTo(client.player.getX(), client.player.getY(),
+					client.player.getZ(), 180.0f, 0.0f));
+			context.waitTicks(3);
+			context.runOnClient(client -> {
+				if (mod.peek().showing() != de.raindancer118.hypixelscout.ui.hud.PeekElement.Showing.TABLE) {
+					throw new AssertionError("Peek without a target did not show the table: " + mod.peek().showing());
+				}
+			});
+			context.takeScreenshot("scout_peek_table");
+
+			context.getInput().releaseKey(mod.keys().peekMapping());
+			context.waitTicks(2);
+			context.runOnClient(client -> {
+				if (mod.peek().isHeld() || mod.peek().showing() != de.raindancer118.hypixelscout.ui.hud.PeekElement.Showing.NOTHING) {
+					throw new AssertionError("Peek stayed up after the key was released");
+				}
+				client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
+			});
+			context.takeScreenshot("scout_peek_released");
 			context.runOnClient(client -> mod.settings().nametag.stars = false);
 
 			// Chat: the names in a line gain the stats on hover, and nothing else changes.

@@ -38,7 +38,7 @@ class StatLinesTest {
 
 		var lines = StatLines.detail("Alpha", stats, false, null);
 
-		assertThat(plain(lines.get(0))).isEqualTo("[412✴] [MVP+] Alpha");
+		assertThat(plain(lines.get(0))).isEqualTo("[412✫] [MVP+] Alpha");
 		assertThat(lines).extracting(StatLines::plain).anyMatch(line -> line.contains("FKDR 3.00"));
 		assertThat(lines).extracting(StatLines::plain).anyMatch(line -> line.contains("WLR 3.00"));
 		assertThat(lines).extracting(StatLines::plain).anyMatch(line -> line.contains("Streak 12"));
@@ -49,7 +49,7 @@ class StatLinesTest {
 	void theNameLineCarriesStarRankAndName() {
 		PlayerStats stats = PlayerStats.builder("Alpha", UUID.randomUUID()).stars(1203).rank("SUPERSTAR").build();
 
-		assertThat(plain(StatLines.name("Alpha", stats))).isEqualTo("[1203✴] [MVP++] Alpha");
+		assertThat(plain(StatLines.name("Alpha", stats))).isEqualTo("[1203✪] [MVP++] Alpha");
 		assertThat(plain(StatLines.name("Alpha", null))).isEqualTo("Alpha");
 	}
 }

@@ -9,7 +9,7 @@ import de.raindancer118.hypixelscout.core.StatLines;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.core.Threat;
 import de.raindancer118.hypixelscout.game.Teams;
-import de.raindancer118.hypixelscout.ui.Heads;
+import de.raindancer118.hypixelscout.ui.ProfileView;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -37,7 +37,6 @@ import java.util.UUID;
  */
 public final class ProfileScreen extends Screen {
 	private static final int MAX_WIDTH = 440;
-	private static final int CARD_GAP = 8;
 
 	private final HypixelScout mod;
 	private final StatsService stats;
@@ -197,138 +196,16 @@ public final class ProfileScreen extends Screen {
 		}
 
 		if (profile.isNicked()) {
-			drawHeader(g, profile, left, top);
+			ProfileView.header(g, name, uuid, profile, left, top, contentWidth(), 88);
 			ScoutTheme.textCentred(g, I18n.get("message.hypixelscout.profile.nicked"), width / 2, top + 64,
 					ScoutTheme.TEXT_DIM);
 			return;
 		}
 
-		int y = drawHeader(g, profile, left, top) + CARD_GAP;
-		y = drawCards(g, profile, left, y) + CARD_GAP;
-		drawPace(g, profile, left, y);
-	}
-
-	/** The head, the name as Hypixel prints it, and the account facts. Returns its bottom edge. */
-	private int drawHeader(GuiGraphicsExtractor g, PlayerStats profile, int left, int top) {
-		int width = contentWidth();
-		int height = 52;
-
-		ScoutTheme.panel(g, left, top, width, height, 88);
-		Teams.Team team = Teams.of(name);
-		if (team != Teams.NONE) {
-			ScoutTheme.pill(g, left + 1, top + 4, 2, height - 8, team.argb());
-		}
-
-		Heads.draw(g, uuid, left + 8, top + 8, 36);
-
-		int textX = left + 52;
-		ScoutTheme.text(g, StatLines.name(name, profile), textX, top + 9, ScoutTheme.TEXT);
-
-		if (!profile.isNicked()) {
-			long now = System.currentTimeMillis();
-			ScoutTheme.text(g, "§7" + I18n.get("message.hypixelscout.profile.facts",
-					"§f" + (int) profile.getNetworkLevel() + "§7",
-					"§f" + StatFormat.count(profile.getKarma()) + "§7",
-					"§f" + StatFormat.age(profile.getFirstLogin(), now) + "§7"), textX, top + 22, ScoutTheme.TEXT);
-
-			if (profile.getLastLogin() > 0) {
-				ScoutTheme.text(g, "§8" + I18n.get("message.hypixelscout.profile.last_login",
-						StatFormat.age(profile.getLastLogin(), now)), textX, top + 34, ScoutTheme.TEXT);
-			}
-
-			Threat threat = Threat.of(profile);
-			String badge = I18n.get("message.hypixelscout.profile.threat") + " " + threat.colour() + threat.label();
-			ScoutTheme.badge(g, badge, left + width - 8 - ScoutTheme.width(badge) - 6, top + 8, 0x60000000,
-					ScoutTheme.TEXT_DIM);
-		}
-
-		return top + height;
-	}
-
-	private record Stat(String label, String value) {
-	}
-
-	/** Three cards side by side where they fit, one under another where they do not. */
-	private int drawCards(GuiGraphicsExtractor g, PlayerStats p, int left, int top) {
-		List<List<Stat>> cards = List.of(
-				List.of(new Stat("final_kills", "§a" + StatFormat.count(p.getFinalKills())),
-						new Stat("final_deaths", "§c" + StatFormat.count(p.getFinalDeaths())),
-						new Stat("fkdr", StatFormat.ratioColour(p.getFkdr()) + StatFormat.ratio(p.getFkdr())),
-						new Stat("kills", "§f" + StatFormat.count(p.getKills())),
-						new Stat("kdr", "§f" + StatFormat.ratio(ProfileMetrics.kdr(p)))),
-				List.of(new Stat("wins", "§a" + StatFormat.count(p.getWins())),
-						new Stat("losses", "§c" + StatFormat.count(p.getLosses())),
-						new Stat("wlr", StatFormat.ratioColour(p.getWlr()) + StatFormat.ratio(p.getWlr())),
-						new Stat("win_rate", "§f" + StatFormat.ratio(ProfileMetrics.winRate(p)) + "%"),
-						new Stat("winstreak", "§f" + StatFormat.winstreak(p.getWinstreak()))),
-				List.of(new Stat("beds_broken", "§a" + StatFormat.count(p.getBedsBroken())),
-						new Stat("beds_lost", "§c" + StatFormat.count(p.getBedsLost())),
-						new Stat("bblr", "§f" + StatFormat.ratio(ProfileMetrics.bedRatio(p))),
-						new Stat("games", "§f" + StatFormat.count(ProfileMetrics.gamesPlayed(p))),
-						new Stat("stars", StatFormat.star(p.getStars()))));
-		String[] titles = {"combat", "games", "beds"};
-
-		int columns = contentWidth() >= 390 ? 3 : 1;
-		int cardWidth = (contentWidth() - CARD_GAP * (columns - 1)) / columns;
-		int cardHeight = ScoutTheme.HEADER_HEIGHT + 6 + 5 * 11 + 3;
-
-		for (int i = 0; i < cards.size(); i++) {
-			int x = left + (i % columns) * (cardWidth + CARD_GAP);
-			int y = top + (i / columns) * (cardHeight + CARD_GAP);
-			if (y + cardHeight > height - 34) {
-				break;
-			}
-
-			ScoutTheme.panel(g, x, y, cardWidth, cardHeight, 80);
-			ScoutTheme.header(g, x, y, cardWidth, 80);
-			ScoutTheme.text(g, ScoutTheme.accentCode() + "§l" + I18n.get("message.hypixelscout.profile.card." + titles[i]),
-					x + 7, y + 6, ScoutTheme.TEXT);
-
-			int rowY = y + ScoutTheme.HEADER_HEIGHT + 6;
-			for (Stat stat : cards.get(i)) {
-				ScoutTheme.text(g, "§7" + I18n.get("message.hypixelscout.profile.stat." + stat.label()), x + 7, rowY,
-						ScoutTheme.TEXT);
-				ScoutTheme.textRight(g, stat.value(), x + cardWidth - 7, rowY, ScoutTheme.TEXT);
-				rowY += 11;
-			}
-		}
-
-		int rows = (cards.size() + columns - 1) / columns;
-		return top + rows * cardHeight + (rows - 1) * CARD_GAP;
-	}
-
-	/** Rates rather than totals: how much happens per game and per star, and where they link to. */
-	private void drawPace(GuiGraphicsExtractor g, PlayerStats p, int left, int top) {
-		if (top + 30 > height - 34) {
-			return;
-		}
-
-		int width = contentWidth();
-		Map<String, String> socials = p.getSocials();
-		int height = socials.isEmpty() ? 20 : 31;
-
-		ScoutTheme.panel(g, left, top, width, height, 80);
-		String pace = "§7" + I18n.get("message.hypixelscout.profile.pace",
-				"§f" + StatFormat.ratio(ProfileMetrics.finalsPerGame(p)) + "§7",
-				"§f" + StatFormat.ratio(ProfileMetrics.finalsPerStar(p)) + "§7",
-				"§f" + StatFormat.ratio(ProfileMetrics.killsPerGame(p)) + "§7",
-				"§f" + StatFormat.ratio(ProfileMetrics.bedRatio(p) == 0 ? 0 : (double) p.getBedsBroken()
-						/ Math.max(1, ProfileMetrics.gamesPlayed(p))) + "§7");
-		ScoutTheme.textCentred(g, ScoutTheme.fit(pace, width - 14), left + width / 2, top + 6, ScoutTheme.TEXT);
-
-		if (!socials.isEmpty()) {
-			StringBuilder line = new StringBuilder("§8" + I18n.get("message.hypixelscout.profile.linked"));
-			socials.forEach((service, link) -> line.append(" §7").append(service.toLowerCase(Locale.ROOT))
-					.append(" §8").append(shorten(link)));
-			ScoutTheme.textCentred(g, ScoutTheme.fit(line.toString(), width - 14), left + width / 2, top + 18,
-					ScoutTheme.TEXT);
-		}
-	}
-
-	/** A link is worth showing as a handle, not as a hundred characters of URL. */
-	private static String shorten(String value) {
-		String text = value.replaceFirst("^https?://(www\\.)?", "");
-		return text.length() > 24 ? text.substring(0, 23) + "…" : text;
+		int bottom = height - 34;
+		int y = ProfileView.header(g, name, uuid, profile, left, top, contentWidth(), 88) + ProfileView.GAP;
+		y = ProfileView.cards(g, profile, left, y, contentWidth(), bottom, 80) + ProfileView.GAP;
+		ProfileView.pace(g, profile, left, y, contentWidth(), bottom, 80);
 	}
 
 	/** For the client game test: the player this screen is about. */

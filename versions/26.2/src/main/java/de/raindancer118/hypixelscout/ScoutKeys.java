@@ -37,6 +37,7 @@ public final class ScoutKeys {
 	private final List<Action> actions = new ArrayList<>();
 	private final KeyMapping[] queueKeys = new KeyMapping[ScoutSettings.QUEUE_SLOTS];
 	private KeyMapping tableKey;
+	private KeyMapping peekKey;
 
 	public ScoutKeys(HypixelScout mod) {
 		this.mod = mod;
@@ -45,6 +46,8 @@ public final class ScoutKeys {
 	public void register() {
 		add("open", GLFW.GLFW_KEY_K, () -> HypixelScout.open(mod.scoutScreen(null)));
 		tableKey = add("table", GLFW.GLFW_KEY_Y, () -> mod.table().toggle());
+		// Held, not pressed: the stats are up exactly as long as the key is down.
+		peekKey = add("peek", GLFW.GLFW_KEY_G, () -> { });
 		add("settings", GLFW.GLFW_KEY_UNKNOWN, () -> HypixelScout.open(mod.settingsScreen(null)));
 		add("move_table", GLFW.GLFW_KEY_UNKNOWN, () -> HypixelScout.open(mod.tableEditor(null)));
 		// The profile of whoever is under the crosshair: the one lookup nobody can type fast enough.
@@ -107,6 +110,12 @@ public final class ScoutKeys {
 
 		// Hold mode needs the key's state, not its presses.
 		mod.table().setKeyHeld(tableKey.isDown());
+		mod.peek().setHeld(peekKey.isDown() && minecraft.gui.screen() == null);
+	}
+
+	/** The peek key itself, for the client game test to hold down. */
+	public KeyMapping peekMapping() {
+		return peekKey;
 	}
 
 	/** The key bound to a queue slot, for the queue tab to show next to it. */

@@ -53,6 +53,13 @@ class LanguageKeysTest {
 			}
 		}
 
+		// Keybinds are registered as add("name", ...) and prefixed there.
+		Matcher binding = Pattern.compile("\\badd\\(\"([a-z0-9_]+)\",").matcher(
+				Files.readString(SOURCES.resolve("de/raindancer118/hypixelscout/ScoutKeys.java")));
+		while (binding.find()) {
+			used.add("key.hypixelscout." + binding.group(1));
+		}
+
 		for (HudMode mode : HudMode.values()) {
 			used.add("message.hypixelscout.mode." + name(mode));
 			used.add("message.hypixelscout.mode." + name(mode) + ".tooltip");

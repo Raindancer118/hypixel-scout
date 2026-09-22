@@ -21,6 +21,7 @@ public final class TableHudElement implements HudElement {
 	private final Supplier<ScoutSettings> settings;
 	private final Roster roster;
 
+	private java.util.function.BooleanSupplier peekHeld = () -> false;
 	private boolean opened;
 	private boolean keyHeld;
 
@@ -28,6 +29,11 @@ public final class TableHudElement implements HudElement {
 		this.table = table;
 		this.settings = settings;
 		this.roster = roster;
+	}
+
+	/** So the table steps aside while the peek overlay is up. */
+	public void hideWhile(java.util.function.BooleanSupplier condition) {
+		peekHeld = condition;
 	}
 
 	/** The key that opens and closes it. Returns whether it is open now. */
@@ -60,7 +66,8 @@ public final class TableHudElement implements HudElement {
 		Minecraft client = Minecraft.getInstance();
 
 		// The editor draws its own copy; two tables at once would only confuse.
-		if (client.gui.screen() instanceof TableEditorScreen || !visible()) {
+		// Nor while the peek key is held: the peek draws its own, centred.
+		if (client.gui.screen() instanceof TableEditorScreen || !visible() || peekHeld.getAsBoolean()) {
 			return;
 		}
 

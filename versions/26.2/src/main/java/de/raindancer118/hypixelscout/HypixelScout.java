@@ -20,6 +20,7 @@ import de.raindancer118.hypixelscout.game.TabListReader;
 import de.raindancer118.hypixelscout.ui.Chat;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
 import de.raindancer118.hypixelscout.ui.hud.LookTooltipElement;
+import de.raindancer118.hypixelscout.ui.hud.PeekElement;
 import de.raindancer118.hypixelscout.ui.hud.TabStatsElement;
 import de.raindancer118.hypixelscout.ui.hud.TableEditorScreen;
 import de.raindancer118.hypixelscout.ui.hud.TableHud;
@@ -84,6 +85,7 @@ public final class HypixelScout implements ClientModInitializer {
 	private LookupHistory lookups;
 	private TableHud tableHud;
 	private TableHudElement table;
+	private PeekElement peek;
 	private ScoutKeys keys;
 	private ChatHover hover;
 	private boolean modApiPresent;
@@ -122,8 +124,12 @@ public final class HypixelScout implements ClientModInitializer {
 		tableHud = new TableHud(roster, stats, () -> settings, client::hasApiKey);
 		table = new TableHudElement(tableHud, () -> settings, roster);
 		HudElementRegistry.addLast(id("table"), table);
+		peek = new PeekElement(roster, stats, tableHud, () -> settings);
+		table.hideWhile(peek::isHeld);
+		// Last of all, so the peek sits above the table, the tooltip and vanilla's HUD.
+		HudElementRegistry.addLast(id("peek"), peek);
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, id("look_tooltip"),
-				new LookTooltipElement(roster, stats, () -> settings));
+				new LookTooltipElement(roster, stats, () -> settings).hideWhile(() -> peek.isHeld()));
 		HudElementRegistry.replaceElement(VanillaHudElements.PLAYER_LIST,
 				vanilla -> new TabStatsElement(vanilla, roster, stats, () -> settings));
 
@@ -276,6 +282,10 @@ public final class HypixelScout implements ClientModInitializer {
 
 	public LookupHistory lookups() {
 		return lookups;
+	}
+
+	public PeekElement peek() {
+		return peek;
 	}
 
 	public TableHudElement table() {

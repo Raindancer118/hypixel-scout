@@ -14,6 +14,9 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   - **Queue**: the nine quick-queue slots, each bound to a key, set and played from here.
 - **Profile screen**: head, rank, level, karma, account age, last login, threat, and cards for
   combat, games and beds, plus the per-game rates and linked socials.
+- **Peek** (hold `G`): while the key is down, the full profile of whoever you aim at — or, aiming
+  at nobody, the whole game's table — drawn over the game. Let go and it is gone. Nothing pauses and
+  the mouse stays with the camera, so you can keep moving while you look.
 - **Stats table** on the HUD (`Y`): a card you open and close, placed anywhere with the built-in
   drag editor. It can toggle, need the key held, open itself at game start, or stay up.
 - **Look tooltip**: the stats of whoever you aim at — across the map, but *not* through walls.
@@ -42,7 +45,7 @@ at any time, but the file is still not one to show on stream — the settings sc
 ## Hotkeys
 
 Everything has a binding under **Options → Controls → Hypixel Scout**. Only the Scout screen (`K`),
-the table (`Y`) and the queue slots (number pad, `0` for a random slot) come bound; the rest is left
+the table (`Y`), peek (`G`, hold) and the queue slots (number pad, `0` for a random slot) come bound; the rest is left
 free on purpose.
 
 ## Commands
@@ -59,6 +62,17 @@ free on purpose.
 | `/scout table` | Toggles the table |
 | `/scout refresh` | Looks everybody up again |
 | `/scout status` | Key, request budget, Mod API and game state |
+
+## Colours
+
+- **Stars** are Hypixel's own prestige colours: one colour per hundred up to 999, the rainbow only at
+  1000–1099, then the "prime" prestiges (grey brackets) from 1100, and a scheme of its own for every
+  hundred after that, with the star symbol changing at 1100 (✪), 2100 (⚝), 3100 (✥) and 4100 (✭).
+- **Ranks** in Hypixel's chat colours: VIP green, MVP aqua, MVP++ gold, YouTube and admins red.
+- **FKDR and WLR** by how much trouble they mean: green under 1, yellow under 3, gold under 5, red
+  under 10, dark red above. These bands are the mod's, not Hypixel's.
+- **Threat** is stars × FKDR²: LOW under 500, MED under 3 000, HIGH under 30 000, EXTREME above.
+- **Team bars** are the team's scoreboard colour; the **accent** (gold by default) is yours to pick.
 
 ## What it deliberately does not do
 

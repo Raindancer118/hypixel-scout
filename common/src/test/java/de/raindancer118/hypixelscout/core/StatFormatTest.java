@@ -8,19 +8,39 @@ import static org.junit.jupiter.api.Assertions.*;
 class StatFormatTest {
 	@Test
 	void coloursTheStarByPrestige() {
-		assertEquals("§7[12✴]", StatFormat.star(12));
-		assertEquals("§f[134✴]", StatFormat.star(134));
-		assertEquals("§6[212✴]", StatFormat.star(212));
-		assertEquals("§b[301✴]", StatFormat.star(301));
+		assertEquals("§7[12✫]", StatFormat.star(12));
+		assertEquals("§f[134✫]", StatFormat.star(134));
+		assertEquals("§6[212✫]", StatFormat.star(212));
+		assertEquals("§b[301✫]", StatFormat.star(301));
+		assertEquals("§5[999✫]", StatFormat.star(999));
 	}
 
 	@Test
-	void givesAThousandStarPlayerTheRainbowBracket() {
-		String rendered = StatFormat.star(1000);
+	void onlyTheThousandPrestigeIsTheRainbow() {
+		assertEquals("§c[§61§e0§a0§b0§d✫§5]", StatFormat.star(1000));
+		assertEquals("§c[§61§e0§a9§b9§d✫§5]", StatFormat.star(1099));
+	}
 
-		assertTrue(rendered.startsWith("§c["), "the rainbow prestige opens in red");
-		assertTrue(rendered.contains("1000") || rendered.contains("0§"),
-				"every digit is coloured separately: " + rendered);
+	@Test
+	void thePrimePrestigesKeepGreyBracketsAndChangeTheStar() {
+		assertEquals("§7[§f1100§7✪]", StatFormat.star(1100));
+		assertEquals("§7[§e1234§6✪§7]", StatFormat.star(1234));
+		assertEquals("§7[§31502§9✪§7]", StatFormat.star(1502));
+	}
+
+	@Test
+	void theLaterPrestigesColourEveryCharacterAsHypixelDoes() {
+		assertEquals("§8[§72§f00§70✪§8]", StatFormat.star(2000));
+		assertEquals("§f[2§e10§60⚝]", StatFormat.star(2100));
+		assertEquals("§9[3§310§60✥§e]", StatFormat.star(3100));
+	}
+
+	@Test
+	void pastTheLastPrestigeTheLastSchemeStays() {
+		String rendered = StatFormat.star(12_345);
+
+		assertTrue(rendered.startsWith("§9["), rendered);
+		assertTrue(rendered.contains("✭"), rendered);
 	}
 
 	@Test

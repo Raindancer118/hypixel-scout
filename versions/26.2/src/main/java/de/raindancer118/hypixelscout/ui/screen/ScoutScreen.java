@@ -523,7 +523,7 @@ public final class ScoutScreen extends Screen {
 
 		TeamReport report = group.report();
 		ScoutTheme.divider(g, x + 6, y + height - 15, width - 12);
-		String stars = "§f" + report.getCombinedStars() + "✴";
+		String stars = "§f" + report.getCombinedStars() + "✫";
 		List<TeamReport.Streak> streaks = report.streaksAbove(settings().alerts.streakThreshold);
 		if (!streaks.isEmpty()) {
 			stars += " §c" + streaks.getFirst().getWinstreak() + " WS";

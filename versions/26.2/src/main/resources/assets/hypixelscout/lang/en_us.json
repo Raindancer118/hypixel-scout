@@ -2,6 +2,7 @@
 	"key.category.hypixelscout.main": "Hypixel Scout",
 	"key.hypixelscout.open": "Open Hypixel Scout",
 	"key.hypixelscout.table": "Open / close the stats table",
+	"key.hypixelscout.peek": "Peek at stats (hold)",
 	"key.hypixelscout.settings": "Settings",
 	"key.hypixelscout.move_table": "Move the table",
 	"key.hypixelscout.profile_target": "Profile of the player you are aiming at",
@@ -23,7 +24,6 @@
 	"key.hypixelscout.queue_8": "Quick queue 8",
 	"key.hypixelscout.queue_9": "Quick queue 9",
 	"key.hypixelscout.queue_random": "Quick queue (random slot)",
-
 	"message.hypixelscout.title": "Hypixel Scout",
 	"message.hypixelscout.page.game": "Game",
 	"message.hypixelscout.page.teams": "Teams",
@@ -34,7 +34,6 @@
 	"message.hypixelscout.refresh": "Refresh",
 	"message.hypixelscout.refresh.tooltip": "Forget every answer and look everybody up again. Costs one request per player.",
 	"message.hypixelscout.refreshed": "Looking everybody up again.",
-
 	"message.hypixelscout.column.player": "Player",
 	"message.hypixelscout.column.threat": "Threat",
 	"message.hypixelscout.column.fkdr": "FKDR",
@@ -42,7 +41,6 @@
 	"message.hypixelscout.column.winstreak": "WS",
 	"message.hypixelscout.column.beds": "Beds",
 	"message.hypixelscout.column.age": "Age",
-
 	"message.hypixelscout.table.players": "%s players",
 	"message.hypixelscout.table.no_key": "§cNo API key §8— §7/scout settings",
 	"message.hypixelscout.table.waiting": "Reading the tab list…",
@@ -50,7 +48,7 @@
 	"message.hypixelscout.table.opened": "Table open.",
 	"message.hypixelscout.table.closed": "Table closed.",
 	"message.hypixelscout.tab.title": "tab list",
-
+	"message.hypixelscout.peek.hint": "Aim at a player to see their stats",
 	"message.hypixelscout.game.no_key": "No API key yet",
 	"message.hypixelscout.game.no_key.hint": "Everything here is read from the Hypixel API with your own key.",
 	"message.hypixelscout.game.set_key": "Set the API key…",
@@ -63,19 +61,16 @@
 	"message.hypixelscout.game.looking_up": "Looking them up…",
 	"message.hypixelscout.game.nicked": "Nicked — Hypixel knows nobody by this name",
 	"message.hypixelscout.game.subtitle": "Level %s · %s old · %s wins",
-
 	"message.hypixelscout.teams.caption": "Every team in the game, the most dangerous first.",
 	"message.hypixelscout.teams.party": "Report to party chat",
 	"message.hypixelscout.teams.party.tooltip": "Sends one line per enemy team to party chat, a second apart. Only on Hypixel, only when you press this.",
 	"message.hypixelscout.teams.no_team": "No team",
 	"message.hypixelscout.teams.you": "(you)",
-
 	"message.hypixelscout.lookup.caption": "Anybody at all, in your game or not.",
 	"message.hypixelscout.lookup.hint": "Player name",
 	"message.hypixelscout.lookup.go": "Look up",
 	"message.hypixelscout.lookup.recent": "Recently looked up",
 	"message.hypixelscout.lookup.none": "Nobody looked up yet.",
-
 	"message.hypixelscout.queue.caption": "Each slot is a key; press it anywhere on Hypixel to queue.",
 	"message.hypixelscout.queue.slot": "Slot %s",
 	"message.hypixelscout.queue.play": "Play",
@@ -85,7 +80,6 @@
 	"message.hypixelscout.queue.empty": "No quick queue slot is set.",
 	"message.hypixelscout.queue.not_hypixel": "Quick queue only works on Hypixel.",
 	"message.hypixelscout.queue.joining": "Queueing for %s…",
-
 	"message.hypixelscout.profile.title": "Player profile",
 	"message.hypixelscout.profile.empty": "Type a name and press Enter.",
 	"message.hypixelscout.profile.loading": "Looking up %s…",
@@ -115,7 +109,6 @@
 	"message.hypixelscout.profile.stat.stars": "Stars",
 	"message.hypixelscout.profile.pace": "Finals/game %s · Finals/star %s · Kills/game %s · Beds/game %s",
 	"message.hypixelscout.profile.linked": "Linked:",
-
 	"message.hypixelscout.settings.title": "Hypixel Scout settings",
 	"message.hypixelscout.settings.tab.general": "General",
 	"message.hypixelscout.settings.tab.table": "Table",
@@ -165,7 +158,6 @@
 	"message.hypixelscout.settings.streak_alert": "Winstreak alert",
 	"message.hypixelscout.settings.streak_alert.tooltip": "Say in chat when somebody in the game is on a long winstreak.",
 	"message.hypixelscout.settings.streak": "Winstreak worth a warning: %s",
-
 	"message.hypixelscout.mode.off": "Off",
 	"message.hypixelscout.mode.off.tooltip": "Never on screen. The Scout screen still lists everybody.",
 	"message.hypixelscout.mode.toggle": "Toggle",
@@ -188,7 +180,6 @@
 	"message.hypixelscout.accent.pink": "Pink",
 	"message.hypixelscout.accent.blue": "Blue",
 	"message.hypixelscout.accent.white": "White",
-
 	"message.hypixelscout.key.none": "No key stored yet.",
 	"message.hypixelscout.key.stored": "A key is stored. Test it to be sure it still works.",
 	"message.hypixelscout.key.saved": "Key saved. Everybody is looked up again with it.",
@@ -200,7 +191,6 @@
 	"message.hypixelscout.key.result.rate_limited": "The key works but is used up for the moment.",
 	"message.hypixelscout.key.result.unreachable": "Could not reach Hypixel.",
 	"message.hypixelscout.key.result.failed": "Hypixel said no: %s",
-
 	"message.hypixelscout.editor.title": "Move the table",
 	"message.hypixelscout.editor.size": "Size: %s",
 	"message.hypixelscout.editor.opacity": "Backdrop: %s",
@@ -217,7 +207,6 @@
 	"message.hypixelscout.anchor.bottom_left": "bottom left",
 	"message.hypixelscout.anchor.bottom_center": "bottom",
 	"message.hypixelscout.anchor.bottom_right": "bottom right",
-
 	"message.hypixelscout.alert.nick": "⚠ %s is nicked — Hypixel has no profile under that name.",
 	"message.hypixelscout.alert.streak": "⚠ %s is on a %s game winstreak (%s FKDR).",
 	"message.hypixelscout.chat.click_hint": "\nClick for the full profile",
@@ -231,7 +220,6 @@
 	"message.hypixelscout.toggle.tooltip": "Look tooltip %s.",
 	"message.hypixelscout.toggle.chat_hover": "Chat hover %s.",
 	"message.hypixelscout.toggle.nick_alert": "Nick alert %s.",
-
 	"message.hypixelscout.status.key": "API key %s, %s requests left this window.",
 	"message.hypixelscout.status.game": "Mod API %s, %s.",
 	"message.hypixelscout.status.set": "set",

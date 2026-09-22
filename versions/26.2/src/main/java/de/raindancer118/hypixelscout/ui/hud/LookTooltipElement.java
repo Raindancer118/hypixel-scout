@@ -34,6 +34,14 @@ public final class LookTooltipElement implements HudElement {
 	private final StatsService stats;
 	private final Supplier<ScoutSettings> settings;
 
+	private java.util.function.BooleanSupplier hidden = () -> false;
+
+	/** Steps aside while the peek overlay shows the same player in full. */
+	public LookTooltipElement hideWhile(java.util.function.BooleanSupplier condition) {
+		hidden = condition;
+		return this;
+	}
+
 	public LookTooltipElement(Roster roster, StatsService stats, Supplier<ScoutSettings> settings) {
 		this.roster = roster;
 		this.stats = stats;
@@ -45,7 +53,7 @@ public final class LookTooltipElement implements HudElement {
 		ScoutSettings.Tooltip tooltip = settings.get().tooltip;
 		Minecraft client = Minecraft.getInstance();
 
-		if (!tooltip.enabled || !roster.isInGame() || client.gui.screen() != null
+		if (!tooltip.enabled || hidden.getAsBoolean() || !roster.isInGame() || client.gui.screen() != null
 				|| client.getDebugOverlay().showDebugScreen()) {
 			return;
 		}
