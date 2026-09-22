@@ -1,0 +1,50 @@
+name: release
+
+# A tag is the release: pushing 0.2.0 builds the jar, runs the tests that prove the mod loads, and
+# publishes it with the modpack. Nothing is done by hand, so nothing can be forgotten.
+on:
+  push:
+    tags: [ '*.*.*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Refuse a tag that disagrees with the mod version
+        run: |
+          declared=$(grep '^mod_version=' gradle/shared.properties | cut -d= -f2)
+          if [ "$declared" != "${GITHUB_REF_NAME}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match mod_version ${declared}"
+            exit 1
+          fi
+
+      - name: Build and unit test
+        run: ./gradlew build
+
+      # A green build does not prove the mod loads, so the client test gates the release too.
+      - name: Client startup test
+        run: xvfb-run -a ./gradlew -p versions/26.2 runClientGameTest
+
+      - name: Modpack
+        run: ./gradlew -p versions/26.2 mrpack
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Hypixel Scout ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            versions/26.2/build/libs/hypixelscout-mc26.2-${{ github.ref_name }}.jar
+            versions/26.2/build/hypixel-scout-${{ github.ref_name }}-mc26.2.mrpack

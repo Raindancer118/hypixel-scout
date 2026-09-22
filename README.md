@@ -1,92 +1,79 @@
 # Hypixel Scout
 
-Bedwars opponent stats for Minecraft 1.8.9 (Forge). Stars, FKDR, winstreaks, nicks and full
-profiles, read from the official Hypixel API with your own key.
+Bedwars opponent stats inside Minecraft 26.2 (Fabric). Stars, FKDR, winstreaks, nicks and full
+profiles, read from the official Hypixel API with your own key — in a real in-game interface.
 
 ## What it does
 
-- **Table** of everybody in the game — a panel you open and close with `Y`, not text printed on
-  the screen. Faces, team colours, measured columns. `table.mode` decides whether it toggles, needs
-  the key held, opens itself for the first seconds of a game, or stays up.
-- **Tab list** replaced by one with heads, team colours and stats (off by default).
-- **Nametags** carrying the star and FKDR above each player (off by default).
-- **Look tooltip** showing the stats of whoever you are aiming at — across the map, but *not*
-  through walls.
-- **Chat hover**: hovering a player's name shows their stats, clicking opens their profile.
-- **Lobby screen** (`L`, or `/scout lobby`) listing everybody in the game with a one-line summary;
-  clicking a row opens that player's full profile, escape goes back to the list.
-- **Profile screen** with the full record and a search box for any player, in or out of your game.
-- **Nick alert**: a chat line the moment somebody in your game turns out to be nicked.
-- **Winstreak alert** above a threshold you choose.
-- **Party report** (`/scout party`): each enemy team's combined stars, FKDR and W/L into party chat.
-- **Quick queue**: nine hotkeys for nine modes, plus one that picks at random.
+- **The Scout screen** (`K`, or `/scout`) — four tabs under vanilla's own tab bar:
+  - **Game**: everybody in your match, with faces, team colours, rank, threat level and measured
+    columns. Click a column heading to sort by it, click a player for their profile.
+  - **Teams**: one card per team, the most dangerous first — members, combined stars/FKDR/WLR,
+    anybody on a long winstreak — and a button that reports the enemy teams to party chat.
+  - **Lookup**: any player at all, in your game or not, with your recent lookups as clickable faces.
+  - **Queue**: the nine quick-queue slots, each bound to a key, set and played from here.
+- **Profile screen**: head, rank, level, karma, account age, last login, threat, and cards for
+  combat, games and beds, plus the per-game rates and linked socials.
+- **Stats table** on the HUD (`Y`): a card you open and close, placed anywhere with the built-in
+  drag editor. It can toggle, need the key held, open itself at game start, or stay up.
+- **Look tooltip**: the stats of whoever you aim at — across the map, but *not* through walls.
+- **Chat hover**: hovering a player's name in chat shows their stats, clicking opens the profile.
+- **Tab list** with stats, faces and team colours (off by default).
+- **Nametags** with the star in front and the FKDR after (off by default).
+- **Nick and winstreak alerts** in your own chat.
+- **Settings screen** with everything in four tabs, also reachable from Mod Menu. English and German.
 
 ## Requirements
 
-- Minecraft 1.8.9 with Forge
-- [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api) — required, not optional. It is what
-  tells the mod a Bedwars game has started.
-- A Hypixel API key from [developer.hypixel.net](https://developer.hypixel.net)
+- Minecraft 26.2 with Fabric Loader 0.19.3+ and Fabric API
+- [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api) — required. It is what tells the mod a
+  Bedwars game has started.
+- A Hypixel API key from [developer.hypixel.net](https://developer.hypixel.net/dashboard)
 
 ## Setup
 
-### Lunar Client
+1. Put `hypixelscout-mc26.2-<version>.jar`, Fabric API and the Hypixel Mod API into `mods/` — or
+   import `hypixel-scout-<version>-mc26.2.mrpack`, which brings all three.
+2. Start the game, press `K`, **Set the API key…**, paste it, **Test key**.
 
-Lunar does not load jars dropped into its mods folder: the launcher passes the game an explicit
-file list and only registers what was installed through its own interface. Import
-`hypixel-scout-<version>.mrpack` (built by `./gradlew mrpack`) as a modpack instead — it carries
-both jars as overrides.
-
-### Forge
-
-1. Drop both jars into `mods/`.
-2. Start the game, join Hypixel.
-3. `/scout key <your-key>` — or paste it into the field the lobby screen shows while no key is
-   set, or into `general.apiKey` in the config file.
-
-Everything else is under `/scout config`, **Mods → Hypixel Scout → Config**, the Settings button on
-the lobby screen, or in `config/hypixelscout.cfg`.
+The key is stored in `config/hypixelscout.json`. It only reads public statistics and can be revoked
+at any time, but the file is still not one to show on stream — the settings screen masks the key.
 
 ## Hotkeys
 
-Every function has a binding under **Options → Controls → Hypixel Scout**: the lobby and profile
-screens, the settings, each of the five display features, the sort order, the party report, a
-refresh, the nine queue slots and the random one.
-
-Only the lobby screen (`L`) and the queue slots (numpad) come bound. The rest is deliberately left
-free — vanilla, Forge and Lunar have taken the comfortable keys already, and a mod should not
-quietly claim a dozen more.
+Everything has a binding under **Options → Controls → Hypixel Scout**. Only the Scout screen (`K`),
+the table (`Y`) and the queue slots (number pad, `0` for a random slot) come bound; the rest is left
+free on purpose.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `/scout` | Opens the profile screen with a search box |
-| `/scout lobby` | Lists everybody in the game; click a row for the details |
+| `/scout` | Opens the Scout screen |
+| `/scout game \| teams \| lookup \| queue` | Opens it on that tab |
 | `/scout <player>` | Opens that player's profile |
-| `/scout config` | Opens the settings screen |
-| `/scout key <key>` | Stores your API key |
+| `/scout settings` | Opens the settings |
+| `/scout move` | Opens the table editor |
+| `/scout key <key>` / `/scout testkey` | Stores / checks your API key |
 | `/scout party` | Sends the enemy team report to party chat |
 | `/scout table` | Toggles the table |
+| `/scout refresh` | Looks everybody up again |
 | `/scout status` | Key, request budget, Mod API and game state |
-| `/scout reload` | Re-reads the settings and clears the cache |
 
 ## What it deliberately does not do
 
-- **No ban history.** The Hypixel API does not expose punishments for a player, and anything
-  claiming otherwise is guessing. What it does show is account age, last login and level, which is
-  as close as honest data gets.
-- **No automatic party messages.** The report is sent when you ask for it. Sending it by itself
-  would be a chat macro, and Hypixel bans people for those.
-- **No wallhack.** The look tooltip needs line of sight. It also cannot see players the server has
-  not told your client about, which is a limit of the game and not of the mod.
-- **Nicked players stay unknown.** There is no profile behind a nick; the mod says so instead of
-  inventing numbers.
+- **No ban history.** The Hypixel API exposes no punishments per player.
+- **No automatic chat.** The party report and `/play` are only sent when you press for them.
+- **No wallhack.** The look tooltip needs line of sight and only sees players the server sent you.
+- **Nicked players stay unknown.** There is no profile behind a nick; the mod says so.
 
 ## Building
 
 ```sh
-./gradlew build      # jar in build/libs
-./gradlew test       # the core logic, no game needed
-./gradlew runClient  # dev client, Java 8 fetched automatically
+./gradlew build                              # core + 26.2 module, all unit tests
+./gradlew -p versions/26.2 runClientGameTest # real client, staged game, screenshots of every screen
+./gradlew -p versions/26.2 mrpack            # importable modpack
+./gradlew -p versions/26.2 runClient         # dev client
 ```
+
+The Minecraft 1.8.9 Forge version lives on the `1.8.9-support` branch (tag `legacy-1_8_9-support`).
