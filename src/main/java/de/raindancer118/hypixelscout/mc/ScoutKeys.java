@@ -46,6 +46,7 @@ public final class ScoutKeys {
 	private final QuickQueue queue;
 
 	private final List<Action> actions = new ArrayList<Action>();
+	private KeyBinding tableKey;
 
 	public ScoutKeys(HypixelScout scout, ScoutConfig config, QuickQueue queue) {
 		this.scout = scout;
@@ -78,11 +79,11 @@ public final class ScoutKeys {
 			}
 		});
 
-		add("toggleTable", Keyboard.KEY_NONE, new Runnable() {
+		// The one key everybody will actually use: it opens the table and closes it again.
+		add("toggleTable", Keyboard.KEY_Y, new Runnable() {
 			@Override
 			public void run() {
-				config.setTableEnabled(!config.isTableEnabled());
-				say("Table " + onOff(config.isTableEnabled()));
+				scout.getOverlay().toggle();
 			}
 		});
 
@@ -191,6 +192,10 @@ public final class ScoutKeys {
 
 		ClientRegistry.registerKeyBinding(action.binding);
 		actions.add(action);
+
+		if ("toggleTable".equals(name)) {
+			tableKey = action.binding;
+		}
 	}
 
 	@SubscribeEvent
@@ -210,6 +215,9 @@ public final class ScoutKeys {
 				action.run();
 			}
 		}
+
+		// Hold mode needs the key's state and not its edge, so it is read separately.
+		scout.getOverlay().setKeyHeld(tableKey != null && tableKey.isKeyDown());
 	}
 
 	private void profileOfTarget() {

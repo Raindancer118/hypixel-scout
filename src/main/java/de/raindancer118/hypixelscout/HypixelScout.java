@@ -61,6 +61,7 @@ public final class HypixelScout {
 	private RosterTracker roster;
 	private ScoutAlerts alerts;
 	private PartyReport partyReport;
+	private StatsOverlay overlay;
 	private boolean modApiPresent;
 
 	@Mod.EventHandler
@@ -84,7 +85,8 @@ public final class HypixelScout {
 		stats.setListener(alerts);
 
 		MinecraftForge.EVENT_BUS.register(this);
-		MinecraftForge.EVENT_BUS.register(new StatsOverlay(roster, stats, config));
+		overlay = new StatsOverlay(roster, stats, config);
+		MinecraftForge.EVENT_BUS.register(overlay);
 		MinecraftForge.EVENT_BUS.register(new TabStatsOverlay(roster, stats, config));
 		MinecraftForge.EVENT_BUS.register(new LookTargetTooltip(stats, config, roster));
 		MinecraftForge.EVENT_BUS.register(new NametagStars(stats, config, roster));
@@ -115,6 +117,7 @@ public final class HypixelScout {
 	@SubscribeEvent
 	public void onDisconnect(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
 		roster.onLocationChanged(false, null, null);
+		overlay.close();
 		alerts.reset();
 		partyReport.cancel();
 		stats.invalidate();
@@ -161,6 +164,10 @@ public final class HypixelScout {
 
 	public PartyReport getPartyReport() {
 		return partyReport;
+	}
+
+	public StatsOverlay getOverlay() {
+		return overlay;
 	}
 
 	public boolean isModApiPresent() {

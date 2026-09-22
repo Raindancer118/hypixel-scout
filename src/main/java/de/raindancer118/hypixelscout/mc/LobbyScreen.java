@@ -6,12 +6,10 @@ import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.SortMode;
 import de.raindancer118.hypixelscout.core.StatFormat;
 import de.raindancer118.hypixelscout.core.StatsService;
-import net.minecraft.client.Minecraft;
+import de.raindancer118.hypixelscout.mc.ui.ScoutTheme;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
-import net.minecraft.client.network.NetworkPlayerInfo;
-import net.minecraft.client.renderer.GlStateManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -20,21 +18,23 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Everybody in the current game, one line each, and a click opens the full profile.
+ * Everybody in the current game, one row each, and a click opens the full profile.
  *
- * <p>The short line is what you want between rounds; the profile behind it is what you want when
- * one of them turns out to be worth a closer look. Rows are laid out here rather than with a
- * {@code GuiSlot}: a Bedwars game holds sixteen players, which fits on any screen without
- * scrolling, and a plain list keeps the click handling readable.
+ * <p>A panel with a header, faces, team colours and measured columns — the same treatment as the
+ * in-game table, because they show the same thing and switching between them should not feel like
+ * switching programs.
  *
- * <p>With no API key set there is nothing to show, so the screen offers somewhere to paste one
- * instead of an empty list.
+ * <p>A Bedwars game holds sixteen players, so the list never needs to scroll and does not.
+ *
+ * <p>With no API key set there is nothing to list, so the screen offers somewhere to paste one
+ * instead of an empty panel.
  */
 public final class LobbyScreen extends GuiScreen {
-	private static final int PANEL = 0xC0101018;
-	private static final int ROW_HEIGHT = 14;
-	private static final int WIDTH = 340;
-	private static final int TOP = 40;
+	private static final int WIDTH = 360;
+	private static final int PADDING = 8;
+	private static final int HEAD = 10;
+	private static final int BAR = 3;
+	private static final int GAP = 14;
 
 	private final StatsService stats;
 	private final MojangClient mojang;
@@ -45,6 +45,9 @@ public final class LobbyScreen extends GuiScreen {
 
 	private SortMode sort;
 	private GuiTextField keyField;
+	private int panelLeft;
+	private int panelTop;
+	private int listTop;
 
 	public LobbyScreen(StatsService stats, MojangClient mojang, RosterTracker roster,
 			ScoutConfig config) {
@@ -57,19 +60,35 @@ public final class LobbyScreen extends GuiScreen {
 
 	@Override
 	public void initGui() {
-		int left = (width - WIDTH) / 2;
+		shown.clear();
+		shown.addAll(roster.members());
+
+		boolean needsKey = !HypixelScout.instance.getClient().hasApiKey();
+		int bodyHeight = needsKey ? 46
+				: PADDING + 11 + Math.max(1, shown.size()) * ScoutTheme.ROW_HEIGHT + PADDING;
+		int panelHeight = ScoutTheme.HEADER_HEIGHT + bodyHeight + 26;
+
+		panelLeft = (width - WIDTH) / 2;
+		panelTop = Math.max(20, (height - panelHeight) / 2);
+		listTop = panelTop + ScoutTheme.HEADER_HEIGHT + PADDING;
 
 		buttonList.clear();
-		buttonList.add(new GuiButton(1, left + WIDTH - 90, 14, 90, 18, "Sort: " + sort.name()));
-		buttonList.add(new GuiButton(2, left, height - 28, 70, 18, "Close"));
-		buttonList.add(new GuiButton(5, left + 74, height - 28, 70, 18, "Settings"));
+		buttonList.add(new GuiButton(1, panelLeft + WIDTH - 96, panelTop + 3, 60, 16,
+				sort.name()));
+		buttonList.add(new GuiButton(2, panelLeft + WIDTH - 34, panelTop + 3, 30, 16, "✕"));
+		buttonList.add(new GuiButton(5, panelLeft + PADDING, panelTop + panelHeight - 22, 80, 18,
+				"Settings"));
 
-		if (!HypixelScout.instance.getClient().hasApiKey()) {
-			keyField = new GuiTextField(3, fontRendererObj, left, TOP + 24, WIDTH - 80, 18);
+		if (needsKey) {
+			keyField = new GuiTextField(3, fontRendererObj, panelLeft + PADDING, listTop + 14,
+					WIDTH - PADDING * 2 - 76, 18);
 			keyField.setMaxStringLength(40);
 			keyField.setFocused(true);
 
-			buttonList.add(new GuiButton(4, left + WIDTH - 74, TOP + 24, 74, 18, "Save key"));
+			buttonList.add(new GuiButton(4, panelLeft + WIDTH - PADDING - 70, listTop + 14, 70, 18,
+					"Save key"));
+		} else {
+			keyField = null;
 		}
 	}
 
@@ -80,7 +99,8 @@ public final class LobbyScreen extends GuiScreen {
 			// pick from.
 			SortMode[] modes = SortMode.values();
 			sort = modes[(sort.ordinal() + 1) % modes.length];
-			button.displayString = "Sort: " + sort.name();
+			config.setTableSort(sort);
+			button.displayString = sort.name();
 			return;
 		}
 
@@ -118,7 +138,6 @@ public final class LobbyScreen extends GuiScreen {
 		stats.invalidate();
 		roster.scanTabList();
 
-		keyField = null;
 		initGui();
 	}
 
@@ -145,11 +164,11 @@ public final class LobbyScreen extends GuiScreen {
 
 		super.mouseClicked(mouseX, mouseY, button);
 
-		if (button != 0) {
+		if (button != 0 || keyField != null) {
 			return;
 		}
 
-		int row = rowAt(mouseY);
+		int row = rowAt(mouseX, mouseY);
 		if (row >= 0 && row < shown.size()) {
 			RosterTracker.Member member = shown.get(row);
 			mc.displayGuiScreen(new ProfileScreen(stats, mojang, member.getName(),
@@ -157,17 +176,14 @@ public final class LobbyScreen extends GuiScreen {
 		}
 	}
 
-	private int rowAt(int mouseY) {
-		int listTop = listTop();
-		if (mouseY < listTop) {
+	/** Which row the cursor is over, or -1 outside the list. */
+	private int rowAt(int mouseX, int mouseY) {
+		int rowsTop = listTop + 13;
+		if (mouseX < panelLeft || mouseX > panelLeft + WIDTH || mouseY < rowsTop) {
 			return -1;
 		}
 
-		return (mouseY - listTop) / ROW_HEIGHT;
-	}
-
-	private int listTop() {
-		return keyField == null ? TOP + 12 : TOP + 52;
+		return (mouseY - rowsTop) / ScoutTheme.ROW_HEIGHT;
 	}
 
 	@Override
@@ -181,59 +197,93 @@ public final class LobbyScreen extends GuiScreen {
 	public void drawScreen(int mouseX, int mouseY, float partialTicks) {
 		drawDefaultBackground();
 
-		int left = (width - WIDTH) / 2;
-
 		shown.clear();
 		shown.addAll(roster.members());
 		Collections.sort(shown, RosterSorting.comparator(stats, sort));
 
-		int listTop = listTop();
-		drawRect(left - 4, TOP - 6, left + WIDTH + 4,
-				listTop + Math.max(1, shown.size()) * ROW_HEIGHT + 4, PANEL);
+		boolean needsKey = keyField != null;
+		int bodyHeight = needsKey ? 46
+				: PADDING + 11 + Math.max(1, shown.size()) * ScoutTheme.ROW_HEIGHT + PADDING;
+		int panelHeight = ScoutTheme.HEADER_HEIGHT + bodyHeight + 26;
 
-		fontRendererObj.drawStringWithShadow("§6Hypixel Scout §8· §7"
-				+ shown.size() + " players in this game", left, 20, 0xFFFFFF);
+		ScoutTheme.panel(panelLeft, panelTop, WIDTH, panelHeight);
+		ScoutTheme.header(panelLeft, panelTop, WIDTH);
 
-		if (keyField != null) {
-			fontRendererObj.drawStringWithShadow(
-					"§cNo API key yet. §7Paste one from developer.hypixel.net:",
-					left, TOP + 10, 0xFFFFFF);
+		String title = "§6§lSCOUT";
+		String map = roster.getMap();
+		if (map != null) {
+			title += " §8· §f" + map + " §8"
+					+ StatsOverlay.shortMode(String.valueOf(roster.getMode()));
+		}
+		ScoutTheme.text(title, panelLeft + PADDING, panelTop + 7, ScoutTheme.TEXT);
+
+		if (needsKey) {
+			ScoutTheme.text("§cNo API key yet.", panelLeft + PADDING, listTop,
+					ScoutTheme.TEXT);
+			ScoutTheme.text("§7Paste one from developer.hypixel.net:",
+					panelLeft + PADDING + ScoutTheme.width("No API key yet. "), listTop,
+					ScoutTheme.TEXT_DIM);
 			keyField.drawTextBox();
+			super.drawScreen(mouseX, mouseY, partialTicks);
+			return;
 		}
 
-		if (shown.isEmpty()) {
-			fontRendererObj.drawStringWithShadow(
-					roster.isInBedwars() ? "§7Nobody here yet."
-							: "§7Join a Bedwars game and this fills itself.",
-					left, listTop + 2, 0xFFFFFF);
-		}
-
-		int hovered = rowAt(mouseY);
-		for (int index = 0; index < shown.size(); index++) {
-			drawRow(left, listTop + index * ROW_HEIGHT, shown.get(index),
-					index == hovered && mouseX >= left - 4 && mouseX <= left + WIDTH + 4);
-		}
-
+		drawList(mouseX, mouseY);
 		super.drawScreen(mouseX, mouseY, partialTicks);
 	}
 
-	private void drawRow(int x, int y, RosterTracker.Member member, boolean hovered) {
-		if (hovered) {
-			drawRect(x - 2, y - 1, x + WIDTH + 2, y + ROW_HEIGHT - 2, 0x30FFFFFF);
+	private void drawList(int mouseX, int mouseY) {
+		int x = panelLeft + PADDING;
+		int content = WIDTH - PADDING * 2;
+		int right = x + content;
+
+		int fkdrRight = right - 30 - GAP - 44 - GAP;
+		int wlrRight = right - 30 - GAP;
+
+		ScoutTheme.text("Player", x + BAR + 4 + HEAD + 4, listTop, ScoutTheme.TEXT_FAINT);
+		ScoutTheme.textRight("FKDR", fkdrRight, listTop, ScoutTheme.TEXT_FAINT);
+		ScoutTheme.textRight("WLR", wlrRight, listTop, ScoutTheme.TEXT_FAINT);
+		ScoutTheme.textRight("WS", right, listTop, ScoutTheme.TEXT_FAINT);
+		ScoutTheme.divider(x, listTop + 10, content);
+
+		if (shown.isEmpty()) {
+			ScoutTheme.text(roster.isInBedwars() ? "§7Nobody here yet."
+					: "§7Join a Bedwars game and this fills itself.",
+					x, listTop + 17, ScoutTheme.TEXT_DIM);
+			return;
 		}
 
-		drawHead(member.getUuid(), x, y);
+		int hovered = rowAt(mouseX, mouseY);
+		int y = listTop + 13;
 
-		PlayerStats playerStats = stats.peek(member.getUuid());
-		String team = Teams.teamOf(member.getName());
-		String name = (team == null ? "" : "§8" + team.charAt(0) + " ")
-				+ nameOf(member, playerStats);
+		for (int index = 0; index < shown.size(); index++) {
+			RosterTracker.Member member = shown.get(index);
+			boolean hover = index == hovered;
 
-		fontRendererObj.drawStringWithShadow(name, x + 12, y + 1, 0xFFFFFF);
+			if (hover) {
+				ScoutTheme.fill(x, y, content, ScoutTheme.ROW_HEIGHT, ScoutTheme.HOVER);
+			} else if (index % 2 == 1) {
+				ScoutTheme.fill(x, y, content, ScoutTheme.ROW_HEIGHT, ScoutTheme.STRIPE);
+			}
 
-		String summary = summaryOf(playerStats, member.getUuid());
-		fontRendererObj.drawStringWithShadow(summary,
-				x + WIDTH - fontRendererObj.getStringWidth(summary), y + 1, 0xFFFFFF);
+			ScoutTheme.pill(x, y + 2, BAR, ScoutTheme.ROW_HEIGHT - 4,
+					Teams.colourOf(Teams.teamOf(member.getName())));
+			ScoutTheme.head(member.getUuid(), x + BAR + 4, y + 3, HEAD);
+
+			PlayerStats playerStats = stats.peek(member.getUuid());
+			int textY = y + 4;
+
+			ScoutTheme.text(nameOf(member, playerStats), x + BAR + 4 + HEAD + 4, textY,
+					ScoutTheme.TEXT);
+			ScoutTheme.textRight(column(playerStats, 0, member.getUuid()), fkdrRight, textY,
+					ScoutTheme.TEXT);
+			ScoutTheme.textRight(column(playerStats, 1, member.getUuid()), wlrRight, textY,
+					ScoutTheme.TEXT);
+			ScoutTheme.textRight(column(playerStats, 2, member.getUuid()), right, textY,
+					ScoutTheme.TEXT);
+
+			y += ScoutTheme.ROW_HEIGHT;
+		}
 	}
 
 	private String nameOf(RosterTracker.Member member, PlayerStats playerStats) {
@@ -248,39 +298,28 @@ public final class LobbyScreen extends GuiScreen {
 				+ StatsLines.rankColour(playerStats.getRank()) + member.getName();
 	}
 
-	private String summaryOf(PlayerStats playerStats, UUID uuid) {
-		if (playerStats == null) {
-			return stats.isPending(uuid) ? "§8looking up…" : "§8—";
+	/** Column 0 is the FKDR, 1 the W/L, 2 the winstreak; a nick fills the first and leaves the rest. */
+	private String column(PlayerStats stats, int index, UUID uuid) {
+		if (stats == null) {
+			return index == 0 ? (this.stats.isPending(uuid) ? "§8…" : "§c!") : "";
 		}
-		if (playerStats.isNicked()) {
-			return "§dnicked";
-		}
-
-		return StatFormat.ratioColour(playerStats.getFkdr())
-				+ StatFormat.ratio(playerStats.getFkdr()) + "§7 fkdr   "
-				+ StatFormat.ratioColour(playerStats.getWlr())
-				+ StatFormat.ratio(playerStats.getWlr()) + "§7 wlr   §f"
-				+ StatFormat.winstreak(playerStats.getWinstreak()) + "§7 ws";
-	}
-
-	private void drawHead(UUID uuid, int x, int y) {
-		Minecraft minecraft = Minecraft.getMinecraft();
-		NetworkPlayerInfo info = minecraft.thePlayer == null
-				|| minecraft.thePlayer.sendQueue == null
-				? null : minecraft.thePlayer.sendQueue.getPlayerInfo(uuid);
-
-		if (info == null) {
-			return;
+		if (stats.isNicked()) {
+			return index == 0 ? "§dNICK" : "";
 		}
 
-		GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
-		minecraft.getTextureManager().bindTexture(info.getLocationSkin());
-		drawScaledCustomSizeModalRect(x, y, 8.0f, 8.0f, 8, 8, 9, 9, 64.0f, 64.0f);
-		drawScaledCustomSizeModalRect(x, y, 40.0f, 8.0f, 8, 8, 9, 9, 64.0f, 64.0f);
+		if (index == 0) {
+			return StatFormat.ratioColour(stats.getFkdr()) + StatFormat.ratio(stats.getFkdr());
+		}
+		if (index == 1) {
+			return StatFormat.ratioColour(stats.getWlr()) + StatFormat.ratio(stats.getWlr());
+		}
+
+		return "§f" + StatFormat.winstreak(stats.getWinstreak());
 	}
 
 	@Override
 	public boolean doesGuiPauseGame() {
+		// Opening the list must not stop the game around you: you are usually still in a match.
 		return false;
 	}
 }

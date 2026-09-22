@@ -79,8 +79,7 @@ public final class ScoutCommand extends CommandBase {
 			return;
 		}
 		if ("table".equals(first)) {
-			mod.getConfig().setTableEnabled(!mod.getConfig().isTableEnabled());
-			say("Table " + (mod.getConfig().isTableEnabled() ? "on" : "off") + ".");
+			say("Table " + (mod.getOverlay().toggle() ? "open" : "closed") + ".");
 			return;
 		}
 		if ("status".equals(first)) {

@@ -5,7 +5,9 @@ profiles, read from the official Hypixel API with your own key.
 
 ## What it does
 
-- **Table** of everybody in the game, sorted by stars, FKDR, W/L or name.
+- **Table** of everybody in the game — a panel you open and close with `Y`, not text printed on
+  the screen. Faces, team colours, measured columns. `table.mode` decides whether it toggles, needs
+  the key held, opens itself for the first seconds of a game, or stays up.
 - **Tab list** replaced by one with heads, team colours and stats (off by default).
 - **Nametags** carrying the star and FKDR above each player (off by default).
 - **Look tooltip** showing the stats of whoever you are aiming at — across the map, but *not*

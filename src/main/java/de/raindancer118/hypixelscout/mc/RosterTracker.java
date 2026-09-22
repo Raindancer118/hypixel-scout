@@ -42,6 +42,7 @@ public final class RosterTracker {
 	private volatile boolean inBedwars;
 	private volatile String mode;
 	private volatile String map;
+	private volatile long gameStartedAt;
 
 	public RosterTracker(StatsService stats) {
 		this.stats = stats;
@@ -69,6 +70,11 @@ public final class RosterTracker {
 		return inBedwars;
 	}
 
+	/** How long the current game has been running, in milliseconds. */
+	public long millisSinceStart() {
+		return gameStartedAt == 0L ? Long.MAX_VALUE : System.currentTimeMillis() - gameStartedAt;
+	}
+
 	/** The Bedwars mode of the running game, or {@code null} outside one. */
 	public String getMode() {
 		return mode;
@@ -84,9 +90,14 @@ public final class RosterTracker {
 	 * once rather than leaving the last lobby's numbers on screen in the next one.
 	 */
 	public void onLocationChanged(boolean bedwars, String mode, String map) {
+		boolean wasIn = this.inBedwars;
 		this.inBedwars = bedwars;
 		this.mode = mode;
 		this.map = map;
+
+		if (bedwars && !wasIn) {
+			gameStartedAt = System.currentTimeMillis();
+		}
 
 		if (!bedwars) {
 			clear();

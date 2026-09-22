@@ -1,5 +1,6 @@
 package de.raindancer118.hypixelscout.mc;
 
+import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.SortMode;
 import net.minecraftforge.common.config.Configuration;
 
@@ -35,7 +36,7 @@ public final class ScoutConfig {
 
 	private String apiKey;
 
-	private boolean tableEnabled;
+	private HudMode tableMode;
 	private int tableX;
 	private int tableY;
 	private SortMode tableSort;
@@ -84,8 +85,12 @@ public final class ScoutConfig {
 				"Your personal Hypixel API key from developer.hypixel.net. Easier to set in game "
 						+ "with /scout key <key> than to paste in here.");
 
-		tableEnabled = configuration.getBoolean("enabled", CATEGORY_TABLE, true,
-				"Show the table of everybody in the game.");
+		tableMode = HudMode.parse(configuration.getString("mode", CATEGORY_TABLE,
+				HudMode.TOGGLE.name(),
+				"When the in-game table is on screen. TOGGLE: the key opens and closes it. HOLD: "
+						+ "only while the key is held. GAME_START: opens itself for the first "
+						+ "seconds of a game. ALWAYS: the whole game. OFF: never.",
+				new String[] {"TOGGLE", "HOLD", "GAME_START", "ALWAYS", "OFF"}));
 		tableX = configuration.getInt("x", CATEGORY_TABLE, 4, 0, 4000,
 				"Distance of the table from the left edge, in scaled pixels.");
 		tableY = configuration.getInt("y", CATEGORY_TABLE, 4, 0, 4000,
@@ -175,13 +180,13 @@ public final class ScoutConfig {
 		configuration.save();
 	}
 
-	public boolean isTableEnabled() {
-		return tableEnabled;
+	public HudMode getTableMode() {
+		return tableMode;
 	}
 
-	public void setTableEnabled(boolean value) {
-		this.tableEnabled = value;
-		configuration.get(CATEGORY_TABLE, "enabled", true).set(value);
+	public void setTableMode(HudMode value) {
+		this.tableMode = value;
+		configuration.get(CATEGORY_TABLE, "mode", HudMode.TOGGLE.name()).set(value.name());
 		configuration.save();
 	}
 
