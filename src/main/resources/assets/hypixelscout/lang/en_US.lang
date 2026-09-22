@@ -1,4 +1,18 @@
 key.category.hypixelscout=Hypixel Scout
+
+key.hypixelscout.lobby=Lobby stats screen
+key.hypixelscout.settings=Settings screen
+key.hypixelscout.profileTarget=Profile of the player you are looking at
+key.hypixelscout.toggleTable=Toggle the stats table
+key.hypixelscout.toggleTab=Toggle stats in the tab list
+key.hypixelscout.toggleNametags=Toggle stars on nametags
+key.hypixelscout.toggleTooltip=Toggle the look tooltip
+key.hypixelscout.toggleChatHover=Toggle stats on chat names
+key.hypixelscout.toggleNickAlert=Toggle the nick alert
+key.hypixelscout.cycleSort=Change what the table sorts by
+key.hypixelscout.partyReport=Send the enemy team report to party chat
+key.hypixelscout.refresh=Look everybody up again
+
 key.hypixelscout.queue1=Quick queue 1
 key.hypixelscout.queue2=Quick queue 2
 key.hypixelscout.queue3=Quick queue 3
@@ -8,5 +22,4 @@ key.hypixelscout.queue6=Quick queue 6
 key.hypixelscout.queue7=Quick queue 7
 key.hypixelscout.queue8=Quick queue 8
 key.hypixelscout.queue9=Quick queue 9
-key.hypixelscout.queueRandom=Quick queue (random)
-key.hypixelscout.lobby=Open lobby stats
+key.hypixelscout.queueRandom=Quick queue (random mode)

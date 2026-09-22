@@ -36,6 +36,16 @@ profiles, read from the official Hypixel API with your own key.
 Everything else is under `/scout config`, **Mods → Hypixel Scout → Config**, the Settings button on
 the lobby screen, or in `config/hypixelscout.cfg`.
 
+## Hotkeys
+
+Every function has a binding under **Options → Controls → Hypixel Scout**: the lobby and profile
+screens, the settings, each of the five display features, the sort order, the party report, a
+refresh, the nine queue slots and the random one.
+
+Only the lobby screen (`L`) and the queue slots (numpad) come bound. The rest is deliberately left
+free — vanilla, Forge and Lunar have taken the comfortable keys already, and a mod should not
+quietly claim a dozen more.
+
 ## Commands
 
 | Command | What it does |

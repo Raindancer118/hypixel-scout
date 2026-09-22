@@ -16,6 +16,7 @@ import de.raindancer118.hypixelscout.mc.RosterTracker;
 import de.raindancer118.hypixelscout.mc.ScoutAlerts;
 import de.raindancer118.hypixelscout.mc.ScoutCommand;
 import de.raindancer118.hypixelscout.mc.ScoutConfig;
+import de.raindancer118.hypixelscout.mc.ScoutKeys;
 import de.raindancer118.hypixelscout.mc.StatsOverlay;
 import de.raindancer118.hypixelscout.mc.TabStatsOverlay;
 import net.minecraft.client.Minecraft;
@@ -90,9 +91,10 @@ public final class HypixelScout {
 		MinecraftForge.EVENT_BUS.register(new ChatHover(roster, stats, config));
 		MinecraftForge.EVENT_BUS.register(partyReport);
 
-		QuickQueue queue = new QuickQueue(this, config);
-		queue.register();
-		MinecraftForge.EVENT_BUS.register(queue);
+		QuickQueue queue = new QuickQueue(config);
+		ScoutKeys keys = new ScoutKeys(this, config, queue);
+		keys.register();
+		MinecraftForge.EVENT_BUS.register(keys);
 
 		ClientCommandHandler.instance.registerCommand(new ScoutCommand(this));
 

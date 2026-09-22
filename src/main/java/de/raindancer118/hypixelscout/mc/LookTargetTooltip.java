@@ -58,7 +58,8 @@ public final class LookTargetTooltip extends Gui {
 			return;
 		}
 
-		EntityPlayer target = pick(mc, event.partialTicks);
+		EntityPlayer target = pick(config.getLookCosine(), config.isLookThroughWalls(),
+				event.partialTicks);
 		if (target == null) {
 			return;
 		}
@@ -80,16 +81,27 @@ public final class LookTargetTooltip extends Gui {
 		draw(mc, lines);
 	}
 
+	/** The same pick as the tooltip's, for the key that opens a profile of whoever you are aiming at. */
+	public static EntityPlayer pickTarget(double minimumAlignment, boolean throughWalls) {
+		return pick(minimumAlignment, throughWalls, 1.0f);
+	}
+
 	/**
-	 * The player closest to the centre of the screen who is both inside the configured cone and
-	 * actually visible.
+	 * The player closest to the centre of the screen who is both inside the configured cone and,
+	 * unless that was switched off, actually visible.
 	 */
-	private EntityPlayer pick(Minecraft mc, float partialTicks) {
+	private static EntityPlayer pick(double minimumAlignment, boolean throughWalls,
+			float partialTicks) {
+		Minecraft mc = Minecraft.getMinecraft();
 		EntityPlayerSP self = mc.thePlayer;
+		if (self == null || mc.theWorld == null) {
+			return null;
+		}
+
 		Vec3 eyes = self.getPositionEyes(partialTicks);
 		Vec3 look = self.getLook(partialTicks);
 
-		double bestAlignment = config.getLookCosine();
+		double bestAlignment = minimumAlignment;
 		EntityPlayer best = null;
 
 		for (Object each : mc.theWorld.playerEntities) {
@@ -104,7 +116,8 @@ public final class LookTargetTooltip extends Gui {
 					look.xCoord, look.yCoord, look.zCoord,
 					candidate.posX, targetY, candidate.posZ);
 
-			if (alignment > bestAlignment && hasLineOfSight(mc, eyes, candidate, targetY)) {
+			if (alignment > bestAlignment
+					&& (throughWalls || hasLineOfSight(mc, eyes, candidate, targetY))) {
 				bestAlignment = alignment;
 				best = candidate;
 			}
@@ -117,7 +130,7 @@ public final class LookTargetTooltip extends Gui {
 	 * Whether anything solid stands in the way. {@code rayTraceBlocks} stops at the first block it
 	 * hits, so a miss — a null result — is exactly the clear line this needs.
 	 */
-	private boolean hasLineOfSight(Minecraft mc, Vec3 eyes, EntityPlayer target, double targetY) {
+	private static boolean hasLineOfSight(Minecraft mc, Vec3 eyes, EntityPlayer target, double targetY) {
 		Vec3 to = new Vec3(target.posX, targetY, target.posZ);
 		// Non-solid blocks are not obstacles: glass panes, ladders and beds should not hide anyone,
 		// and liquids are ignored for the same reason.

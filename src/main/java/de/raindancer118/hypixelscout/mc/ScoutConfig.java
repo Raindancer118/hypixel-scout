@@ -193,6 +193,12 @@ public final class ScoutConfig {
 		return tableSort;
 	}
 
+	public void setTableSort(SortMode value) {
+		this.tableSort = value;
+		configuration.get(CATEGORY_TABLE, "sort", SortMode.STARS.name()).set(value.name());
+		configuration.save();
+	}
+
 	public boolean isShowAccountAge() {
 		return showAccountAge;
 	}
@@ -217,8 +223,20 @@ public final class ScoutConfig {
 		return tabStatsEnabled;
 	}
 
+	public void setTabStatsEnabled(boolean value) {
+		this.tabStatsEnabled = value;
+		configuration.get(CATEGORY_TAB, "enabled", false).set(value);
+		configuration.save();
+	}
+
 	public boolean isNametagStars() {
 		return nametagStars;
+	}
+
+	public void setNametagStars(boolean value) {
+		this.nametagStars = value;
+		configuration.get(CATEGORY_NAMETAG, "stars", false).set(value);
+		configuration.save();
 	}
 
 	public boolean isNametagFkdr() {
@@ -252,8 +270,20 @@ public final class ScoutConfig {
 		return chatHoverEnabled;
 	}
 
+	public void setChatHoverEnabled(boolean value) {
+		this.chatHoverEnabled = value;
+		configuration.get(CATEGORY_ALERTS, "chatHover", true).set(value);
+		configuration.save();
+	}
+
 	public boolean isNickAlert() {
 		return nickAlert;
+	}
+
+	public void setNickAlert(boolean value) {
+		this.nickAlert = value;
+		configuration.get(CATEGORY_ALERTS, "nickAlert", true).set(value);
+		configuration.save();
 	}
 
 	public boolean isStreakAlert() {
