@@ -27,9 +27,11 @@ public final class TeamReport {
 	private final long wins;
 	private final long losses;
 	private final List<Streak> streaks;
+	/** Everybody who could be looked up or turned out nicked; the unknown are only counted. */
+	private final List<PlayerStats> known;
 
 	private TeamReport(String team, int size, int unknown, int combinedStars, long finalKills,
-			long finalDeaths, long wins, long losses, List<Streak> streaks) {
+			long finalDeaths, long wins, long losses, List<Streak> streaks, List<PlayerStats> known) {
 		this.team = team;
 		this.size = size;
 		this.unknown = unknown;
@@ -39,6 +41,7 @@ public final class TeamReport {
 		this.wins = wins;
 		this.losses = losses;
 		this.streaks = streaks;
+		this.known = known;
 	}
 
 	public static TeamReport of(String team, Collection<PlayerStats> members) {
@@ -50,9 +53,14 @@ public final class TeamReport {
 		long wins = 0;
 		long losses = 0;
 		List<Streak> streaks = new ArrayList<Streak>();
+		List<PlayerStats> known = new ArrayList<PlayerStats>();
 
 		for (PlayerStats member : members) {
 			size++;
+
+			if (member != null) {
+				known.add(member);
+			}
 
 			if (member == null || member.isNicked()) {
 				unknown++;
@@ -71,7 +79,7 @@ public final class TeamReport {
 		}
 
 		return new TeamReport(team, size, unknown, stars, finalKills, finalDeaths, wins, losses,
-				streaks);
+				streaks, known);
 	}
 
 	public String getTeam() {
@@ -140,6 +148,88 @@ public final class TeamReport {
 		// can read at a glance; the streak list is what gives way rather than the numbers.
 		return message.length() <= 100 ? message.toString()
 				: message.substring(0, 100).trim();
+	}
+
+	/**
+	 * The team as a threat, for team or party chat: its worst threat level, then every player most
+	 * dangerous first with their star and FKDR, and anybody on a long winstreak marked.
+	 *
+	 * <p>Plain ASCII — Hypixel's chat drops some symbols — and at most 100 characters; players who do
+	 * not fit are counted at the end rather than cut off mid-name.
+	 */
+	public String toThreatMessage(int streakThreshold) {
+		List<PlayerStats> ordered = new ArrayList<PlayerStats>(known);
+		ordered.sort((left, right) -> {
+			if (left.isNicked() != right.isNicked()) {
+				return left.isNicked() ? 1 : -1;
+			}
+			return Double.compare(Threat.index(right), Threat.index(left));
+		});
+
+		Threat worst = Threat.UNKNOWN;
+		for (PlayerStats member : known) {
+			Threat threat = Threat.of(member);
+			if (!member.isNicked() && threat.compareTo(worst) > 0) {
+				worst = threat;
+			}
+		}
+
+		String head = team + (worst == Threat.UNKNOWN ? "" : " " + worst.label()) + ": ";
+		String tail = unknown - countNicked() > 0 ? (unknown - countNicked()) + " unknown" : "";
+
+		List<String> parts = new ArrayList<String>();
+		for (PlayerStats member : ordered) {
+			parts.add(describe(member, streakThreshold));
+		}
+
+		// Everybody who fits, then a count of who did not.
+		StringBuilder line = new StringBuilder(head);
+		int shown = 0;
+		for (String part : parts) {
+			int left = parts.size() - shown - 1;
+			String ending = left > 0 ? ", +" + left + " more" : tail.isEmpty() ? "" : ", " + tail;
+			String separator = shown == 0 ? "" : ", ";
+
+			if (line.length() + separator.length() + part.length() + ending.length() > MAX_CHAT) {
+				break;
+			}
+
+			line.append(separator).append(part);
+			shown++;
+		}
+
+		int left = parts.size() - shown;
+		if (left > 0) {
+			line.append(shown == 0 ? "" : ", ").append('+').append(left).append(" more");
+		} else if (!tail.isEmpty()) {
+			line.append(shown == 0 ? "" : ", ").append(tail);
+		}
+
+		return line.toString();
+	}
+
+	/** The longest line the report puts into chat. */
+	private static final int MAX_CHAT = 100;
+
+	private int countNicked() {
+		int nicked = 0;
+		for (PlayerStats member : known) {
+			if (member.isNicked()) {
+				nicked++;
+			}
+		}
+		return nicked;
+	}
+
+	private static String describe(PlayerStats member, int streakThreshold) {
+		if (member.isNicked()) {
+			return member.getName() + " NICK";
+		}
+
+		String text = member.getName() + " " + member.getStars() + "* "
+				+ String.format(Locale.ROOT, "%.1f", Double.valueOf(member.getFkdr()));
+		Integer streak = member.getWinstreak();
+		return streak != null && streak.intValue() > streakThreshold ? text + " WS" + streak : text;
 	}
 
 	private static double ratio(long top, long bottom) {

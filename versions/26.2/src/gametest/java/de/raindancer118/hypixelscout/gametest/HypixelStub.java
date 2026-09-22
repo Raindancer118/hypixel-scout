@@ -33,7 +33,11 @@ final class HypixelStub implements AutoCloseable {
 		server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
 
 		server.createContext("/v2/player", exchange -> {
-			playerRequests.incrementAndGet();
+			int made = playerRequests.incrementAndGet();
+			// Answering like a production key: its budget, and what is left of it.
+			exchange.getResponseHeaders().add("RateLimit-Limit", "600");
+			exchange.getResponseHeaders().add("RateLimit-Remaining", String.valueOf(600 - made));
+			exchange.getResponseHeaders().add("RateLimit-Reset", "240");
 			String query = exchange.getRequestURI().getQuery();
 			String uuid = query.substring(query.indexOf("uuid=") + 5).toLowerCase(Locale.ROOT);
 

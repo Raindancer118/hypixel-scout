@@ -63,6 +63,19 @@ public final class BedwarsModes {
 		return words(name);
 	}
 
+	/**
+	 * Whether a mode puts players in teams. In Solo there is nobody to report to, and the chat that
+	 * would be team chat anywhere else goes to the whole lobby.
+	 */
+	public static boolean hasTeammates(String mode) {
+		if (mode == null || mode.isBlank()) {
+			return false;
+		}
+
+		String name = mode.trim().toUpperCase(Locale.ROOT).replaceFirst("^BEDWARS_", "");
+		return !name.equals("EIGHT_ONE") && !name.startsWith("EIGHT_ONE_");
+	}
+
 	/** {@code CASTLE} → {@code Castle}, {@code LUCKY_V2} → {@code Lucky V2}. */
 	private static String words(String snake) {
 		StringBuilder out = new StringBuilder();

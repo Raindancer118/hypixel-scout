@@ -35,4 +35,13 @@ class BedwarsModesTest {
 	void anEmptySlotIsNamedAsSuch() {
 		assertThat(BedwarsModes.shortName("")).isEmpty();
 	}
+
+	@Test
+	void soloHasNoTeamChatToReportInto() {
+		assertThat(BedwarsModes.hasTeammates("BEDWARS_EIGHT_ONE")).isFalse();
+		assertThat(BedwarsModes.hasTeammates("BEDWARS_EIGHT_ONE_RUSH")).isFalse();
+		assertThat(BedwarsModes.hasTeammates("BEDWARS_EIGHT_TWO")).isTrue();
+		assertThat(BedwarsModes.hasTeammates("BEDWARS_FOUR_FOUR")).isTrue();
+		assertThat(BedwarsModes.hasTeammates(null)).isFalse();
+	}
 }

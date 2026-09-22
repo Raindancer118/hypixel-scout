@@ -6,6 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import de.raindancer118.hypixelscout.core.HypixelClient;
 import de.raindancer118.hypixelscout.core.KeyCheck;
 import de.raindancer118.hypixelscout.core.Roster;
+import de.raindancer118.hypixelscout.game.PartyReport;
 import de.raindancer118.hypixelscout.ui.Chat;
 import de.raindancer118.hypixelscout.ui.screen.ScoutScreen;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -56,7 +57,11 @@ public final class ScoutCommands {
 					return 1;
 				}))
 				.then(ClientCommands.literal("party").executes(context -> {
-					mod.partyReport().send();
+					mod.partyReport().send(PartyReport.Channel.PARTY);
+					return 1;
+				}))
+				.then(ClientCommands.literal("team").executes(context -> {
+					mod.partyReport().send(PartyReport.Channel.TEAM);
 					return 1;
 				}))
 				.then(ClientCommands.literal("refresh").executes(context -> {
@@ -116,7 +121,7 @@ public final class ScoutCommands {
 		source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.status.key",
 				Component.translatable(client.hasApiKey() ? "message.hypixelscout.status.set"
 						: "message.hypixelscout.status.missing"),
-				client.getLimiter().remaining())));
+				client.getLimiter().remaining(), client.getLimiter().limit())));
 		source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.status.game",
 				Component.translatable(mod.isModApiPresent() ? "message.hypixelscout.status.connected"
 						: "message.hypixelscout.status.missing"),

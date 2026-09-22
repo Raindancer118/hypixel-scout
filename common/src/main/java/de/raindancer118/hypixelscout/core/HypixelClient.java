@@ -90,6 +90,7 @@ public final class HypixelClient implements StatsSource {
 			connection.setReadTimeout(TIMEOUT_MILLIS);
 
 			int status = connection.getResponseCode();
+			observeRateLimit(connection);
 			// Past 399 the body is only on the error stream; asking for the normal one throws and
 			// would replace Hypixel's explanation with an IOException.
 			InputStream stream = status >= 400
@@ -110,6 +111,34 @@ public final class HypixelClient implements StatsSource {
 			if (connection != null) {
 				connection.disconnect();
 			}
+		}
+	}
+
+	/**
+	 * Hands Hypixel's own count to the limiter. Sent with every answer, a 429 included, and the only
+	 * source for a production key's larger budget or for requests another program made on the key.
+	 */
+	private void observeRateLimit(HttpURLConnection connection) {
+		int reportedLimit = header(connection, "RateLimit-Limit");
+		int reportedRemaining = header(connection, "RateLimit-Remaining");
+		int reset = header(connection, "RateLimit-Reset");
+
+		if (reportedLimit >= 0 || reportedRemaining >= 0) {
+			limiter.observe(reportedLimit, reportedRemaining, reset);
+		}
+	}
+
+	/** A numeric header, or {@code -1} when it is missing or not a number. */
+	private static int header(HttpURLConnection connection, String name) {
+		String value = connection.getHeaderField(name);
+		if (value == null) {
+			return -1;
+		}
+
+		try {
+			return Integer.parseInt(value.trim());
+		} catch (NumberFormatException e) {
+			return -1;
 		}
 	}
 

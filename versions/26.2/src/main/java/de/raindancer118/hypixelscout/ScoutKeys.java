@@ -3,6 +3,7 @@ package de.raindancer118.hypixelscout;
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.SortMode;
 import de.raindancer118.hypixelscout.game.LookTarget;
+import de.raindancer118.hypixelscout.game.PartyReport;
 import de.raindancer118.hypixelscout.ui.Chat;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
@@ -73,7 +74,8 @@ public final class ScoutKeys {
 					Component.translatable("message.hypixelscout.sort." + next.name().toLowerCase(Locale.ROOT))));
 		});
 
-		add("party_report", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().send());
+		add("party_report", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().send(PartyReport.Channel.PARTY));
+		add("team_report", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().send(PartyReport.Channel.TEAM));
 		add("refresh", GLFW.GLFW_KEY_UNKNOWN, () -> {
 			mod.refresh();
 			Chat.sayTranslated("message.hypixelscout.refreshed");
@@ -115,8 +117,8 @@ public final class ScoutKeys {
 
 	/** The bindings the mod's own settings offer to change, in the order they are shown. */
 	public List<KeyMapping> settingsMappings() {
-		List<String> shown = List.of("open", "peek", "table", "profile_target", "party_report", "move_table",
-				"refresh", "settings");
+		List<String> shown = List.of("open", "peek", "table", "profile_target", "team_report", "party_report",
+				"move_table", "refresh");
 		return shown.stream()
 				.map(name -> "key.hypixelscout." + name)
 				.map(id -> actions.stream().map(Action::mapping).filter(m -> m.getName().equals(id)).findFirst()

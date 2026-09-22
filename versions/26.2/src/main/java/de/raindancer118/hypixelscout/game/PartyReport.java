@@ -1,6 +1,7 @@
 package de.raindancer118.hypixelscout.game;
 
 import de.raindancer118.hypixelscout.config.ScoutSettings;
+import de.raindancer118.hypixelscout.core.BedwarsModes;
 import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.core.StatsService;
@@ -18,22 +19,35 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * Puts the enemy teams' combined numbers into party chat, one message per team.
+ * Puts the enemy teams' threats into team chat or party chat, one line per team.
  *
  * <p>Only ever when the player asks. Sending this by itself when a game starts would be a chat
  * macro, which Hypixel bans people for.
  *
- * <p>One message a second rather than all at once: Hypixel's anti-spam swallows a burst, and a
- * swallowed report is worse than a slow one.
+ * <p>The lines go out one at a time: Hypixel's anti-spam swallows a burst, and players without a
+ * rank may only chat every few seconds, so their report is paced slower.
  */
 public final class PartyReport {
-	private static final int TICKS_BETWEEN_MESSAGES = 20;
+	/** Where a report goes. */
+	public enum Channel {
+		/** {@code /pc}: the party, wherever its members are. */
+		PARTY,
+		/** Ordinary game chat, which in a team mode reaches only the own team. */
+		TEAM
+	}
+
+	private record Line(Channel channel, String text) {
+	}
+
+	private static final int TICKS_RANKED = 22;
+	/** Hypixel lets players without a rank chat once every three seconds. */
+	private static final int TICKS_UNRANKED = 64;
 
 	private final Roster roster;
 	private final StatsService stats;
 	private final Supplier<ScoutSettings> settings;
 
-	private final Deque<String> pending = new ArrayDeque<>();
+	private final Deque<Line> pending = new ArrayDeque<>();
 	private int cooldown;
 
 	public PartyReport(Roster roster, StatsService stats, Supplier<ScoutSettings> settings) {
@@ -61,15 +75,29 @@ public final class PartyReport {
 
 		List<TeamReport> reports = new ArrayList<>();
 		byTeam.forEach((team, members) -> reports.add(TeamReport.of(team, members)));
-		reports.sort((left, right) -> Double.compare(right.getCombinedFkdr() * right.getCombinedStars(),
-				left.getCombinedFkdr() * left.getCombinedStars()));
+		reports.sort((left, right) -> Double.compare(danger(right), danger(left)));
 		return reports;
 	}
 
-	/** Queues the report and says in chat what is about to be sent. */
-	public void send() {
+	private static double danger(TeamReport report) {
+		return report.getCombinedFkdr() * report.getCombinedStars();
+	}
+
+	/** Whether a report into this channel makes sense right now — the buttons grey out if not. */
+	public boolean canSend(Channel channel) {
+		return roster.isInGame() && (channel != Channel.TEAM || BedwarsModes.hasTeammates(roster.mode()));
+	}
+
+	/** Queues the report and says in the player's own chat what is about to be sent. */
+	public void send(Channel channel) {
 		if (!roster.isInGame()) {
 			Chat.sayTranslated("message.hypixelscout.party.not_in_game");
+			return;
+		}
+
+		if (channel == Channel.TEAM && !BedwarsModes.hasTeammates(roster.mode())) {
+			// Team chat in Solo is everybody's chat; the report is not for the enemies to read.
+			Chat.sayTranslated("message.hypixelscout.report.solo");
 			return;
 		}
 
@@ -79,9 +107,17 @@ public final class PartyReport {
 			return;
 		}
 
+		// A second press replaces the first report rather than queueing a duplicate behind it.
+		pending.clear();
 		int threshold = settings.get().alerts.streakThreshold;
-		reports.forEach(report -> pending.add(report.toChatMessage(threshold)));
-		Chat.sayTranslated("message.hypixelscout.party.sending", reports.size());
+		reports.forEach(report -> pending.add(new Line(channel, report.toThreatMessage(threshold))));
+		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.sending_team"
+				: "message.hypixelscout.party.sending", reports.size());
+	}
+
+	/** The lines the report is about to send, for the client game test. */
+	public List<String> pendingLines() {
+		return pending.stream().map(Line::text).toList();
 	}
 
 	public void tick(Minecraft client) {
@@ -99,8 +135,20 @@ public final class PartyReport {
 			return;
 		}
 
-		client.getConnection().sendCommand("pc " + pending.pollFirst());
-		cooldown = TICKS_BETWEEN_MESSAGES;
+		Line line = pending.pollFirst();
+		if (line.channel() == Channel.PARTY) {
+			client.getConnection().sendCommand("pc " + line.text());
+		} else {
+			client.getConnection().sendChat(line.text());
+		}
+
+		cooldown = ownRanked(client) ? TICKS_RANKED : TICKS_UNRANKED;
+	}
+
+	/** Players with any rank may chat quickly; without one, Hypixel enforces a pause. */
+	private boolean ownRanked(Minecraft client) {
+		PlayerStats own = stats.peek(client.player.getUUID());
+		return own != null && own.getRank() != null;
 	}
 
 	/** Drops anything still queued, for when the player leaves the game mid-report. */

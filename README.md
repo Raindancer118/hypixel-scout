@@ -9,7 +9,9 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   - **Game**: everybody in your match, with faces, team colours, rank, threat level and measured
     columns. Click a column heading to sort by it, click a player for their profile.
   - **Teams**: one card per team, the most dangerous first — members, combined stars/FKDR/WLR,
-    anybody on a long winstreak — and a button that reports the enemy teams to party chat.
+    anybody on a long winstreak — and buttons that report the enemy teams to **team chat** or
+    **party chat**: one line per team with its threat level and every player's star and FKDR,
+    e.g. `Yellow EXTREME: Sundial 1502* 13.8 WS104, Orchard 305* 1.6, Glimmer NICK`.
   - **Lookup**: any player at all, in your game or not, with your recent lookups as clickable faces.
   - **Queue**: the nine quick-queue slots, each bound to a key, set and played from here.
 - **Profile screen**: head, rank, level, karma, account age, last login, threat, and cards for
@@ -39,6 +41,10 @@ profiles, read from the official Hypixel API with your own key — in a real in-
    import `hypixel-scout-<version>-mc26.2.mrpack`, which brings all three.
 2. Start the game, press `K`, **Set the API key…**, paste it, **Test key**.
 
+Any key works — development, personal or production. The mod reads the budget Hypixel reports with
+every answer (`RateLimit-*` headers), so a production key's larger limit is used and requests made
+by other programs on the same key are counted. Development keys expire after three days.
+
 The key is stored in `config/hypixelscout.json`. It only reads public statistics and can be revoked
 at any time, but the file is still not one to show on stream — the settings screen masks the key.
 
@@ -58,7 +64,8 @@ free on purpose.
 | `/scout settings` | Opens the settings |
 | `/scout move` | Opens the table editor |
 | `/scout key <key>` / `/scout testkey` | Stores / checks your API key |
-| `/scout party` | Sends the enemy team report to party chat |
+| `/scout team` | Sends the enemy threat report to team chat (not in Solo) |
+| `/scout party` | Sends the enemy threat report to party chat |
 | `/scout table` | Toggles the table |
 | `/scout refresh` | Looks everybody up again |
 | `/scout status` | Key, request budget, Mod API and game state |
@@ -77,7 +84,9 @@ free on purpose.
 ## What it deliberately does not do
 
 - **No ban history.** The Hypixel API exposes no punishments per player.
-- **No automatic chat.** The party report and `/play` are only sent when you press for them.
+- **No automatic chat.** The team and party reports and `/play` are only sent when you press for
+  them — one line at a time, slower for players without a rank, whom Hypixel lets chat only every
+  few seconds.
 - **No wallhack.** The look tooltip needs line of sight and only sees players the server sent you.
 - **Nicked players stay unknown.** There is no profile behind a nick; the mod says so.
 

@@ -11,7 +11,7 @@ import de.raindancer118.hypixelscout.core.StatLines;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.core.TeamReport;
 import de.raindancer118.hypixelscout.core.Threat;
-import de.raindancer118.hypixelscout.game.QuickQueue;
+import de.raindancer118.hypixelscout.game.PartyReport;
 import de.raindancer118.hypixelscout.game.Teams;
 import de.raindancer118.hypixelscout.ui.Column;
 import de.raindancer118.hypixelscout.ui.Heads;
@@ -244,7 +244,8 @@ public final class ScoutScreen extends Screen {
 						+ I18n.get("message.hypixelscout.table.players", roster.members().size())
 				: "§7" + I18n.get("message.hypixelscout.game.not_in_game.short");
 		ScoutTheme.text(g, where, left, contentTop + 2, ScoutTheme.TEXT);
-		String budget = I18n.get("message.hypixelscout.game.budget", mod.client().getLimiter().remaining());
+		String budget = I18n.get("message.hypixelscout.game.budget", mod.client().getLimiter().remaining(),
+				mod.client().getLimiter().limit());
 		ScoutTheme.textRight(g, "§8" + budget, right - 76, contentTop + 2, ScoutTheme.TEXT);
 
 		if (gameList.children().isEmpty()) {
@@ -419,11 +420,16 @@ public final class ScoutScreen extends Screen {
 	// --- teams --------------------------------------------------------------------------------
 
 	private void initTeams() {
-		Button party = addRenderableWidget(Button.builder(
-						Component.translatable("message.hypixelscout.teams.party"), button -> mod.partyReport().send())
-				.tooltip(Tooltip.create(Component.translatable("message.hypixelscout.teams.party.tooltip")))
-				.bounds(contentLeft() + contentWidth() - 150, contentTop - 2, 150, 16).build());
-		party.active = roster.isInGame() && QuickQueue.onHypixel();
+		int right = contentLeft() + contentWidth();
+		for (PartyReport.Channel channel : PartyReport.Channel.values()) {
+			String key = "message.hypixelscout.teams." + channel.name().toLowerCase(Locale.ROOT);
+			Button report = addRenderableWidget(Button.builder(Component.translatable(key),
+							button -> mod.partyReport().send(channel))
+					.tooltip(Tooltip.create(Component.translatable(key + ".tooltip")))
+					.bounds(channel == PartyReport.Channel.TEAM ? right - 164 : right - 80, contentTop - 2, 80, 16)
+					.build());
+			report.active = mod.partyReport().canSend(channel);
+		}
 	}
 
 	private record TeamGroup(Teams.Team team, List<PlayerRow> rows, TeamReport report, boolean own) {
@@ -465,7 +471,8 @@ public final class ScoutScreen extends Screen {
 
 	private void drawTeams(GuiGraphicsExtractor g) {
 		int left = contentLeft();
-		ScoutTheme.text(g, "§7" + I18n.get("message.hypixelscout.teams.caption"), left, contentTop + 2, ScoutTheme.TEXT);
+		ScoutTheme.text(g, ScoutTheme.fit("§7" + I18n.get("message.hypixelscout.teams.caption"), contentWidth() - 172),
+				left, contentTop + 2, ScoutTheme.TEXT);
 
 		List<TeamGroup> groups = teamGroups();
 		if (groups.isEmpty()) {

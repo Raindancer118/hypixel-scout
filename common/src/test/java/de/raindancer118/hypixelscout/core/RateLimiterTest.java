@@ -59,4 +59,48 @@ class RateLimiterTest {
 		}
 		assertFalse(limiter.tryAcquire(), "the second batch still counts");
 	}
+
+	@Test
+	void aLargerLimitReportedByHypixelIsUsed() {
+		// A production key: Hypixel says 600, so the mod must not stop at its own guess of 300.
+		limiter.observe(600, 599, 300);
+
+		for (int i = 0; i < 599; i++) {
+			assertTrue(limiter.tryAcquire(), "request " + i + " is inside the reported budget");
+		}
+		assertFalse(limiter.tryAcquire());
+		assertEquals(600, limiter.limit());
+	}
+
+	@Test
+	void theServersCountWinsOverTheLocalOne() {
+		// Something else used the same key: Hypixel knows, the local counter does not.
+		limiter.observe(300, 2, 120);
+
+		assertEquals(2, limiter.remaining());
+		assertTrue(limiter.tryAcquire());
+		assertTrue(limiter.tryAcquire());
+		assertFalse(limiter.tryAcquire());
+		assertEquals(0, limiter.remaining());
+	}
+
+	@Test
+	void aSpentBudgetOpensAgainWhenHypixelSaidItWould() {
+		limiter.observe(300, 0, 42);
+		assertFalse(limiter.tryAcquire());
+		assertEquals(42_000L, limiter.millisUntilReset());
+
+		now.addAndGet(42_001L);
+
+		assertTrue(limiter.tryAcquire());
+		assertEquals(0L, limiter.millisUntilReset());
+	}
+
+	@Test
+	void nonsenseFromTheServerIsIgnored() {
+		limiter.observe(-1, -5, -3);
+
+		assertEquals(300, limiter.limit());
+		assertTrue(limiter.tryAcquire());
+	}
 }

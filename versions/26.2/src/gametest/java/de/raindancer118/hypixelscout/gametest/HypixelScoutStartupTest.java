@@ -137,6 +137,12 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.runOnClient(client -> mod.refresh());
 			context.waitFor(client -> members.stream().allMatch(member -> mod.stats().peek(member.uuid()) != null), 400);
 			context.runOnClient(client -> assertStats(mod, members));
+			context.runOnClient(client -> {
+				if (mod.client().getLimiter().limit() != 600) {
+					throw new AssertionError("The production key's limit was not taken from the answer: "
+							+ mod.client().getLimiter().limit());
+				}
+			});
 			int requests = stub.playerRequests.get();
 
 			context.waitTicks(10);
@@ -221,6 +227,22 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			});
 			context.takeScreenshot("scout_peek_released");
 			context.runOnClient(client -> mod.settings().nametag.stars = false);
+
+			// The threat report into team chat: one line per enemy team, most dangerous first.
+			context.runOnClient(client -> {
+				mod.partyReport().send(de.raindancer118.hypixelscout.game.PartyReport.Channel.TEAM);
+				List<String> lines = mod.partyReport().pendingLines();
+				if (lines.size() != 3 || !lines.getFirst().startsWith("Yellow EXTREME: Sundial 1502* 13.8 WS104")
+						|| lines.stream().anyMatch(line -> line.startsWith("Red"))) {
+					throw new AssertionError("Unexpected team report: " + lines);
+				}
+				if (lines.stream().noneMatch(line -> line.contains("Glimmer NICK"))) {
+					throw new AssertionError("The nick is missing from the report: " + lines);
+				}
+			});
+			context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
+			context.waitTicks(5);
+			context.takeScreenshot("scout_team_report_sent");
 
 			// Chat: the names in a line gain the stats on hover, and nothing else changes.
 			context.runOnClient(client -> assertChatHover(mod));

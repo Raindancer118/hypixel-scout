@@ -101,4 +101,38 @@ class TeamReportTest {
 		assertEquals(0.0, report.getCombinedFkdr(), 1e-9);
 		assertTrue(report.toChatMessage(50).contains("1 unknown"));
 	}
+
+	@Test
+	void theThreatLineNamesThePlayersMostDangerousFirst() {
+		TeamReport report = TeamReport.of("Yellow", Arrays.asList(
+				player("Orchard", 305, 3900, 2450, 980, 760, 4),
+				player("Sundial", 1502, 40_100, 2900, 7900, 1500, 104),
+				PlayerStats.nicked("Glimmer", UUID.randomUUID()),
+				null));
+
+		assertEquals("Yellow EXTREME: Sundial 1502* 13.8 WS104, Orchard 305* 1.6, Glimmer NICK, 1 unknown",
+				report.toThreatMessage(50));
+	}
+
+	@Test
+	void theThreatLineStaysInOneMessageAndSaysWhoWasLeftOut() {
+		java.util.List<PlayerStats> many = new java.util.ArrayList<>();
+		for (int i = 0; i < 8; i++) {
+			many.add(player("LongPlayerName" + i, 400 + i, 5000, 1000, 1000, 500, null));
+		}
+
+		String line = TeamReport.of("Red", many).toThreatMessage(50);
+
+		assertTrue(line.length() <= 100, line);
+		assertTrue(line.matches(".*, \\+\\d+ more$"), line);
+		assertTrue(line.startsWith("Red HIGH: LongPlayerName7 407* 5.0"), line);
+	}
+
+	@Test
+	void theThreatLineIsPlainAscii() {
+		String line = TeamReport.of("Aqua", Arrays.asList(player("Ashenvale", 1123, 24_310, 3020, 1, 1, 38)))
+				.toThreatMessage(10);
+
+		assertTrue(line.chars().allMatch(c -> c >= 32 && c < 127), line);
+	}
 }
