@@ -1,5 +1,6 @@
 package de.raindancer118.hypixelscout.mc;
 
+import de.raindancer118.hypixelscout.core.SortMode;
 import net.minecraftforge.common.config.Configuration;
 
 import java.io.File;
@@ -30,11 +31,6 @@ public final class ScoutConfig {
 	/** Nine slots, because nine is as many hotkeys as anybody will remember. */
 	public static final int QUEUE_SLOTS = 9;
 
-	/** How the table is ordered. */
-	public enum Sort {
-		STARS, FKDR, WLR, NAME
-	}
-
 	private final Configuration configuration;
 
 	private String apiKey;
@@ -42,7 +38,7 @@ public final class ScoutConfig {
 	private boolean tableEnabled;
 	private int tableX;
 	private int tableY;
-	private Sort tableSort;
+	private SortMode tableSort;
 	private boolean showAccountAge;
 	private boolean showWinstreak;
 	private boolean showWlr;
@@ -93,7 +89,8 @@ public final class ScoutConfig {
 				"Distance of the table from the left edge, in scaled pixels.");
 		tableY = configuration.getInt("y", CATEGORY_TABLE, 4, 0, 4000,
 				"Distance of the table from the top edge, in scaled pixels.");
-		tableSort = sort(configuration.getString("sort", CATEGORY_TABLE, Sort.STARS.name(),
+		tableSort = SortMode.parse(configuration.getString("sort", CATEGORY_TABLE,
+				SortMode.STARS.name(),
 				"What the table is sorted by, highest first.",
 				new String[] {"STARS", "FKDR", "WLR", "NAME"}));
 		showAccountAge = configuration.getBoolean("accountAge", CATEGORY_TABLE, true,
@@ -164,15 +161,6 @@ public final class ScoutConfig {
 		}
 	}
 
-	private static Sort sort(String value) {
-		try {
-			return Sort.valueOf(value.toUpperCase(java.util.Locale.ROOT));
-		} catch (IllegalArgumentException e) {
-			// A hand-edited file with a typo in it should not stop the mod from starting.
-			return Sort.STARS;
-		}
-	}
-
 	public String getApiKey() {
 		return apiKey;
 	}
@@ -201,7 +189,7 @@ public final class ScoutConfig {
 		return tableY;
 	}
 
-	public Sort getTableSort() {
+	public SortMode getTableSort() {
 		return tableSort;
 	}
 

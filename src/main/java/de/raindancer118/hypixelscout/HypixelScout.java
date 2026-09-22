@@ -90,7 +90,7 @@ public final class HypixelScout {
 		MinecraftForge.EVENT_BUS.register(new ChatHover(roster, stats, config));
 		MinecraftForge.EVENT_BUS.register(partyReport);
 
-		QuickQueue queue = new QuickQueue(config);
+		QuickQueue queue = new QuickQueue(this, config);
 		queue.register();
 		MinecraftForge.EVENT_BUS.register(queue);
 

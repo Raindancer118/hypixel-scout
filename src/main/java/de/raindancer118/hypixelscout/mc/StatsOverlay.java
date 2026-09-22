@@ -1,6 +1,8 @@
 package de.raindancer118.hypixelscout.mc;
 
 import de.raindancer118.hypixelscout.core.PlayerStats;
+import de.raindancer118.hypixelscout.core.SortMode;
+import de.raindancer118.hypixelscout.core.StatsSorting;
 import de.raindancer118.hypixelscout.core.StatsService;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -99,36 +101,6 @@ public final class StatsOverlay extends Gui {
 	}
 
 	private Comparator<RosterTracker.Member> comparator() {
-		final ScoutConfig.Sort sort = config.getTableSort();
-		final StatsService service = stats;
-
-		return new Comparator<RosterTracker.Member>() {
-			@Override
-			public int compare(RosterTracker.Member left, RosterTracker.Member right) {
-				if (sort == ScoutConfig.Sort.NAME) {
-					return left.getName().compareToIgnoreCase(right.getName());
-				}
-
-				return Double.compare(value(service, right, sort), value(service, left, sort));
-			}
-		};
-	}
-
-	/** An unknown player sorts to the bottom rather than jumping around as the answer arrives. */
-	private static double value(StatsService service, RosterTracker.Member member,
-			ScoutConfig.Sort sort) {
-		PlayerStats stats = service.peek(member.getUuid());
-		if (stats == null || stats.isNicked()) {
-			return -1.0;
-		}
-
-		switch (sort) {
-			case FKDR:
-				return stats.getFkdr();
-			case WLR:
-				return stats.getWlr();
-			default:
-				return stats.getStars();
-		}
+		return RosterSorting.comparator(stats, config.getTableSort());
 	}
 }

@@ -19,6 +19,9 @@ import java.util.Random;
  * <p>Each press sends one {@code /play} for one key press, which is what keeps this a shortcut
  * rather than automation: nothing here fires on its own, repeats, or reacts to the game.
  *
+ * <p>The same keyboard group also holds the key that opens the lobby list, so everything this mod
+ * binds sits together in the controls screen.
+ *
  * <p>Bedwars has no map picking of any kind — there is no command for it and no lobby setting — so
  * a slot is a mode and not a map.
  */
@@ -26,12 +29,15 @@ public final class QuickQueue {
 	private static final String CATEGORY = "key.category.hypixelscout";
 
 	private final ScoutConfig config;
+	private final HypixelScout scout;
 	private final Random random = new Random();
 
 	private final KeyBinding[] slots = new KeyBinding[ScoutConfig.QUEUE_SLOTS];
 	private KeyBinding randomSlot;
+	private KeyBinding lobbyScreen;
 
-	public QuickQueue(ScoutConfig config) {
+	public QuickQueue(HypixelScout scout, ScoutConfig config) {
+		this.scout = scout;
 		this.config = config;
 	}
 
@@ -51,6 +57,9 @@ public final class QuickQueue {
 
 		randomSlot = new KeyBinding("key.hypixelscout.queueRandom", Keyboard.KEY_NUMPAD0, CATEGORY);
 		ClientRegistry.registerKeyBinding(randomSlot);
+
+		lobbyScreen = new KeyBinding("key.hypixelscout.lobby", Keyboard.KEY_L, CATEGORY);
+		ClientRegistry.registerKeyBinding(lobbyScreen);
 	}
 
 	@SubscribeEvent
@@ -73,6 +82,11 @@ public final class QuickQueue {
 
 		if (randomSlot != null && randomSlot.isPressed()) {
 			queue(randomMode());
+		}
+
+		if (lobbyScreen != null && lobbyScreen.isPressed()) {
+			mc.displayGuiScreen(new LobbyScreen(scout.getStats(), scout.getMojang(),
+					scout.getRoster(), config));
 		}
 	}
 

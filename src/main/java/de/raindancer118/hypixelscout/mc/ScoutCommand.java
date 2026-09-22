@@ -34,7 +34,7 @@ public final class ScoutCommand extends CommandBase {
 
 	@Override
 	public String getCommandUsage(ICommandSender sender) {
-		return "/scout <player> | key <key> | party | table | status | reload";
+		return "/scout <player> | lobby | key <key> | party | table | status | reload";
 	}
 
 	@Override
@@ -64,6 +64,10 @@ public final class ScoutCommand extends CommandBase {
 
 		if ("key".equals(first)) {
 			setKey(args);
+			return;
+		}
+		if ("lobby".equals(first) || "list".equals(first)) {
+			openLobby();
 			return;
 		}
 		if ("party".equals(first)) {
@@ -156,6 +160,19 @@ public final class ScoutCommand extends CommandBase {
 			@Override
 			public void run() {
 				mc.displayGuiScreen(new ProfileScreen(stats, mojang, name, uuid));
+			}
+		});
+	}
+
+	/** The lobby list, opened on the next tick for the same reason the profile screen is. */
+	private void openLobby() {
+		final Minecraft mc = Minecraft.getMinecraft();
+
+		mc.addScheduledTask(new Runnable() {
+			@Override
+			public void run() {
+				mc.displayGuiScreen(new LobbyScreen(mod.getStats(), mod.getMojang(),
+						mod.getRoster(), mod.getConfig()));
 			}
 		});
 	}

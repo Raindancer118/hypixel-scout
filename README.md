@@ -11,6 +11,8 @@ profiles, read from the official Hypixel API with your own key.
 - **Look tooltip** showing the stats of whoever you are aiming at — across the map, but *not*
   through walls.
 - **Chat hover**: hovering a player's name shows their stats, clicking opens their profile.
+- **Lobby screen** (`L`, or `/scout lobby`) listing everybody in the game with a one-line summary;
+  clicking a row opens that player's full profile, escape goes back to the list.
 - **Profile screen** with the full record and a search box for any player, in or out of your game.
 - **Nick alert**: a chat line the moment somebody in your game turns out to be nicked.
 - **Winstreak alert** above a threshold you choose.
@@ -28,7 +30,8 @@ profiles, read from the official Hypixel API with your own key.
 
 1. Drop both jars into `mods/`.
 2. Start the game, join Hypixel.
-3. `/scout key <your-key>`
+3. `/scout key <your-key>` — or paste it into the field the lobby screen shows while no key is
+   set, or into `general.apiKey` in the config file.
 
 Everything else is under **Mods → Hypixel Scout → Config**, or in `config/hypixelscout.cfg`.
 
@@ -37,6 +40,7 @@ Everything else is under **Mods → Hypixel Scout → Config**, or in `config/hy
 | Command | What it does |
 | --- | --- |
 | `/scout` | Opens the profile screen with a search box |
+| `/scout lobby` | Lists everybody in the game; click a row for the details |
 | `/scout <player>` | Opens that player's profile |
 | `/scout key <key>` | Stores your API key |
 | `/scout party` | Sends the enemy team report to party chat |

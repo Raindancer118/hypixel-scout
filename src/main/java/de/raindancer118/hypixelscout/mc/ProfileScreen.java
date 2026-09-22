@@ -34,6 +34,8 @@ public final class ProfileScreen extends GuiScreen {
 
 	private final StatsService stats;
 	private final MojangClient mojang;
+	/** Where escape goes back to: the lobby list if that is what opened this, else the game. */
+	private final GuiScreen parent;
 
 	private GuiTextField search;
 
@@ -43,8 +45,14 @@ public final class ProfileScreen extends GuiScreen {
 	private volatile boolean searching;
 
 	public ProfileScreen(StatsService stats, MojangClient mojang, String name, UUID uuid) {
+		this(stats, mojang, name, uuid, null);
+	}
+
+	public ProfileScreen(StatsService stats, MojangClient mojang, String name, UUID uuid,
+			GuiScreen parent) {
 		this.stats = stats;
 		this.mojang = mojang;
+		this.parent = parent;
 		this.name = name;
 		this.uuid = uuid;
 
@@ -65,6 +73,10 @@ public final class ProfileScreen extends GuiScreen {
 
 		buttonList.clear();
 		buttonList.add(new GuiButton(1, left + WIDTH - 78, top + 6, 70, 18, "Look up"));
+
+		if (parent != null) {
+			buttonList.add(new GuiButton(2, left + 8, top + HEIGHT - 24, 60, 18, "Back"));
+		}
 	}
 
 	@Override
@@ -76,6 +88,11 @@ public final class ProfileScreen extends GuiScreen {
 	protected void actionPerformed(GuiButton button) {
 		if (button.id == 1) {
 			lookUp(search.getText().trim());
+			return;
+		}
+
+		if (button.id == 2) {
+			mc.displayGuiScreen(parent);
 		}
 	}
 
@@ -83,6 +100,12 @@ public final class ProfileScreen extends GuiScreen {
 	protected void keyTyped(char typed, int key) throws IOException {
 		if (key == 28 || key == 156) {
 			lookUp(search.getText().trim());
+			return;
+		}
+
+		// Escape returns to the list rather than all the way out, so a wrong click costs nothing.
+		if (key == 1 && parent != null) {
+			mc.displayGuiScreen(parent);
 			return;
 		}
 
