@@ -62,6 +62,7 @@ public final class LobbyScreen extends GuiScreen {
 		buttonList.clear();
 		buttonList.add(new GuiButton(1, left + WIDTH - 90, 14, 90, 18, "Sort: " + sort.name()));
 		buttonList.add(new GuiButton(2, left, height - 28, 70, 18, "Close"));
+		buttonList.add(new GuiButton(5, left + 74, height - 28, 70, 18, "Settings"));
 
 		if (!HypixelScout.instance.getClient().hasApiKey()) {
 			keyField = new GuiTextField(3, fontRendererObj, left, TOP + 24, WIDTH - 80, 18);
@@ -90,6 +91,12 @@ public final class LobbyScreen extends GuiScreen {
 
 		if (button.id == 4) {
 			saveKey();
+			return;
+		}
+
+		if (button.id == 5) {
+			// Handing this screen over as the parent: Done on the settings returns to the list.
+			mc.displayGuiScreen(new ScoutGuiFactory.ScoutConfigScreen(this));
 		}
 	}
 

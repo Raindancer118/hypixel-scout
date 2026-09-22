@@ -34,7 +34,7 @@ public final class ScoutCommand extends CommandBase {
 
 	@Override
 	public String getCommandUsage(ICommandSender sender) {
-		return "/scout <player> | lobby | key <key> | party | table | status | reload";
+		return "/scout <player> | lobby | config | key <key> | party | table | status | reload";
 	}
 
 	@Override
@@ -64,6 +64,10 @@ public final class ScoutCommand extends CommandBase {
 
 		if ("key".equals(first)) {
 			setKey(args);
+			return;
+		}
+		if ("config".equals(first) || "settings".equals(first)) {
+			openSettings();
 			return;
 		}
 		if ("lobby".equals(first) || "list".equals(first)) {
@@ -160,6 +164,21 @@ public final class ScoutCommand extends CommandBase {
 			@Override
 			public void run() {
 				mc.displayGuiScreen(new ProfileScreen(stats, mojang, name, uuid));
+			}
+		});
+	}
+
+	/**
+	 * The same settings screen the Mods menu opens, without going through the Mods menu. Its
+	 * parent is null, so Done closes it back into the game.
+	 */
+	private void openSettings() {
+		final Minecraft mc = Minecraft.getMinecraft();
+
+		mc.addScheduledTask(new Runnable() {
+			@Override
+			public void run() {
+				mc.displayGuiScreen(new ScoutGuiFactory.ScoutConfigScreen(null));
 			}
 		});
 	}

@@ -33,7 +33,8 @@ profiles, read from the official Hypixel API with your own key.
 3. `/scout key <your-key>` — or paste it into the field the lobby screen shows while no key is
    set, or into `general.apiKey` in the config file.
 
-Everything else is under **Mods → Hypixel Scout → Config**, or in `config/hypixelscout.cfg`.
+Everything else is under `/scout config`, **Mods → Hypixel Scout → Config**, the Settings button on
+the lobby screen, or in `config/hypixelscout.cfg`.
 
 ## Commands
 
@@ -42,6 +43,7 @@ Everything else is under **Mods → Hypixel Scout → Config**, or in `config/hy
 | `/scout` | Opens the profile screen with a search box |
 | `/scout lobby` | Lists everybody in the game; click a row for the details |
 | `/scout <player>` | Opens that player's profile |
+| `/scout config` | Opens the settings screen |
 | `/scout key <key>` | Stores your API key |
 | `/scout party` | Sends the enemy team report to party chat |
 | `/scout table` | Toggles the table |
