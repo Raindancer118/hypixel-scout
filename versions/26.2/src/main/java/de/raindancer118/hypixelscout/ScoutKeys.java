@@ -47,7 +47,7 @@ public final class ScoutKeys {
 		add("open", GLFW.GLFW_KEY_K, () -> HypixelScout.open(mod.scoutScreen(null)));
 		tableKey = add("table", GLFW.GLFW_KEY_Y, () -> mod.table().toggle());
 		// Held, not pressed: the stats are up exactly as long as the key is down.
-		peekKey = add("peek", GLFW.GLFW_KEY_G, () -> { });
+		peekKey = add("peek", GLFW.GLFW_KEY_R, () -> { });
 		add("settings", GLFW.GLFW_KEY_UNKNOWN, () -> HypixelScout.open(mod.settingsScreen(null)));
 		add("move_table", GLFW.GLFW_KEY_UNKNOWN, () -> HypixelScout.open(mod.tableEditor(null)));
 		// The profile of whoever is under the crosshair: the one lookup nobody can type fast enough.
@@ -111,6 +111,17 @@ public final class ScoutKeys {
 		// Hold mode needs the key's state, not its presses.
 		mod.table().setKeyHeld(tableKey.isDown());
 		mod.peek().setHeld(peekKey.isDown() && minecraft.gui.screen() == null);
+	}
+
+	/** The bindings the mod's own settings offer to change, in the order they are shown. */
+	public List<KeyMapping> settingsMappings() {
+		List<String> shown = List.of("open", "peek", "table", "profile_target", "party_report", "move_table",
+				"refresh", "settings");
+		return shown.stream()
+				.map(name -> "key.hypixelscout." + name)
+				.map(id -> actions.stream().map(Action::mapping).filter(m -> m.getName().equals(id)).findFirst()
+						.orElseThrow())
+				.toList();
 	}
 
 	/** The peek key itself, for the client game test to hold down. */

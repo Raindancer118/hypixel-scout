@@ -7,7 +7,13 @@ import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.KeyCheck;
 import de.raindancer118.hypixelscout.core.SortMode;
+import de.raindancer118.hypixelscout.ui.widget.KeyBindButton;
 import de.raindancer118.hypixelscout.ui.widget.SettingSlider;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -82,7 +88,7 @@ public final class SettingsScreen extends Screen {
 		}
 
 		tabBar = MenuTabBar.builder(tabManager, width)
-				.addTabs(new GeneralTab(), new TableTab(), new OverlaysTab(), new AlertsTab())
+				.addTabs(new GeneralTab(), new TableTab(), new OverlaysTab(), new AlertsTab(), new KeysTab())
 				.build();
 		addRenderableWidget(tabBar);
 
@@ -233,6 +239,76 @@ public final class SettingsScreen extends Screen {
 			rows.addChild(toggle("nametag_stars", settings().nametag.stars, value -> settings().nametag.stars = value));
 			rows.addChild(toggle("nametag_fkdr", settings().nametag.fkdr, value -> settings().nametag.fkdr = value));
 		}
+	}
+
+	/** Index of the keys tab, for whoever wants to open the screen right there. */
+	public static final int KEYS_TAB = 4;
+
+	/**
+	 * The bindings that matter mid-game, changeable without leaving for vanilla's controls — which
+	 * the button at the bottom still opens, for the queue slots and the toggles.
+	 */
+	private final class KeysTab extends SettingsTab {
+		KeysTab() {
+			super("keys");
+			keyButtons.clear();
+
+			for (KeyMapping mapping : mod.keys().settingsMappings()) {
+				String name = mapping.getName().substring("key.hypixelscout.".length());
+				keyButtons.add(rows.addChild(new KeyBindButton(NARROW, mapping,
+						Component.translatable("message.hypixelscout.settings.keys." + name),
+						SettingsScreen.this::listenWith)));
+			}
+
+			rows.addChild(Button.builder(Component.translatable("message.hypixelscout.settings.keys.reset"),
+					button -> {
+						for (KeyMapping mapping : mod.keys().settingsMappings()) {
+							mapping.setKey(mapping.getDefaultKey());
+						}
+						KeyMapping.resetMapping();
+						minecraft.options.save();
+						keyButtons.forEach(KeyBindButton::refresh);
+					}).width(NARROW).build());
+			rows.addChild(Button.builder(Component.translatable("message.hypixelscout.settings.keys.all"),
+					button -> minecraft.gui.setScreen(new KeyBindsScreen(SettingsScreen.this, minecraft.options)))
+					.width(NARROW).build());
+		}
+	}
+
+	private final java.util.List<KeyBindButton> keyButtons = new java.util.ArrayList<>();
+	private KeyBindButton listening;
+
+	private void listenWith(KeyBindButton button) {
+		if (listening != null && listening != button) {
+			listening.stopListening();
+		}
+		listening = button;
+	}
+
+	/** While a binding listens, the next key goes to it — Escape included, which then unbinds. */
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		if (listening != null) {
+			listening.bind(InputConstants.getKey(event));
+			listening = null;
+			keyButtons.forEach(KeyBindButton::refresh);
+			return true;
+		}
+
+		return super.keyPressed(event);
+	}
+
+	/** A mouse button can be bound too; side buttons are where a lot of people want this. */
+	@Override
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		if (listening != null) {
+			listening.bind(InputConstants.Type.MOUSE.getOrCreate(event.button()));
+			listening = null;
+			keyButtons.forEach(KeyBindButton::refresh);
+			return true;
+		}
+
+		return super.mouseClicked(event, doubleClick);
 	}
 
 	private final class AlertsTab extends SettingsTab {

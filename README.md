@@ -14,7 +14,7 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   - **Queue**: the nine quick-queue slots, each bound to a key, set and played from here.
 - **Profile screen**: head, rank, level, karma, account age, last login, threat, and cards for
   combat, games and beds, plus the per-game rates and linked socials.
-- **Peek** (hold `G`): while the key is down, the full profile of whoever you aim at — or, aiming
+- **Peek** (hold `R`, rebindable under **Settings → Keys**): while the key is down, the full profile of whoever you aim at — or, aiming
   at nobody, the whole game's table — drawn over the game. Let go and it is gone. Nothing pauses and
   the mouse stays with the camera, so you can keep moving while you look.
 - **Stats table** on the HUD (`Y`): a card you open and close, placed anywhere with the built-in
@@ -45,7 +45,7 @@ at any time, but the file is still not one to show on stream — the settings sc
 ## Hotkeys
 
 Everything has a binding under **Options → Controls → Hypixel Scout**. Only the Scout screen (`K`),
-the table (`Y`), peek (`G`, hold) and the queue slots (number pad, `0` for a random slot) come bound; the rest is left
+the table (`Y`), peek (`R`, hold) and the queue slots (number pad, `0` for a random slot) come bound; the rest is left
 free on purpose.
 
 ## Commands

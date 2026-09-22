@@ -79,7 +79,7 @@ class LanguageKeysTest {
 		for (String page : new String[] {"game", "teams", "lookup", "queue"}) {
 			used.add("message.hypixelscout.page." + page);
 		}
-		for (String tab : new String[] {"general", "table", "overlays", "alerts"}) {
+		for (String tab : new String[] {"general", "table", "overlays", "alerts", "keys"}) {
 			used.add("message.hypixelscout.settings.tab." + tab);
 		}
 		for (String toggle : new String[] {"hypixel_only", "group", "hide_own", "wlr", "winstreak", "beds", "age",

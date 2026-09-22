@@ -271,6 +271,42 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.waitTicks(3);
 			context.takeScreenshot("scout_profile_nick");
 
+			// Rebinding the peek key from the mod's own settings, the way a player would: click the
+			// binding, press the new key.
+			context.setScreen(() -> mod.settingsScreen(null).onTab(SettingsScreen.KEYS_TAB));
+			context.waitTicks(3);
+			context.takeScreenshot("scout_settings_keys");
+			clickKeyBinding(context, "Peek");
+			context.waitTicks(1);
+			context.takeScreenshot("scout_settings_keys_capturing");
+			context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_H);
+			context.waitTicks(2);
+			context.runOnClient(client -> {
+				if (!mod.keys().peekMapping().saveString().equals("key.keyboard.h")) {
+					throw new AssertionError("Peek key not rebound: " + mod.keys().peekMapping().saveString());
+				}
+			});
+			context.takeScreenshot("scout_settings_keys_rebound");
+			// Escape while capturing unbinds, as in vanilla's controls; then the default comes back.
+			clickKeyBinding(context, "Peek");
+			context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE);
+			context.waitTicks(2);
+			context.runOnClient(client -> {
+				if (!mod.keys().peekMapping().isUnbound()) {
+					throw new AssertionError("Escape did not unbind the peek key");
+				}
+				if (!(client.gui.screen() instanceof SettingsScreen)) {
+					throw new AssertionError("Escape while capturing closed the settings");
+				}
+			});
+			context.clickScreenButton("message.hypixelscout.settings.keys.reset");
+			context.waitTicks(2);
+			context.runOnClient(client -> {
+				if (!mod.keys().peekMapping().isDefault()) {
+					throw new AssertionError("Reset did not bring the default peek key back");
+				}
+			});
+
 			// Every settings tab, and the editor.
 			for (int tab = 0; tab < 4; tab++) {
 				int index = tab;
@@ -330,6 +366,24 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		}
 	}
 
+	/** Moves the real mouse onto the binding whose label starts with {@code label} and clicks it. */
+	private static void clickKeyBinding(ClientGameTestContext context, String label) {
+		double[] at = context.computeOnClient(client -> {
+			double scale = client.getWindow().getGuiScale();
+			for (var child : client.gui.screen().children()) {
+				if (child instanceof de.raindancer118.hypixelscout.ui.widget.KeyBindButton button
+						&& button.getMessage().getString().startsWith(label)) {
+					return new double[] {(button.getX() + button.getWidth() / 2.0) * scale,
+							(button.getY() + button.getHeight() / 2.0) * scale};
+				}
+			}
+			throw new AssertionError("No key binding labelled " + label);
+		});
+		context.getInput().setCursorPos(at[0], at[1]);
+		context.getInput().pressMouse(org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT);
+		context.waitTick();
+	}
+
 	private static void setUpTeams(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
 		for (String team : List.of("red", "blue", "green", "yellow")) {
 			singleplayer.getServer().runCommand("team add " + team);
@@ -347,6 +401,19 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		for (String expected : EXPECTED_KEYS) {
 			if (!registered.contains(expected)) {
 				throw new AssertionError("Keybind missing from the controls screen: " + expected);
+			}
+		}
+
+		// No default of ours may land on a key vanilla (or another mod) already uses by default.
+		for (KeyMapping ours : client.options.keyMappings) {
+			if (!ours.getName().startsWith("key.hypixelscout.") || ours.getDefaultKey().getValue() == -1) {
+				continue;
+			}
+			for (KeyMapping other : client.options.keyMappings) {
+				if (other != ours && !other.getName().startsWith("key.debug.")
+						&& other.getDefaultKey().equals(ours.getDefaultKey())) {
+					throw new AssertionError(ours.getName() + " defaults to the same key as " + other.getName());
+				}
 			}
 		}
 	}
