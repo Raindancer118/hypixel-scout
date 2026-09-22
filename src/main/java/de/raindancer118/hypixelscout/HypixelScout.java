@@ -114,7 +114,7 @@ public final class HypixelScout {
 	/** Leaving the server ends the game as surely as the location packet would. */
 	@SubscribeEvent
 	public void onDisconnect(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
-		roster.onLocationChanged(false);
+		roster.onLocationChanged(false, null, null);
 		alerts.reset();
 		partyReport.cancel();
 		stats.invalidate();

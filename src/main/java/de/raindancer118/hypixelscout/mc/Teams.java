@@ -48,6 +48,40 @@ public final class Teams {
 		return own != null && own.equals(teamOf(playerName));
 	}
 
+	/** The team's colour as an ARGB value, for the marker down the side of a row. */
+	public static int colourOf(String team) {
+		if (team == null) {
+			return 0xFF808080;
+		}
+
+		if ("RED".equals(team)) {
+			return 0xFFFF5555;
+		}
+		if ("BLUE".equals(team)) {
+			return 0xFF5555FF;
+		}
+		if ("GREEN".equals(team)) {
+			return 0xFF55FF55;
+		}
+		if ("YELLOW".equals(team)) {
+			return 0xFFFFFF55;
+		}
+		if ("AQUA".equals(team)) {
+			return 0xFF55FFFF;
+		}
+		if ("PINK".equals(team)) {
+			return 0xFFFF55FF;
+		}
+		if ("GRAY".equals(team)) {
+			return 0xFFAAAAAA;
+		}
+		if ("WHITE".equals(team)) {
+			return 0xFFFFFFFF;
+		}
+
+		return 0xFF808080;
+	}
+
 	/**
 	 * The colour code in the team's prefix names the team. The registered name is a Bedwars
 	 * internal such as {@code §c§lR}, which is no use in a chat message.

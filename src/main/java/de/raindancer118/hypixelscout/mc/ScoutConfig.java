@@ -43,6 +43,7 @@ public final class ScoutConfig {
 	private boolean showWinstreak;
 	private boolean showWlr;
 	private boolean hideOwnTeam;
+	private int tableMaxRows;
 	private boolean tableBackground;
 
 	private boolean tabStatsEnabled;
@@ -101,6 +102,9 @@ public final class ScoutConfig {
 				"Show the win/loss ratio next to the FKDR.");
 		hideOwnTeam = configuration.getBoolean("hideOwnTeam", CATEGORY_TABLE, false,
 				"Leave your own team out of the table and only list the enemies.");
+		tableMaxRows = configuration.getInt("maxRows", CATEGORY_TABLE, 16, 1, 100,
+				"At most this many players are listed. A Bedwars game holds sixteen; a larger "
+						+ "number only matters if you point this at something else.");
 		tableBackground = configuration.getBoolean("background", CATEGORY_TABLE, true,
 				"Draw a dark box behind the table so it stays readable on a bright map.");
 
@@ -213,6 +217,10 @@ public final class ScoutConfig {
 
 	public boolean isHideOwnTeam() {
 		return hideOwnTeam;
+	}
+
+	public int getTableMaxRows() {
+		return tableMaxRows;
 	}
 
 	public boolean isTableBackground() {

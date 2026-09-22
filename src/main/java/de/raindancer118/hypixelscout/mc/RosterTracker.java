@@ -40,6 +40,8 @@ public final class RosterTracker {
 	private int ticks;
 	/** Nothing is scanned or fetched anywhere but inside a Bedwars game. */
 	private volatile boolean inBedwars;
+	private volatile String mode;
+	private volatile String map;
 
 	public RosterTracker(StatsService stats) {
 		this.stats = stats;
@@ -67,12 +69,24 @@ public final class RosterTracker {
 		return inBedwars;
 	}
 
+	/** The Bedwars mode of the running game, or {@code null} outside one. */
+	public String getMode() {
+		return mode;
+	}
+
+	/** The map of the running game, or {@code null} outside one. */
+	public String getMap() {
+		return map;
+	}
+
 	/**
 	 * The player moved somewhere else on the network. Leaving a Bedwars game empties the table at
 	 * once rather than leaving the last lobby's numbers on screen in the next one.
 	 */
-	public void onLocationChanged(boolean bedwars) {
+	public void onLocationChanged(boolean bedwars, String mode, String map) {
 		this.inBedwars = bedwars;
+		this.mode = mode;
+		this.map = map;
 
 		if (!bedwars) {
 			clear();

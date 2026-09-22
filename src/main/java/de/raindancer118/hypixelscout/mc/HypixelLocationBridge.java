@@ -1,5 +1,6 @@
 package de.raindancer118.hypixelscout.mc;
 
+import de.raindancer118.hypixelscout.core.BedwarsLocation;
 import net.hypixel.data.type.GameType;
 import net.hypixel.data.type.ServerType;
 import net.hypixel.modapi.HypixelModAPI;
@@ -48,7 +49,9 @@ public final class HypixelLocationBridge {
 		this.mode = packet.getMode().orElse(null);
 		this.map = packet.getMap().orElse(null);
 
-		roster.onLocationChanged(bedwars);
+		// A lobby reports BEDWARS too, and listing the sixty people standing in it is worse than
+		// useless: the map is what tells a match apart from the crowd waiting for one.
+		roster.onLocationChanged(BedwarsLocation.isInGame(bedwars, mode, map), mode, map);
 	}
 
 	/** The Bedwars mode, such as {@code BEDWARS_FOUR_FOUR}, or {@code null} outside a game. */
