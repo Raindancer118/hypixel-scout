@@ -75,4 +75,22 @@ class StatFormatTest {
 		assertEquals("30d", StatFormat.age(1000 * day, 1030 * day));
 		assertEquals("?", StatFormat.age(0L, 1030 * day), "a hidden first login is not an age");
 	}
+
+	@Test
+	void colourMarksARusherByBedsPerGame() {
+		assertEquals("§a", StatFormat.bedsPerGameColour(0.3));
+		assertEquals("§e", StatFormat.bedsPerGameColour(0.8));
+		assertEquals("§6", StatFormat.bedsPerGameColour(1.2));
+		assertEquals("§c", StatFormat.bedsPerGameColour(1.7));
+		assertEquals("§4", StatFormat.bedsPerGameColour(2.5));
+	}
+
+	@Test
+	void colourMarksAFighterByKillsPerGame() {
+		assertEquals("§a", StatFormat.killsPerGameColour(1.0));
+		assertEquals("§e", StatFormat.killsPerGameColour(2.5));
+		assertEquals("§6", StatFormat.killsPerGameColour(4.0));
+		assertEquals("§c", StatFormat.killsPerGameColour(6.0));
+		assertEquals("§4", StatFormat.killsPerGameColour(9.0));
+	}
 }

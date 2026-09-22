@@ -61,6 +61,9 @@ public final class StatLines {
 				+ StatFormat.winstreak(stats.getWinstreak()) + "  §7Account §f"
 				+ StatFormat.age(stats.getFirstLogin(), System.currentTimeMillis()));
 
+		lines.add("§7Beds/game §f" + StatFormat.ratio(ProfileMetrics.bedsPerGame(stats))
+				+ "  §7Kills/game §f" + StatFormat.ratio(ProfileMetrics.killsPerGame(stats)));
+
 		Map<String, String> socials = stats.getSocials();
 		if (!socials.isEmpty()) {
 			StringBuilder line = new StringBuilder("§8");

@@ -43,6 +43,9 @@ class StatLinesTest {
 		assertThat(lines).extracting(StatLines::plain).anyMatch(line -> line.contains("WLR 3.00"));
 		assertThat(lines).extracting(StatLines::plain).anyMatch(line -> line.contains("Streak 12"));
 		assertThat(lines).extracting(StatLines::plain).anyMatch(line -> line.contains("discord"));
+		// 1200 beds and 5000 kills over 1200 games.
+		assertThat(lines).extracting(StatLines::plain)
+				.anyMatch(line -> line.contains("Beds/game 1.00") && line.contains("Kills/game 4.17"));
 	}
 
 	@Test

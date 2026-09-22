@@ -52,4 +52,18 @@ class ProfileMetricsTest {
 
 		assertEquals(2.0, ProfileMetrics.bedRatio(stats), 1e-9);
 	}
+
+	@Test
+	void givesBedsPerGame() {
+		PlayerStats stats = PlayerStats.builder("Someone", UUID.randomUUID())
+				.games(300, 200).beds(850, 0).build();
+
+		// Never having lost a bed must not zero the rate: that is a player who breaks them.
+		assertEquals(1.7, ProfileMetrics.bedsPerGame(stats), 1e-9);
+	}
+
+	@Test
+	void anEmptyProfileBreaksNoBedsPerGame() {
+		assertEquals(0.0, ProfileMetrics.bedsPerGame(PlayerStats.builder("New", UUID.randomUUID()).build()), 1e-9);
+	}
 }

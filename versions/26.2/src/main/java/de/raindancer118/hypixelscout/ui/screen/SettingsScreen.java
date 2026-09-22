@@ -206,6 +206,10 @@ public final class SettingsScreen extends Screen {
 			rows.addChild(toggle("wlr", settings().table.showWlr, value -> settings().table.showWlr = value));
 			rows.addChild(toggle("winstreak", settings().table.showWinstreak,
 					value -> settings().table.showWinstreak = value));
+			rows.addChild(toggle("beds_per_game", settings().table.showBedsPerGame,
+					value -> settings().table.showBedsPerGame = value));
+			rows.addChild(toggle("kills_per_game", settings().table.showKillsPerGame,
+					value -> settings().table.showKillsPerGame = value));
 			rows.addChild(toggle("beds", settings().table.showBeds, value -> settings().table.showBeds = value));
 			rows.addChild(toggle("age", settings().table.showAccountAge, value -> settings().table.showAccountAge = value));
 

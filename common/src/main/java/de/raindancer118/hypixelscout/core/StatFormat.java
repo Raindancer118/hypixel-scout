@@ -232,6 +232,33 @@ public final class StatFormat {
 		return "§4";
 	}
 
+	/** Beds broken per game: under half a bed is a player who rarely leaves, two is a rusher. */
+	public static String bedsPerGameColour(double perGame) {
+		return scale(perGame, 0.5, 1.0, 1.5, 2.0);
+	}
+
+	/** Kills per game: two is ordinary, eight means they spend the game in fights and win them. */
+	public static String killsPerGameColour(double perGame) {
+		return scale(perGame, 2.0, 3.0, 5.0, 8.0);
+	}
+
+	/** Green, yellow, gold, red, dark red, stepping at each bound. */
+	private static String scale(double value, double green, double yellow, double gold, double red) {
+		if (value < green) {
+			return "§a";
+		}
+		if (value < yellow) {
+			return "§e";
+		}
+		if (value < gold) {
+			return "§6";
+		}
+		if (value < red) {
+			return "§c";
+		}
+		return "§4";
+	}
+
 	public static String ratio(double value) {
 		return String.format(Locale.ROOT, "%.2f", Double.valueOf(value));
 	}

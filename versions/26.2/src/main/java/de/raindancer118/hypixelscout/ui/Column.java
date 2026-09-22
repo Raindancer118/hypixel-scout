@@ -2,6 +2,7 @@ package de.raindancer118.hypixelscout.ui;
 
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.PlayerStats;
+import de.raindancer118.hypixelscout.core.ProfileMetrics;
 import de.raindancer118.hypixelscout.core.SortMode;
 import de.raindancer118.hypixelscout.core.StatFormat;
 import de.raindancer118.hypixelscout.core.Threat;
@@ -23,6 +24,10 @@ public enum Column {
 			stats -> StatFormat.ratioColour(stats.getWlr()) + StatFormat.ratio(stats.getWlr())),
 	WINSTREAK("column.winstreak", null, settings -> settings.table.showWinstreak,
 			stats -> "§f" + StatFormat.winstreak(stats.getWinstreak())),
+	BEDS_PER_GAME("column.beds_per_game", null, settings -> settings.table.showBedsPerGame,
+			stats -> perGame(ProfileMetrics.bedsPerGame(stats), StatFormat.bedsPerGameColour(ProfileMetrics.bedsPerGame(stats)))),
+	KILLS_PER_GAME("column.kills_per_game", null, settings -> settings.table.showKillsPerGame,
+			stats -> perGame(ProfileMetrics.killsPerGame(stats), StatFormat.killsPerGameColour(ProfileMetrics.killsPerGame(stats)))),
 	BEDS("column.beds", null, settings -> settings.table.showBeds,
 			stats -> "§f" + StatFormat.count(stats.getBedsBroken())),
 	AGE("column.age", null, settings -> settings.table.showAccountAge,
@@ -39,6 +44,11 @@ public enum Column {
 		this.sort = sort;
 		this.enabled = enabled;
 		this.value = value;
+	}
+
+	/** One decimal: a per-game rate read at a glance, where the second one is noise. */
+	private static String perGame(double value, String colour) {
+		return colour + String.format(java.util.Locale.ROOT, "%.1f", value);
 	}
 
 	public String translationKey() {

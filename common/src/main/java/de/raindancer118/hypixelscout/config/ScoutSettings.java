@@ -82,6 +82,10 @@ public final class ScoutSettings {
 		public boolean showWlr = true;
 		public boolean showWinstreak = true;
 		public boolean showBeds = false;
+		/** Beds broken per game: whether this player rushes. */
+		public boolean showBedsPerGame = true;
+		/** Kills per game: whether this player fights. */
+		public boolean showKillsPerGame = true;
 		public boolean showAccountAge = false;
 	}
 

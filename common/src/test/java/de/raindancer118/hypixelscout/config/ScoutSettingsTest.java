@@ -30,6 +30,9 @@ class ScoutSettingsTest {
 		assertThat(settings.nametag.stars).isFalse();
 		assertThat(settings.queue.slots).hasSize(ScoutSettings.QUEUE_SLOTS);
 		assertThat(settings.queue.slots[0]).isEqualTo("bedwars_eight_one");
+		// The per-game rates are what tells a rusher from a camper, so they are on from the start.
+		assertThat(settings.table.showBedsPerGame).isTrue();
+		assertThat(settings.table.showKillsPerGame).isTrue();
 		assertThat(file).exists();
 	}
 

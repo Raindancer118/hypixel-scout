@@ -82,7 +82,7 @@ class LanguageKeysTest {
 		for (String tab : new String[] {"general", "table", "overlays", "alerts", "keys"}) {
 			used.add("message.hypixelscout.settings.tab." + tab);
 		}
-		for (String toggle : new String[] {"hypixel_only", "group", "hide_own", "wlr", "winstreak", "beds", "age",
+		for (String toggle : new String[] {"hypixel_only", "group", "hide_own", "wlr", "winstreak", "beds", "beds_per_game", "kills_per_game", "age",
 				"tooltip", "walls", "tab", "nametag_stars", "nametag_fkdr", "chat_hover", "nick_alert", "streak_alert"}) {
 			used.add("message.hypixelscout.settings." + toggle);
 			used.add("message.hypixelscout.settings." + toggle + ".tooltip");

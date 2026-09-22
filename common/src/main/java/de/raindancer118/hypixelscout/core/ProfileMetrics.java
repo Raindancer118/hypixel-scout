@@ -31,6 +31,12 @@ public final class ProfileMetrics {
 		return games == 0 ? 0.0 : (double) stats.getKills() / games;
 	}
 
+	/** How many beds they break in an average game: a rusher's number, not a camper's. */
+	public static double bedsPerGame(PlayerStats stats) {
+		int games = gamesPlayed(stats);
+		return games == 0 ? 0.0 : (double) stats.getBedsBroken() / games;
+	}
+
 	/** What a star is worth for this player — the tell for a boosted or bought account. */
 	public static double finalsPerStar(PlayerStats stats) {
 		return stats.getStars() == 0 ? 0.0 : (double) stats.getFinalKills() / stats.getStars();

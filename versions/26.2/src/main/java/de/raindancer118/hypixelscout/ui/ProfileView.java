@@ -131,8 +131,7 @@ public final class ProfileView {
 				"§f" + StatFormat.ratio(ProfileMetrics.finalsPerGame(p)) + "§7",
 				"§f" + StatFormat.ratio(ProfileMetrics.finalsPerStar(p)) + "§7",
 				"§f" + StatFormat.ratio(ProfileMetrics.killsPerGame(p)) + "§7",
-				"§f" + StatFormat.ratio(ProfileMetrics.bedRatio(p) == 0 ? 0 : (double) p.getBedsBroken()
-						/ Math.max(1, ProfileMetrics.gamesPlayed(p))) + "§7");
+				"§f" + StatFormat.ratio(ProfileMetrics.bedsPerGame(p)) + "§7");
 		ScoutTheme.textCentred(g, ScoutTheme.fit(pace, width - 14), left + width / 2, top + 6, ScoutTheme.TEXT);
 
 		if (!socials.isEmpty()) {
