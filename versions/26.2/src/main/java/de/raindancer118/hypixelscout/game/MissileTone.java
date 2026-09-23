@@ -36,7 +36,7 @@ final class MissileTone extends AbstractTickableSoundInstance {
 		this.delay = 0;
 		this.relative = true;
 		this.attenuation = SoundInstance.Attenuation.NONE;
-		this.volume = 0.9f;
+		this.volume = 0.7f;
 		follow();
 	}
 

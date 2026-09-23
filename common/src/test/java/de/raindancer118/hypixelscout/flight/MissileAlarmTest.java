@@ -17,17 +17,10 @@ class MissileAlarmTest {
 	}
 
 	@Test
-	void theToneStartsCalmAndRisesAsItClosesIn() {
-		assertThat(MissileAlarm.pitch(60)).isEqualTo(MissileAlarm.CALM_PITCH);
-		assertThat(MissileAlarm.pitch(MissileAlarm.CLOSING_TICKS)).isEqualTo(MissileAlarm.CALM_PITCH);
-		assertThat(MissileAlarm.pitch(10)).isGreaterThan(MissileAlarm.pitch(20));
-		assertThat(MissileAlarm.pitch(0)).isEqualTo(MissileAlarm.IMPACT_PITCH);
-	}
-
-	@Test
-	void thePitchStaysWithinWhatTheSoundEngineTakes() {
+	void theToneKeepsItsPitchLikeTheRealOne() {
+		// A real launch warning does not speed up as the missile closes in; neither does this one.
 		for (double ticks = -5; ticks <= 100; ticks += 0.5) {
-			assertThat(MissileAlarm.pitch(ticks)).isBetween(0.5f, 2.0f);
+			assertThat(MissileAlarm.pitch(ticks)).isEqualTo(1.0f);
 		}
 	}
 }

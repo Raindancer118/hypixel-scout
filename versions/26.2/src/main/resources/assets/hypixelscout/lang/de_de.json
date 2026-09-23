@@ -338,7 +338,7 @@
 	"message.hypixelscout.settings.incoming": "Anflug-Warnung",
 	"message.hypixelscout.settings.incoming.tooltip": "Eine Warnung über dem Fadenkreuz, solange ein Pfeil oder Feuerball dich gleich trifft, mit der Seite, von der er kommt, und der verbleibenden Zeit. Nicht für deine eigenen und nicht für einen, der innerhalb von 3 Blöcken direkt vor dir geworfen wird — den siehst du ohnehin.",
 	"message.hypixelscout.settings.incoming_sound": "Warnton",
-	"message.hypixelscout.settings.incoming_sound.tooltip": "Ein Raketenwarnton, der läuft, solange dich die Flugbahn oder die Explosion eines Feuerballs trifft, und in der letzten Sekunde höher wird; für Pfeile ein kurzer Ton.",
+	"message.hypixelscout.settings.incoming_sound.tooltip": "Eine Raketenstart-Warnung, das 455/555-Hz-Trillern der F/A-18, die läuft, solange dich die Flugbahn oder die Explosion eines Feuerballs trifft; für Pfeile ein kurzer Ton.",
 	"message.hypixelscout.settings.fireball_aim": "Feuerball-Ziellinie",
 	"message.hypixelscout.settings.fireball_aim.tooltip": "Solange du eine Feuerkugel hältst: die Linie, die dein Feuerball fliegen würde, wenn du ihn jetzt wirfst, und die Stelle, die er treffen würde.",
 	"message.hypixelscout.settings.arrows": "Pfeile",
