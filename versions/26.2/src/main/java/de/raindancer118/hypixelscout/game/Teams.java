@@ -1,5 +1,6 @@
 package de.raindancer118.hypixelscout.game;
 
+import de.raindancer118.hypixelscout.core.Allegiance;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
@@ -50,6 +51,14 @@ public final class Teams {
 	public static boolean isOwnTeam(String playerName) {
 		Team own = own();
 		return own != NONE && own.equals(of(playerName));
+	}
+
+	/**
+	 * Whether this player is on another team than the client's, by team name. Only a definite yes:
+	 * with either team unknown the answer is no.
+	 */
+	public static boolean isEnemy(String playerName) {
+		return Allegiance.of(own().name(), of(playerName).name()) == Allegiance.ENEMY;
 	}
 
 	/**

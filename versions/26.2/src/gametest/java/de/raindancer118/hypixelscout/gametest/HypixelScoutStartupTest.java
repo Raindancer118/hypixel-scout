@@ -205,6 +205,13 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 				other.snapTo(self.getX(), self.getY(), self.getZ() + 3.5, 180.0f, 0.0f);
 				other.setId(424_242);
 				client.level.addEntity(other);
+				// A teammate right beside the player: no popup for them.
+				var mate = new net.minecraft.client.player.RemotePlayer(client.level,
+						new com.mojang.authlib.GameProfile(UUID.nameUUIDFromBytes("scout-test:Ashenvale".getBytes()),
+								"Ashenvale"));
+				mate.snapTo(self.getX() + 2.0, self.getY(), self.getZ() - 2.0, 0.0f, 0.0f);
+				mate.setId(424_243);
+				client.level.addEntity(mate);
 			});
 			context.waitTicks(5);
 			context.runOnClient(client -> {
@@ -224,6 +231,9 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 				var shown = mod.proximity().shown();
 				if (shown.isEmpty() || !shown.getFirst().name().equals("Sundial")) {
 					throw new AssertionError("No proximity popup for Sundial: " + shown);
+				}
+				if (shown.stream().anyMatch(popup -> popup.name().equals("Ashenvale"))) {
+					throw new AssertionError("A popup for a teammate: " + shown);
 				}
 				mod.settings().proximity.from = de.raindancer118.hypixelscout.core.Threat.INSANE;
 				if (mod.proximity().shown().isEmpty()) {

@@ -37,7 +37,8 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   2–48) gets a small card at the top of the screen for 4 seconds — threat level, stars, FKDR,
   winstreak. Once per approach: they have to walk a few blocks beyond the radius and 15 seconds
   must pass before it shows again. *Popup from* skips players below a threat level; nicks and
-  players not looked up yet always show. Teammates never do.
+  players not looked up yet always show. Only players the scoreboard puts on another team than
+  yours get one — no teammates, and nobody while the teams are not readable yet (waiting lobby).
 - **Nick and winstreak alerts** in your own chat.
 - **Settings screen** with everything in four tabs, also reachable from Mod Menu. English and German.
 

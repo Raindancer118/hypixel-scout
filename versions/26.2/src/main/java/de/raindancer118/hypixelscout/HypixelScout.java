@@ -99,6 +99,8 @@ public final class HypixelScout implements ClientModInitializer {
 	private ChatHover hover;
 	private boolean modApiPresent;
 	private int scanTicks;
+	/** Whether the scoreboard shows real Bedwars teams, checked with the roster every second. */
+	private volatile boolean teamsReady;
 	private volatile ThreatScale threatScale = ThreatScale.ABSOLUTE;
 
 	public static HypixelScout get() {
@@ -143,7 +145,7 @@ public final class HypixelScout implements ClientModInitializer {
 		HudElementRegistry.addLast(id("peek"), peek);
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, id("look_tooltip"),
 				new LookTooltipElement(roster, stats, () -> settings).hideWhile(() -> peek.isHeld()));
-		proximity = new ProximityAlerts(roster, stats, () -> settings);
+		proximity = new ProximityAlerts(roster, stats, () -> settings, () -> teamsReady);
 		proximityElement = new ProximityElement(proximity, stats, () -> settings).hideWhile(() -> peek.isHeld());
 		HudElementRegistry.attachElementBefore(id("peek"), id("proximity"), proximityElement);
 		HudElementRegistry.replaceElement(VanillaHudElements.PLAYER_LIST,
@@ -185,7 +187,8 @@ public final class HypixelScout implements ClientModInitializer {
 			scanTicks = 0;
 			roster.refresh(TabListReader.current());
 
-			if (!roster.hasStarted() && (settings.lookUpInLobby || matchIsOn(minecraft))) {
+			teamsReady = matchIsOn(minecraft);
+			if (!roster.hasStarted() && (settings.lookUpInLobby || teamsReady)) {
 				matchStarted();
 			}
 
@@ -244,6 +247,7 @@ public final class HypixelScout implements ClientModInitializer {
 		// Anybody who failed last game — a hiccup, a throttle — deserves another try in this one.
 		stats.clearFailures();
 		proximity.reset();
+		teamsReady = false;
 		scanTicks = 0;
 		roster.refresh(TabListReader.current());
 	}
@@ -263,6 +267,7 @@ public final class HypixelScout implements ClientModInitializer {
 		table.close();
 		alerts.reset();
 		proximity.reset();
+		teamsReady = false;
 		partyReport.cancel();
 	}
 

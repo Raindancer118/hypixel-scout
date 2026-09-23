@@ -11,30 +11,39 @@ import net.minecraft.world.entity.player.Player;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
  * Feeds {@link ProximityWatch} with the enemies around the player, once per tick.
  *
  * <p>Only players in the game's roster count — Hypixel's NPCs are players too, and never in the tab
- * list — and never the player's own team. Whoever comes within the radius is looked up at once, so
+ * list — and only players the scoreboard puts on another team than the player's. Whoever comes within the radius is looked up at once, so
  * their numbers are usually there by the time the popup is read.
  */
 public final class ProximityAlerts {
 	private final Roster roster;
 	private final StatsService stats;
 	private final Supplier<ScoutSettings> settings;
+	private final BooleanSupplier teamsReady;
 	private final ProximityWatch watch = new ProximityWatch(Clock.SYSTEM);
 
-	public ProximityAlerts(Roster roster, StatsService stats, Supplier<ScoutSettings> settings) {
+	/**
+	 * @param teamsReady whether the scoreboard shows the game's real teams. In the waiting lobby the
+	 *                   name prefixes are rank colours, which would pass for teams.
+	 */
+	public ProximityAlerts(Roster roster, StatsService stats, Supplier<ScoutSettings> settings,
+			BooleanSupplier teamsReady) {
 		this.roster = roster;
 		this.stats = stats;
 		this.settings = settings;
+		this.teamsReady = teamsReady;
 	}
 
 	public void tick(Minecraft client) {
 		ScoutSettings.Proximity proximity = settings.get().proximity;
-		if (!proximity.enabled || !roster.hasStarted() || client.player == null || client.level == null) {
+		if (!proximity.enabled || !roster.hasStarted() || !teamsReady.getAsBoolean() || client.player == null
+				|| client.level == null) {
 			return;
 		}
 
@@ -46,7 +55,9 @@ public final class ProximityAlerts {
 
 			String name = other.getScoreboardName();
 			UUID uuid = roster.uuidOf(name);
-			if (uuid == null || Teams.isOwnTeam(name)) {
+			// Only somebody known to be on another team: a teammate, or anybody while the teams are
+			// not readable (the waiting lobby), gets no popup.
+			if (uuid == null || !Teams.isEnemy(name)) {
 				continue;
 			}
 
