@@ -43,9 +43,9 @@ public final class StatLines {
 			return List.of("§f" + name, "§dNICK");
 		}
 
-		Threat threat = scale.threatOf(stats);
-		String line = threat.colour() + threat.label() + "  §7FKDR " + StatFormat.ratioColour(stats.getFkdr())
-				+ StatFormat.ratio(stats.getFkdr());
+		String line = threat(scale, stats) + "  " + (aboutBeds(scale, stats)
+				? "§7BBLR " + StatFormat.ratioColour(ProfileMetrics.bedRatio(stats)) + StatFormat.ratio(ProfileMetrics.bedRatio(stats))
+				: "§7FKDR " + StatFormat.ratioColour(stats.getFkdr()) + StatFormat.ratio(stats.getFkdr()));
 		if (stats.getWinstreak() != null && stats.getWinstreak() > 0) {
 			line += "  §7WS §f" + stats.getWinstreak();
 		}
@@ -76,16 +76,24 @@ public final class StatLines {
 			return lines;
 		}
 
-		Threat threat = scale.threatOf(stats);
+		ThreatScale.Rating rating = scale.rate(stats);
 		lines.add(name(name, stats));
-		lines.add("§7FKDR " + StatFormat.ratioColour(stats.getFkdr())
+		String ratios = "§7FKDR " + StatFormat.ratioColour(stats.getFkdr())
 				+ StatFormat.ratio(stats.getFkdr()) + "  §7WLR "
-				+ StatFormat.ratioColour(stats.getWlr()) + StatFormat.ratio(stats.getWlr())
-				+ "  §7Threat " + threat.colour() + threat.label());
+				+ StatFormat.ratioColour(stats.getWlr()) + StatFormat.ratio(stats.getWlr());
+		if (scale.focus() == ThreatFocus.BOTH) {
+			lines.add(ratios);
+			lines.add("§7Fight " + rating.combat().colour() + rating.combat().label()
+					+ "  §7Beds " + rating.beds().colour() + rating.beds().label());
+		} else {
+			Threat threat = rating.overall();
+			lines.add(ratios + "  §7Threat " + threat.colour() + threat.label());
+		}
 		lines.add("§7Finals §f" + StatFormat.count(stats.getFinalKills()) + "§8/§f"
 				+ StatFormat.count(stats.getFinalDeaths()) + "  §7Wins §f"
 				+ StatFormat.count(stats.getWins()) + "§8/§f" + StatFormat.count(stats.getLosses()));
-		lines.add("§7Beds §f" + StatFormat.count(stats.getBedsBroken()) + "  §7Streak §f"
+		lines.add("§7Beds §f" + StatFormat.count(stats.getBedsBroken()) + " §8(§7BBLR §f"
+				+ StatFormat.ratio(ProfileMetrics.bedRatio(stats)) + "§8)  §7Streak §f"
 				+ StatFormat.winstreak(stats.getWinstreak()) + "  §7Account §f"
 				+ StatFormat.age(stats.getFirstLogin(), System.currentTimeMillis()));
 
@@ -119,7 +127,7 @@ public final class StatLines {
 
 		String rank = plain(Ranks.tag(stats.getRank()));
 		String who = name + (rank.isEmpty() ? "" : " " + rank) + " " + stats.getStars() + "* is "
-				+ scale.threatOf(stats).label();
+				+ plainThreat(scale, stats);
 
 		String streak = stats.getWinstreak() == null ? "" : stats.getWinstreak() + " winstreak, ";
 		String numbers = oneDecimal(stats.getFkdr()) + " FKDR, " + oneDecimal(stats.getWlr()) + " WLR, " + streak
@@ -127,6 +135,39 @@ public final class StatLines {
 				+ oneDecimal(ProfileMetrics.killsPerGame(stats)) + " kills a game";
 
 		return List.of(fit(who), fit(numbers));
+	}
+
+	/**
+	 * The level with its colour; when both dangers are rated and the beds are the worse, it says so,
+	 * so a rusher is not mistaken for a duelist.
+	 */
+	public static String threat(ThreatScale scale, PlayerStats stats) {
+		Threat threat = scale.threatOf(stats);
+		return threat.colour() + threat.label() + (bedsAreTheWorse(scale, stats) ? " §7at beds" : "");
+	}
+
+	/** The same without colour, for chat: {@code EXTREME} or {@code EXTREME at beds}. */
+	public static String plainThreat(ThreatScale scale, PlayerStats stats) {
+		return scale.threatOf(stats).label() + (bedsAreTheWorse(scale, stats) ? " at beds" : "");
+	}
+
+	/**
+	 * The one ratio a short line has room for: the FKDR, or the BBLR when the level is about beds —
+	 * {@code 13.8 FKDR} or {@code 7.1 BBLR}.
+	 */
+	public static String headlineRatio(ThreatScale scale, PlayerStats stats) {
+		return aboutBeds(scale, stats)
+				? oneDecimal(ProfileMetrics.bedRatio(stats)) + " BBLR"
+				: oneDecimal(stats.getFkdr()) + " FKDR";
+	}
+
+	private static boolean bedsAreTheWorse(ThreatScale scale, PlayerStats stats) {
+		return scale.focus() == ThreatFocus.BOTH && scale.rate(stats).worseAtBeds();
+	}
+
+	/** Whether the level shown for this player comes from their beds rather than their fights. */
+	private static boolean aboutBeds(ThreatScale scale, PlayerStats stats) {
+		return scale.focus() == ThreatFocus.BEDS || bedsAreTheWorse(scale, stats);
 	}
 
 	/** Cut at the chat limit, at a word where possible. */

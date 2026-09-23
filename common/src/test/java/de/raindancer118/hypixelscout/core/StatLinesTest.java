@@ -71,10 +71,10 @@ class StatLinesTest {
 	@Test
 	void aHiddenWinstreakAndNoRankAreLeftOutRatherThanGuessed() {
 		PlayerStats stats = PlayerStats.builder("quietfox", UUID.randomUUID()).stars(212)
-				.finals(2_120, 1_700).games(610, 540).build();
+				.finals(2_120, 1_700).games(610, 540).kills(3_000, 3_000).build();
 
 		assertThat(StatLines.chatLines("quietfox", stats, ThreatScale.ABSOLUTE)).containsExactly(
-				"quietfox 212* is LOW", "1.2 FKDR, 1.1 WLR, 0.0 beds and 0.0 kills a game");
+				"quietfox 212* is LOW", "1.2 FKDR, 1.1 WLR, 0.0 beds and 2.6 kills a game");
 	}
 
 	@Test
@@ -97,22 +97,21 @@ class StatLinesTest {
 
 	@Test
 	void theChatLineSaysTheThreatAgainstWhomeverItIsMeasuredAgainst() {
-		PlayerStats enemy = PlayerStats.builder("Sundial", UUID.randomUUID()).stars(1502)
-				.finals(40_100, 2_900).games(7_900, 1_500).build();
+		PlayerStats enemy = TypicalPlayers.like("Sundial", 1502, 40_100, 2_900, null);
 		// Somebody far stronger than the Sundial of the test: to them it is an even match.
-		PlayerStats veteran = PlayerStats.builder("Me", UUID.randomUUID()).stars(3000)
-				.finals(100_000, 10_000).build();
+		PlayerStats veteran = TypicalPlayers.like("Me", 3000, 100_000, 10_000, null);
 		ThreatScale scale = ThreatScale.of(ThreatScale.Basis.ME, veteran, java.util.List.of());
 
 		assertThat(StatLines.chatLines("Sundial", enemy, scale).getFirst()).isEqualTo("Sundial 1502* is MED");
-		assertThat(StatLines.detail("Sundial", enemy, false, null, scale))
+		assertThat(StatLines.detail("Sundial", enemy, false, null, scale.withFocus(ThreatFocus.COMBAT)))
 				.extracting(StatLines::plain).anyMatch(line -> line.contains("Threat MED"));
+		assertThat(StatLines.detail("Sundial", enemy, false, null, scale))
+				.extracting(StatLines::plain).anyMatch(line -> line.equals("Fight MED  Beds MED"));
 	}
 
 	@Test
 	void theBriefCardIsTheNameAndOneLineOfWhatMatters() {
-		PlayerStats stats = PlayerStats.builder("Sundial", UUID.randomUUID()).stars(1502)
-				.finals(40_100, 2_900).games(7_900, 1_500).winstreak(104).rank("MVP_PLUS").build();
+		PlayerStats stats = TypicalPlayers.like("Sundial", 1502, 40_100, 2_900, 104);
 
 		List<String> lines = StatLines.brief("Sundial", stats, false, null, ThreatScale.ABSOLUTE).stream()
 				.map(StatLines::plain).toList();
@@ -128,5 +127,27 @@ class StatLinesTest {
 				.map(StatLines::plain).toList()).containsExactly("Sundial", "Looking them up…");
 		assertThat(StatLines.brief("Glimmer", PlayerStats.nicked("Glimmer", UUID.randomUUID()), false, null,
 				ThreatScale.ABSOLUTE).stream().map(StatLines::plain).toList()).containsExactly("Glimmer", "NICK");
+	}
+
+	@Test
+	void aRusherIsCalledOutForTheBedsWhenBothAreRated() {
+		// Fights like nobody special, breaks beds like a machine.
+		PlayerStats rusher = PlayerStats.builder("Rusher", UUID.randomUUID()).stars(300)
+				.finals(1_200, 1_000).kills(3_000, 3_000).games(600, 400).beds(3_000, 300).build();
+
+		assertThat(StatLines.plainThreat(ThreatScale.ABSOLUTE, rusher)).endsWith(" at beds");
+		assertThat(StatLines.headlineRatio(ThreatScale.ABSOLUTE, rusher)).isEqualTo("10.0 BBLR");
+		assertThat(StatLines.chatLines("Rusher", rusher, ThreatScale.ABSOLUTE).getFirst()).endsWith(" at beds");
+		assertThat(StatLines.plain(StatLines.brief("Rusher", rusher, false, null, ThreatScale.ABSOLUTE).get(1)))
+				.contains("at beds").contains("BBLR 10.00");
+
+		// Asked only about fights, the beds are not mentioned.
+		ThreatScale fights = ThreatScale.ABSOLUTE.withFocus(ThreatFocus.COMBAT);
+		assertThat(StatLines.plainThreat(fights, rusher)).doesNotContain("beds");
+		assertThat(StatLines.headlineRatio(fights, rusher)).isEqualTo("1.2 FKDR");
+		// Asked only about beds, the ratio is the beds', and the words are not needed.
+		ThreatScale beds = ThreatScale.ABSOLUTE.withFocus(ThreatFocus.BEDS);
+		assertThat(StatLines.plainThreat(beds, rusher)).doesNotContain("beds");
+		assertThat(StatLines.headlineRatio(beds, rusher)).isEqualTo("10.0 BBLR");
 	}
 }

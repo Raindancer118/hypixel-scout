@@ -5,6 +5,8 @@ import de.raindancer118.hypixelscout.core.ProfileMetrics;
 import de.raindancer118.hypixelscout.core.StatFormat;
 import de.raindancer118.hypixelscout.core.StatLines;
 import de.raindancer118.hypixelscout.core.Threat;
+import de.raindancer118.hypixelscout.core.ThreatFocus;
+import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.game.Teams;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.resources.language.I18n;
@@ -54,13 +56,28 @@ public final class ProfileView {
 						StatFormat.age(profile.getLastLogin(), now)), textX, top + 34, ScoutTheme.TEXT);
 			}
 
-			Threat threat = Threats.of(profile);
-			String badge = I18n.get("message.hypixelscout.profile.threat") + " " + threat.colour() + threat.label();
-			ScoutTheme.badge(g, badge, left + width - 8 - ScoutTheme.width(badge) - 6, top + 8, 0x60000000,
-					ScoutTheme.TEXT_DIM);
+			ThreatScale scale = Threats.scale();
+			ThreatScale.Rating rating = scale.rate(profile);
+			int right = left + width - 8;
+			if (scale.focus() == ThreatFocus.BOTH) {
+				// Both dangers side by side, the fight on the left, as the cards below are laid out.
+				right = threatBadge(g, "message.hypixelscout.profile.threat.beds", rating.beds(), right, top + 8) - 4;
+				threatBadge(g, "message.hypixelscout.profile.threat.combat", rating.combat(), right, top + 8);
+			} else {
+				threatBadge(g, scale.focus() == ThreatFocus.BEDS ? "message.hypixelscout.profile.threat.beds"
+						: "message.hypixelscout.profile.threat.combat", rating.overall(), right, top + 8);
+			}
 		}
 
 		return top + height;
+	}
+
+	/** One threat badge ending at {@code right}; answers where it starts. */
+	private static int threatBadge(GuiGraphicsExtractor g, String key, Threat threat, int right, int y) {
+		String badge = I18n.get(key) + " " + threat.colour() + threat.label();
+		int x = right - ScoutTheme.width(badge) - 6;
+		ScoutTheme.badge(g, badge, x, y, 0x60000000, ScoutTheme.TEXT_DIM);
+		return x;
 	}
 
 	private record Stat(String label, String value) {

@@ -79,7 +79,7 @@ class LanguageKeysTest {
 		for (String page : new String[] {"game", "teams", "lookup", "queue"}) {
 			used.add("message.hypixelscout.page." + page);
 		}
-		for (String tab : new String[] {"general", "table", "overlays", "alerts", "keys"}) {
+		for (String tab : new String[] {"general", "table", "overlays", "alerts", "projectiles", "keys"}) {
 			used.add("message.hypixelscout.settings.tab." + tab);
 		}
 		for (de.raindancer118.hypixelscout.core.ThreatScale.Basis basis
@@ -87,6 +87,11 @@ class LanguageKeysTest {
 			used.add("message.hypixelscout.threat_basis." + name(basis));
 			used.add("message.hypixelscout.threat_basis." + name(basis) + ".tooltip");
 			used.add("message.hypixelscout.threat_basis.short." + name(basis));
+		}
+		for (de.raindancer118.hypixelscout.core.ThreatFocus focus : de.raindancer118.hypixelscout.core.ThreatFocus.values()) {
+			used.add("message.hypixelscout.threat_focus." + name(focus));
+			used.add("message.hypixelscout.threat_focus." + name(focus) + ".tooltip");
+			used.add("message.hypixelscout.threat_focus.short." + name(focus));
 		}
 		used.add("message.hypixelscout.game.look_up_now.tooltip");
 		for (de.raindancer118.hypixelscout.core.RequeueMode mode : de.raindancer118.hypixelscout.core.RequeueMode.values()) {
@@ -102,7 +107,8 @@ class LanguageKeysTest {
 		}
 
 		for (String toggle : new String[] {"lobby", "hypixel_only", "group", "hide_own", "wlr", "winstreak", "beds", "beds_per_game", "kills_per_game", "age",
-				"tooltip", "walls", "tab", "nametag_stars", "nametag_fkdr", "chat_hover", "nick_alert", "streak_alert", "proximity"}) {
+				"tooltip", "walls", "tab", "nametag_stars", "nametag_fkdr", "chat_hover", "nick_alert", "streak_alert", "proximity",
+				"paths", "incoming", "incoming_sound", "fireball_aim", "arrows", "fireballs", "only_in_game"}) {
 			used.add("message.hypixelscout.settings." + toggle);
 			used.add("message.hypixelscout.settings." + toggle + ".tooltip");
 		}

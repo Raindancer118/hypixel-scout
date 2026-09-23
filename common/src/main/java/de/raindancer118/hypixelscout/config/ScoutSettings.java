@@ -8,6 +8,7 @@ import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.RequeueMode;
 import de.raindancer118.hypixelscout.core.SortMode;
 import de.raindancer118.hypixelscout.core.Threat;
+import de.raindancer118.hypixelscout.core.ThreatFocus;
 import de.raindancer118.hypixelscout.core.ThreatScale;
 
 import java.io.IOException;
@@ -68,6 +69,9 @@ public final class ScoutSettings {
 	/** What the threat levels are measured against: fixed bands, the player, or player and team. */
 	public ThreatScale.Basis threatBasis = ThreatScale.Basis.TEAM;
 
+	/** Which danger the levels are about: killing you, taking your bed, or both. */
+	public ThreatFocus threatFocus = ThreatFocus.BOTH;
+
 	/**
 	 * How dangerous every enemy is taken to be, in percent of their numbers: above 100 the levels
 	 * come sooner, below 100 later.
@@ -93,6 +97,7 @@ public final class ScoutSettings {
 	public Alerts alerts = new Alerts();
 	public Proximity proximity = new Proximity();
 	public Requeue requeue = new Requeue();
+	public Projectiles projectiles = new Projectiles();
 	public Queue queue = new Queue();
 
 	/** Names typed into the lookup screen lately, newest first. */
@@ -178,6 +183,22 @@ public final class ScoutSettings {
 		public int delaySeconds = 3;
 	}
 
+	/** Arrows and fireballs: where they fly, and a warning when one flies at you. */
+	public static final class Projectiles {
+		/** The predicted flight path of every arrow and fireball in the air, drawn in the world. */
+		public boolean paths = true;
+		/** A warning in the HUD while one of them is headed at you. */
+		public boolean alarm = true;
+		/** A short sound when the warning comes up. */
+		public boolean sound = true;
+		/** While holding a fire charge: the line the fireball would fly if thrown now. */
+		public boolean aim = true;
+		public boolean arrows = true;
+		public boolean fireballs = true;
+		/** Only in a Bedwars game, so a lobby or another server is left alone. */
+		public boolean onlyInGame = true;
+	}
+
 	/** The quick-queue hotkeys. */
 	public static final class Queue {
 		/** Hypixel's own mode ids, as {@code /play} takes them. Empty means unused. */
@@ -259,6 +280,7 @@ public final class ScoutSettings {
 		apiKey = apiKey == null ? "" : apiKey.trim();
 		accent = accent == null ? Accent.GOLD : accent;
 		threatBasis = threatBasis == null ? ThreatScale.Basis.TEAM : threatBasis;
+		threatFocus = threatFocus == null ? ThreatFocus.BOTH : threatFocus;
 		threatSensitivity = Math.clamp(threatSensitivity, MIN_SENSITIVITY, MAX_SENSITIVITY);
 		reportIntervalTicks = Math.clamp(reportIntervalTicks, ChatPacing.MIN_TICKS, ChatPacing.MAX_TICKS);
 		threatReportFrom = threatReportFrom == null || !threatReportFrom.isRated() ? Threat.MEDIUM : threatReportFrom;
@@ -292,6 +314,8 @@ public final class ScoutSettings {
 		requeue = requeue == null ? new Requeue() : requeue;
 		requeue.mode = requeue.mode == null ? RequeueMode.OFF : requeue.mode;
 		requeue.delaySeconds = Math.clamp(requeue.delaySeconds, 0, MAX_REQUEUE_DELAY);
+
+		projectiles = projectiles == null ? new Projectiles() : projectiles;
 
 		queue = queue == null ? new Queue() : queue;
 		String[] slots = queue.slots == null ? new String[0] : queue.slots;

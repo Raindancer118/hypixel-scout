@@ -313,6 +313,8 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.takeScreenshot("scout_peek_released");
 			context.runOnClient(client -> mod.settings().nametag.stars = false);
 
+			assertProjectiles(context, singleplayer, mod);
+
 			// The threat report into team chat: one line per enemy team, most dangerous first.
 			context.runOnClient(client -> {
 				mod.partyReport().send(de.raindancer118.hypixelscout.game.PartyReport.Channel.TEAM);
@@ -447,7 +449,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			});
 
 			// Every settings tab, and the editor.
-			for (int tab = 0; tab < 4; tab++) {
+			for (int tab = 0; tab < SettingsScreen.KEYS_TAB; tab++) {
 				int index = tab;
 				context.setScreen(() -> mod.settingsScreen(null).onTab(index));
 				context.waitTicks(3);
@@ -503,6 +505,114 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		} catch (java.io.IOException e) {
 			throw new AssertionError("Could not start the Hypixel stub", e);
 		}
+	}
+
+	/**
+	 * Arrows and fireballs, as client-side entities in front of the camera: one flying at the player
+	 * is a warning, one thrown point-blank in view and one passing by are not, and a fire charge in
+	 * hand gives the aim line.
+	 */
+	private static void assertProjectiles(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+			HypixelScout mod) {
+		java.util.function.BiFunction<net.minecraft.client.Minecraft, double[], net.minecraft.world.entity.Entity> fireball =
+				(client, at) -> {
+					var entity = new net.minecraft.world.entity.projectile.hurtingprojectile.LargeFireball(
+							net.minecraft.world.entity.EntityTypes.FIREBALL, client.level);
+					entity.snapTo(at[0], at[1], at[2], 0.0f, 0.0f);
+					entity.setDeltaMovement(at[3], at[4], at[5]);
+					entity.setId((int) at[6]);
+					client.level.addEntity(entity);
+					return entity;
+				};
+
+		// A fireball twenty blocks ahead, flying straight at the player.
+		context.runOnClient(client -> {
+			var self = client.player;
+			self.snapTo(self.getX(), self.getY(), self.getZ(), 0.0f, 0.0f);
+			fireball.apply(client, new double[] {self.getX(), self.getEyeY() - 0.5, self.getZ() + 20, 0, 0, -1.0, 525_001});
+		});
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			var warning = mod.flights().warning();
+			if (warning == null || warning.kind() != de.raindancer118.hypixelscout.flight.ProjectileKind.FIREBALL) {
+				throw new AssertionError("No warning for a fireball flying at the player: " + warning);
+			}
+			if (Math.abs(warning.bearing(de.raindancer118.hypixelscout.game.Flights.vec(client.player.getEyePosition()),
+					de.raindancer118.hypixelscout.game.Flights.vec(client.player.getViewVector(1.0f)))) > 20) {
+				throw new AssertionError("The fireball ahead is not reported as ahead");
+			}
+			if (mod.flights().flying(client.level, client.player, 1.0f).isEmpty()) {
+				throw new AssertionError("The fireball has no flight path");
+			}
+		});
+		context.takeScreenshot("scout_incoming_fireball");
+		context.runOnClient(client -> client.level.getEntity(525_001).discard());
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			if (mod.flights().warning() != null) {
+				throw new AssertionError("The warning outlived the fireball");
+			}
+		});
+
+		// Thrown two blocks in front of the player's face: seen anyway, so no warning.
+		context.runOnClient(client -> {
+			var self = client.player;
+			fireball.apply(client, new double[] {self.getX(), self.getEyeY() - 0.2, self.getZ() + 2, 0, 0, -0.5, 525_002});
+		});
+		context.waitTick();
+		context.runOnClient(client -> {
+			if (mod.flights().warning() != null) {
+				throw new AssertionError("A warning for a fireball thrown point-blank in view");
+			}
+			client.level.getEntity(525_002).discard();
+		});
+
+		// An arrow crossing ten blocks ahead: a path, but nothing to warn about.
+		context.runOnClient(client -> {
+			var self = client.player;
+			var arrow = new net.minecraft.world.entity.projectile.arrow.Arrow(net.minecraft.world.entity.EntityTypes.ARROW,
+					client.level);
+			arrow.snapTo(self.getX() - 15, self.getEyeY() + 1, self.getZ() + 10, 0.0f, 0.0f);
+			arrow.setDeltaMovement(2.5, 0.2, 0);
+			arrow.setId(525_003);
+			client.level.addEntity(arrow);
+		});
+		context.waitTick();
+		context.runOnClient(client -> {
+			if (mod.flights().warning() != null) {
+				throw new AssertionError("A warning for an arrow passing by: " + mod.flights().warning());
+			}
+			if (mod.flights().flying(client.level, client.player, 1.0f).stream()
+					.noneMatch(flying -> flying.kind() == de.raindancer118.hypixelscout.flight.ProjectileKind.ARROW)) {
+				throw new AssertionError("The arrow has no flight path");
+			}
+		});
+		context.takeScreenshot("scout_arrow_path");
+		context.runOnClient(client -> client.level.getEntity(525_003).discard());
+
+		// A fire charge in hand, looking down at the floor ahead: the aim line ends on the ground.
+		singleplayer.getServer().runCommand("item replace entity @a weapon.mainhand with fire_charge");
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			var self = client.player;
+			self.snapTo(self.getX(), self.getY(), self.getZ(), 0.0f, 35.0f);
+		});
+		context.waitTick();
+		context.runOnClient(client -> {
+			var aim = mod.flights().aim(client.level, client.player, 1.0f);
+			if (aim == null || !aim.blocked()) {
+				throw new AssertionError("No aim line to the ground with a fire charge in hand: " + aim);
+			}
+		});
+		context.takeScreenshot("scout_fireball_aim");
+		singleplayer.getServer().runCommand("item replace entity @a weapon.mainhand with air");
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			if (mod.flights().aim(client.level, client.player, 1.0f) != null) {
+				throw new AssertionError("An aim line without a fire charge");
+			}
+			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
+		});
 	}
 
 	/** Moves the real mouse onto the binding whose label starts with {@code label} and clicks it. */

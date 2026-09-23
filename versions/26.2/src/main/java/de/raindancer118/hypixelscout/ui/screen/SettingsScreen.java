@@ -10,6 +10,7 @@ import de.raindancer118.hypixelscout.core.SortMode;
 import de.raindancer118.hypixelscout.core.ChatPacing;
 import de.raindancer118.hypixelscout.core.RequeueMode;
 import de.raindancer118.hypixelscout.core.Threat;
+import de.raindancer118.hypixelscout.core.ThreatFocus;
 import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.ui.widget.KeyBindButton;
 import de.raindancer118.hypixelscout.ui.widget.SettingSlider;
@@ -92,7 +93,7 @@ public final class SettingsScreen extends Screen {
 		}
 
 		tabBar = MenuTabBar.builder(tabManager, width)
-				.addTabs(new GeneralTab(), new TableTab(), new OverlaysTab(), new AlertsTab(), new KeysTab())
+				.addTabs(new GeneralTab(), new TableTab(), new OverlaysTab(), new AlertsTab(), new ProjectilesTab(), new KeysTab())
 				.build();
 		addRenderableWidget(tabBar);
 
@@ -195,6 +196,13 @@ public final class SettingsScreen extends Screen {
 							+ value.name().toLowerCase(Locale.ROOT) + ".tooltip")))
 					.create(0, 0, NARROW, 20, Component.translatable("message.hypixelscout.settings.threat_basis"),
 							(button, value) -> settings().threatBasis = value));
+			rows.addChild(CycleButton.builder((ThreatFocus value) -> enumLabel("threat_focus", value),
+							settings().threatFocus)
+					.withValues(ThreatFocus.values())
+					.withTooltip(value -> Tooltip.create(Component.translatable("message.hypixelscout.threat_focus."
+							+ value.name().toLowerCase(Locale.ROOT) + ".tooltip")))
+					.create(0, 0, NARROW, 20, Component.translatable("message.hypixelscout.settings.threat_focus"),
+							(button, value) -> settings().threatFocus = value));
 
 			SettingSlider sensitivity = new SettingSlider(0, 0, NARROW, "message.hypixelscout.settings.threat_sensitivity",
 					ScoutSettings.MIN_SENSITIVITY, ScoutSettings.MAX_SENSITIVITY, settings().threatSensitivity,
@@ -297,8 +305,24 @@ public final class SettingsScreen extends Screen {
 		}
 	}
 
+	/** Arrows and fireballs: their flight paths, the warning, the aim line. */
+	private final class ProjectilesTab extends SettingsTab {
+		ProjectilesTab() {
+			super("projectiles");
+
+			ScoutSettings.Projectiles projectiles = settings().projectiles;
+			rows.addChild(toggle("paths", projectiles.paths, value -> projectiles.paths = value));
+			rows.addChild(toggle("incoming", projectiles.alarm, value -> projectiles.alarm = value));
+			rows.addChild(toggle("incoming_sound", projectiles.sound, value -> projectiles.sound = value));
+			rows.addChild(toggle("fireball_aim", projectiles.aim, value -> projectiles.aim = value));
+			rows.addChild(toggle("arrows", projectiles.arrows, value -> projectiles.arrows = value));
+			rows.addChild(toggle("fireballs", projectiles.fireballs, value -> projectiles.fireballs = value));
+			rows.addChild(toggle("only_in_game", projectiles.onlyInGame, value -> projectiles.onlyInGame = value));
+		}
+	}
+
 	/** Index of the keys tab, for whoever wants to open the screen right there. */
-	public static final int KEYS_TAB = 4;
+	public static final int KEYS_TAB = 5;
 
 	/**
 	 * The bindings that matter mid-game, changeable without leaving for vanilla's controls — which

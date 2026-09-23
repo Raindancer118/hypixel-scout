@@ -16,6 +16,9 @@ import de.raindancer118.hypixelscout.ui.Threats;
 import de.raindancer118.hypixelscout.core.StatsCache;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.game.ChatHover;
+import de.raindancer118.hypixelscout.game.Flights;
+import de.raindancer118.hypixelscout.ui.hud.IncomingElement;
+import de.raindancer118.hypixelscout.ui.world.FlightLines;
 import de.raindancer118.hypixelscout.game.LocationBridge;
 import de.raindancer118.hypixelscout.game.Nametags;
 import de.raindancer118.hypixelscout.game.AutoRequeue;
@@ -97,6 +100,7 @@ public final class HypixelScout implements ClientModInitializer {
 	private ProximityAlerts proximity;
 	private AutoRequeue requeue;
 	private ProximityElement proximityElement;
+	private Flights flights;
 	private ScoutKeys keys;
 	private ChatHover hover;
 	private boolean modApiPresent;
@@ -119,8 +123,9 @@ public final class HypixelScout implements ClientModInitializer {
 		}
 
 		ScoutTheme.useAccent(() -> settings.accent);
-		// The sensitivity is applied on every read, so moving its slider shows at once.
-		Threats.use(() -> threatScale.withSensitivity(settings.threatSensitivity / 100.0));
+		// Sensitivity and focus are applied on every read, so changing either shows at once.
+		Threats.use(() -> threatScale.withSensitivity(settings.threatSensitivity / 100.0)
+				.withFocus(settings.threatFocus));
 		Chat.useAccent(() -> settings.accent);
 
 		client = new HypixelClient(HypixelClient.DEFAULT_BASE_URL,
@@ -151,6 +156,10 @@ public final class HypixelScout implements ClientModInitializer {
 		proximity = new ProximityAlerts(roster, stats, () -> settings, () -> teamsReady);
 		proximityElement = new ProximityElement(proximity, stats, () -> settings).hideWhile(() -> peek.isHeld());
 		HudElementRegistry.attachElementBefore(id("peek"), id("proximity"), proximityElement);
+		flights = new Flights(roster, () -> settings);
+		new FlightLines(flights, () -> settings).register();
+		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, id("incoming"),
+				new IncomingElement(flights, () -> settings));
 		HudElementRegistry.replaceElement(VanillaHudElements.PLAYER_LIST,
 				vanilla -> new TabStatsElement(vanilla, roster, stats, () -> settings));
 
@@ -190,6 +199,7 @@ public final class HypixelScout implements ClientModInitializer {
 		keys.tick(minecraft);
 		partyReport.tick(minecraft);
 		proximity.tick(minecraft);
+		flights.tick(minecraft);
 		requeue.tick(minecraft);
 
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
@@ -256,6 +266,7 @@ public final class HypixelScout implements ClientModInitializer {
 		// Anybody who failed last game — a hiccup, a throttle — deserves another try in this one.
 		stats.clearFailures();
 		proximity.reset();
+		flights.reset();
 		teamsReady = false;
 		requeue.gameJoined();
 		scanTicks = 0;
@@ -277,6 +288,7 @@ public final class HypixelScout implements ClientModInitializer {
 		table.close();
 		alerts.reset();
 		proximity.reset();
+		flights.reset();
 		teamsReady = false;
 		requeue.reset();
 		partyReport.cancel();
@@ -399,6 +411,11 @@ public final class HypixelScout implements ClientModInitializer {
 	/** The proximity popups as drawn, for the client game test. */
 	public ProximityElement proximity() {
 		return proximityElement;
+	}
+
+	/** The arrows and fireballs in the air, for the client game test. */
+	public Flights flights() {
+		return flights;
 	}
 
 	public TableHudElement table() {

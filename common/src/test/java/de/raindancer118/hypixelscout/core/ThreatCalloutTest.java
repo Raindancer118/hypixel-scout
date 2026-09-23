@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ThreatCalloutTest {
 	private static PlayerStats player(String name, int stars, int fk, int fd, Integer streak) {
-		return PlayerStats.builder(name, UUID.randomUUID()).stars(stars).finals(fk, fd).winstreak(streak).build();
+		return TypicalPlayers.like(name, stars, fk, fd, streak);
 	}
 
 	private static Map<String, List<PlayerStats>> game() {

@@ -38,7 +38,7 @@ public final class ThreatCallout {
 				} else if (player.isNicked()) {
 					called.add(new Entry(team.getKey(), player, -1));
 				} else if (scale.threatOf(player).compareTo(from) >= 0 || onARun(player, streakThreshold)) {
-					called.add(new Entry(team.getKey(), player, Threat.index(player)));
+					called.add(new Entry(team.getKey(), player, scale.score(player)));
 				} else {
 					below++;
 				}
@@ -80,7 +80,7 @@ public final class ThreatCallout {
 				if (player == null) {
 					unknown++;
 				} else {
-					all.add(new Entry(team.getKey(), player, player.isNicked() ? -1 : Threat.index(player)));
+					all.add(new Entry(team.getKey(), player, scale.score(player)));
 				}
 			}
 		}
@@ -115,7 +115,7 @@ public final class ThreatCallout {
 		}
 
 		String line = team + " " + player.getName() + " " + player.getStars() + "* - "
-				+ scale.threatOf(player).label() + " - " + StatLines.oneDecimal(player.getFkdr()) + " FKDR";
+				+ StatLines.plainThreat(scale, player) + " - " + StatLines.headlineRatio(scale, player);
 		return onARun(player, streakThreshold) ? line + " - " + player.getWinstreak() + " WS" : line;
 	}
 }

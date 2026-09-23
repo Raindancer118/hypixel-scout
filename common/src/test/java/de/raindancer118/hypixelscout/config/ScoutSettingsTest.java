@@ -51,6 +51,16 @@ class ScoutSettingsTest {
 		// Joining the next game by itself is something to switch on knowingly.
 		assertThat(settings.requeue.mode).isEqualTo(de.raindancer118.hypixelscout.core.RequeueMode.OFF);
 		assertThat(settings.requeue.delaySeconds).isEqualTo(3);
+		// Threat is about fights and beds alike until the player narrows it down.
+		assertThat(settings.threatFocus).isEqualTo(de.raindancer118.hypixelscout.core.ThreatFocus.BOTH);
+		// Flight paths, the alarm and the fireball aim are all on, but only in a game.
+		assertThat(settings.projectiles.paths).isTrue();
+		assertThat(settings.projectiles.alarm).isTrue();
+		assertThat(settings.projectiles.sound).isTrue();
+		assertThat(settings.projectiles.aim).isTrue();
+		assertThat(settings.projectiles.arrows).isTrue();
+		assertThat(settings.projectiles.fireballs).isTrue();
+		assertThat(settings.projectiles.onlyInGame).isTrue();
 		assertThat(file).exists();
 	}
 
@@ -144,6 +154,8 @@ class ScoutSettingsTest {
 				  "table": { "mode": "NONSENSE", "maxRows": 900, "scale": 9.0, "opacity": -4 },
 				  "tooltip": { "angle": 0.0 },
 				  "alerts": null,
+				  "threatFocus": "NONSENSE",
+				  "projectiles": null,
 				  "queue": { "slots": ["bedwars_four_four"] },
 				  "cacheMinutes": 0
 				}
@@ -163,6 +175,9 @@ class ScoutSettingsTest {
 		assertThat(settings.queue.slots[0]).isEqualTo("bedwars_four_four");
 		assertThat(settings.queue.slots[1]).isEmpty();
 		assertThat(settings.cacheMinutes).isEqualTo(1);
+		assertThat(settings.threatFocus).isEqualTo(de.raindancer118.hypixelscout.core.ThreatFocus.BOTH);
+		assertThat(settings.projectiles).isNotNull();
+		assertThat(settings.projectiles.alarm).isTrue();
 		assertThat(settings.threatBasis).isEqualTo(de.raindancer118.hypixelscout.core.ThreatScale.Basis.TEAM);
 	}
 

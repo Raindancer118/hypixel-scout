@@ -11,6 +11,7 @@ import de.raindancer118.hypixelscout.core.StatLines;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.core.TeamReport;
 import de.raindancer118.hypixelscout.core.Threat;
+import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.game.PartyReport;
 import de.raindancer118.hypixelscout.game.Teams;
 import de.raindancer118.hypixelscout.ui.Column;
@@ -478,7 +479,8 @@ public final class ScoutScreen extends Screen {
 	}
 
 	private static double danger(TeamGroup group) {
-		return group.rows().stream().mapToDouble(row -> Threat.index(row.stats())).max().orElse(-1);
+		ThreatScale scale = Threats.scale();
+		return group.rows().stream().mapToDouble(row -> scale.score(row.stats())).max().orElse(-1);
 	}
 
 	/** Teams are always grouped, whatever the table does, and never hide the player's own team. */
@@ -493,6 +495,7 @@ public final class ScoutScreen extends Screen {
 		int left = contentLeft();
 		ScoutTheme.text(g, ScoutTheme.fit("§7" + I18n.get("message.hypixelscout.teams.caption",
 				I18n.get("message.hypixelscout.threat_basis.short." + settings().threatBasis.name().toLowerCase(Locale.ROOT))
+						+ ", " + I18n.get("message.hypixelscout.threat_focus.short." + settings().threatFocus.name().toLowerCase(Locale.ROOT))
 						+ (settings().threatSensitivity == 100 ? ""
 								: ", " + I18n.get("message.hypixelscout.threat_sensitivity.short", settings().threatSensitivity))),
 				contentWidth() - 340),
