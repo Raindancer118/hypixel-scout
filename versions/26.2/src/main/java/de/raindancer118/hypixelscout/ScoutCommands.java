@@ -64,6 +64,15 @@ public final class ScoutCommands {
 					mod.partyReport().send(PartyReport.Channel.TEAM);
 					return 1;
 				}))
+				.then(ClientCommands.literal("list")
+						.then(ClientCommands.literal("team").executes(context -> {
+							mod.partyReport().sendAll(PartyReport.Channel.TEAM);
+							return 1;
+						}))
+						.then(ClientCommands.literal("party").executes(context -> {
+							mod.partyReport().sendAll(PartyReport.Channel.PARTY);
+							return 1;
+						})))
 				.then(ClientCommands.literal("refresh").executes(context -> {
 					mod.refresh();
 					context.getSource().sendFeedback(Chat.prefixed(

@@ -7,6 +7,7 @@ import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.KeyCheck;
 import de.raindancer118.hypixelscout.core.SortMode;
+import de.raindancer118.hypixelscout.core.ChatPacing;
 import de.raindancer118.hypixelscout.core.Threat;
 import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.ui.widget.KeyBindButton;
@@ -359,7 +360,21 @@ public final class SettingsScreen extends Screen {
 					settings().alerts.streakThreshold,
 					value -> settings().alerts.streakThreshold = (int) Math.round(value),
 					value -> String.valueOf(Math.round(value))));
+
+			// In tenths of a second on the label; stored in ticks, one tick being a twentieth.
+			SettingSlider interval = new SettingSlider(0, 0, NARROW, "message.hypixelscout.settings.report_interval",
+					ChatPacing.MIN_TICKS, ChatPacing.MAX_TICKS, settings().reportIntervalTicks,
+					value -> settings().reportIntervalTicks = intervalStep(value),
+					value -> String.format(Locale.ROOT, "%.1f s", intervalStep(value) / 20.0));
+			interval.setTooltip(Tooltip.create(
+					Component.translatable("message.hypixelscout.settings.report_interval.tooltip")));
+			rows.addChild(interval);
 		}
+	}
+
+	/** Whole tenths of a second, i.e. even tick counts. */
+	private static int intervalStep(double ticks) {
+		return (int) Math.round(ticks / 2.0) * 2;
 	}
 
 	// --- the key --------------------------------------------------------------------------------

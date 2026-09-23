@@ -88,4 +88,33 @@ class ThreatCalloutTest {
 		assertThat(ThreatCallout.lines(teams, 50, ThreatScale.ABSOLUTE, Threat.HIGH, 8))
 				.containsExactly("No dangerous enemies (1 below HIGH)");
 	}
+
+	@Test
+	void theFullListNamesEveryEnemyMostDangerousFirstAndNicksAfter() {
+		assertThat(ThreatCallout.everyone(game(), 50, ThreatScale.ABSOLUTE)).containsExactly(
+				"YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS",
+				"GREEN Lanternfish 731* - EXTREME - 11.0 FKDR - 61 WS",
+				"BLUE Brickmason 488* - V.HIGH - 6.0 FKDR",
+				"BLUE Nimbus_07 64* - NONE - 0.6 FKDR",
+				"YELLOW PaperCrane 44* - NONE - 0.6 FKDR",
+				"BLUE Glimmer is nicked");
+	}
+
+	@Test
+	void theFullListSaysHowManyCouldNotBeLookedUp() {
+		Map<String, List<PlayerStats>> teams = new LinkedHashMap<>();
+		teams.put("Red", Arrays.asList(player("PaperCrane", 44, 90, 160, 0), null, null));
+
+		assertThat(ThreatCallout.everyone(teams, 50, ThreatScale.ABSOLUTE)).containsExactly(
+				"RED PaperCrane 44* - NONE - 0.6 FKDR", "+2 not looked up yet");
+	}
+
+	@Test
+	void aFullListOfNobodyLookedUpIsOneLine() {
+		Map<String, List<PlayerStats>> teams = new LinkedHashMap<>();
+		teams.put("Red", Arrays.asList((PlayerStats) null));
+
+		assertThat(ThreatCallout.everyone(teams, 50, ThreatScale.ABSOLUTE))
+				.containsExactly("No enemies looked up yet (1 waiting)");
+	}
 }

@@ -3,6 +3,7 @@ package de.raindancer118.hypixelscout.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
+import de.raindancer118.hypixelscout.core.ChatPacing;
 import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.SortMode;
 import de.raindancer118.hypixelscout.core.Threat;
@@ -71,6 +72,12 @@ public final class ScoutSettings {
 
 	/** The lowest level the team and party reports name; below it only the count is sent. */
 	public Threat threatReportFrom = Threat.MEDIUM;
+
+	/**
+	 * Ticks between two lines of a report sent to chat. Without a rank Hypixel's own three seconds
+	 * win anyway ({@link ChatPacing}).
+	 */
+	public int reportIntervalTicks = 10;
 
 	/** How long a player's stats are reused before being fetched again. */
 	public int cacheMinutes = 10;
@@ -229,6 +236,7 @@ public final class ScoutSettings {
 		accent = accent == null ? Accent.GOLD : accent;
 		threatBasis = threatBasis == null ? ThreatScale.Basis.TEAM : threatBasis;
 		threatSensitivity = Math.clamp(threatSensitivity, MIN_SENSITIVITY, MAX_SENSITIVITY);
+		reportIntervalTicks = Math.clamp(reportIntervalTicks, ChatPacing.MIN_TICKS, ChatPacing.MAX_TICKS);
 		threatReportFrom = threatReportFrom == null || !threatReportFrom.isRated() ? Threat.MEDIUM : threatReportFrom;
 		cacheMinutes = Math.clamp(cacheMinutes, 1, MAX_CACHE_MINUTES);
 

@@ -65,6 +65,43 @@ public final class ThreatCallout {
 		return lines;
 	}
 
+	/**
+	 * Every enemy, one line each, for when the whole list is wanted rather than the warnings:
+	 * most dangerous first, nicks after, and a last line counting whoever is not looked up yet.
+	 * Not capped — the caller paces the lines.
+	 */
+	public static List<String> everyone(Map<String, List<PlayerStats>> enemies, int streakThreshold,
+			ThreatScale scale) {
+		List<Entry> all = new ArrayList<>();
+		int unknown = 0;
+
+		for (Map.Entry<String, List<PlayerStats>> team : enemies.entrySet()) {
+			for (PlayerStats player : team.getValue()) {
+				if (player == null) {
+					unknown++;
+				} else {
+					all.add(new Entry(team.getKey(), player, player.isNicked() ? -1 : Threat.index(player)));
+				}
+			}
+		}
+
+		if (all.isEmpty()) {
+			return List.of("No enemies looked up yet (" + unknown + " waiting)");
+		}
+
+		all.sort((left, right) -> Double.compare(right.danger(), left.danger()));
+
+		List<String> lines = new ArrayList<>();
+		for (Entry entry : all) {
+			lines.add(describe(entry, streakThreshold, scale));
+		}
+		if (unknown > 0) {
+			lines.add("+" + unknown + " not looked up yet");
+		}
+
+		return lines;
+	}
+
 	private static boolean onARun(PlayerStats player, int threshold) {
 		return player.getWinstreak() != null && player.getWinstreak() > threshold;
 	}

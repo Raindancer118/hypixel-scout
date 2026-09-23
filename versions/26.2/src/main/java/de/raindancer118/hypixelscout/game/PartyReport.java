@@ -2,6 +2,7 @@ package de.raindancer118.hypixelscout.game;
 
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.BedwarsModes;
+import de.raindancer118.hypixelscout.core.ChatPacing;
 import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.core.StatLines;
@@ -27,8 +28,9 @@ import java.util.function.Supplier;
  * <p>Only ever when the player asks. Sending this by itself when a game starts would be a chat
  * macro, which Hypixel bans people for.
  *
- * <p>The lines go out one at a time: Hypixel's anti-spam swallows a burst, and players without a
- * rank may only chat every few seconds, so their report is paced slower.
+ * <p>The lines go out one at a time, as far apart as the player set ({@link ChatPacing}): Hypixel's
+ * anti-spam swallows a burst, and players without a rank may only chat every few seconds, so their
+ * report is paced slower whatever the setting says.
  */
 public final class PartyReport {
 	/** Where a report goes. */
@@ -41,10 +43,6 @@ public final class PartyReport {
 
 	private record Line(Channel channel, String text) {
 	}
-
-	private static final int TICKS_RANKED = 22;
-	/** Hypixel lets players without a rank chat once every three seconds. */
-	private static final int TICKS_UNRANKED = 64;
 
 	private final Roster roster;
 	private final StatsService stats;
@@ -131,6 +129,34 @@ public final class PartyReport {
 	}
 
 	/**
+	 * Queues every enemy, one line each, not only the ones worth a warning. Replaces whatever
+	 * report was still going out, like {@link #send} does.
+	 */
+	public void sendAll(Channel channel) {
+		if (!roster.isInGame()) {
+			Chat.sayTranslated("message.hypixelscout.party.not_in_game");
+			return;
+		}
+
+		if (channel == Channel.TEAM && !BedwarsModes.hasTeammates(roster.mode())) {
+			Chat.sayTranslated("message.hypixelscout.report.solo");
+			return;
+		}
+
+		Map<String, List<PlayerStats>> enemies = enemyPlayers();
+		if (enemies.isEmpty()) {
+			Chat.sayTranslated("message.hypixelscout.party.no_teams");
+			return;
+		}
+
+		pending.clear();
+		List<String> lines = ThreatCallout.everyone(enemies, settings.get().alerts.streakThreshold, Threats.scale());
+		lines.forEach(text -> pending.add(new Line(channel, text)));
+		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.sending_team"
+				: "message.hypixelscout.party.sending", lines.size());
+	}
+
+	/**
 	 * Whether one player's stats can go into this channel right now: party chat anywhere on
 	 * Hypixel, team chat only inside a game that has teams.
 	 */
@@ -183,7 +209,7 @@ public final class PartyReport {
 			client.getConnection().sendChat(line.text());
 		}
 
-		cooldown = ownRanked(client) ? TICKS_RANKED : TICKS_UNRANKED;
+		cooldown = ChatPacing.ticksBetween(ownRanked(client), settings.get().reportIntervalTicks);
 	}
 
 	/** Players with any rank may chat quickly; without one, Hypixel enforces a pause. */

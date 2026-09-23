@@ -13,6 +13,8 @@ profiles, read from the official Hypixel API with your own key — in a real in-
     **party chat**: one short line per enemy worth a warning, most dangerous first — harmless
     players are left out, nicks named, at most six lines:
     `YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS`, `BLUE Glimmer is nicked`.
+    **List → team** / **List → party** send the whole enemy list instead: every player, one line
+    each, the harmless ones too, with a closing count of anybody not looked up yet.
   - **Lookup**: any player at all, in your game or not, with your recent lookups as clickable faces.
   - **Queue**: the nine quick-queue slots, each bound to a key, set and played from here.
 - **Profile screen**: head, rank, level, karma, account age, last login, threat, and cards for
@@ -73,6 +75,7 @@ free on purpose.
 | `/scout key <key>` / `/scout testkey` | Stores / checks your API key |
 | `/scout team` | Sends the enemy threat report to team chat (not in Solo) |
 | `/scout party` | Sends the enemy threat report to party chat |
+| `/scout list team` / `/scout list party` | Sends every enemy, one line each, to team or party chat |
 | `/scout table` | Toggles the table |
 | `/scout refresh` | Looks everybody up again |
 | `/scout status` | Key, request budget, Mod API and game state |
@@ -117,8 +120,9 @@ cards, the tooltip and both reports all use the same scale.
 
 - **No ban history.** The Hypixel API exposes no punishments per player.
 - **No automatic chat.** The team and party reports and `/play` are only sent when you press for
-  them — one line at a time, slower for players without a rank, whom Hypixel lets chat only every
-  few seconds.
+  them — one line at a time, 0.5 s apart by default (Settings → Alerts → *Chat interval*), but
+  never faster than every 3.2 s for players without a rank, whom Hypixel lets chat only every three
+  seconds.
 - **No wallhack.** The look tooltip needs line of sight and only sees players the server sent you.
 - **Nicked players stay unknown.** There is no profile behind a nick; the mod says so.
 

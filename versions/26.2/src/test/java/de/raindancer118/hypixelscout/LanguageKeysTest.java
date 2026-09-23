@@ -89,6 +89,13 @@ class LanguageKeysTest {
 			used.add("message.hypixelscout.threat_basis.short." + name(basis));
 		}
 		used.add("message.hypixelscout.game.look_up_now.tooltip");
+		for (de.raindancer118.hypixelscout.game.PartyReport.Channel channel
+				: de.raindancer118.hypixelscout.game.PartyReport.Channel.values()) {
+			used.add("message.hypixelscout.teams." + name(channel));
+			used.add("message.hypixelscout.teams." + name(channel) + ".tooltip");
+			used.add("message.hypixelscout.teams.list." + name(channel));
+			used.add("message.hypixelscout.teams.list." + name(channel) + ".tooltip");
+		}
 
 		for (String toggle : new String[] {"lobby", "hypixel_only", "group", "hide_own", "wlr", "winstreak", "beds", "beds_per_game", "kills_per_game", "age",
 				"tooltip", "walls", "tab", "nametag_stars", "nametag_fkdr", "chat_hover", "nick_alert", "streak_alert"}) {

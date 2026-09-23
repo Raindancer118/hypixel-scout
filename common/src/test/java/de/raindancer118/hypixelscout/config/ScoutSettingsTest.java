@@ -41,6 +41,8 @@ class ScoutSettingsTest {
 		// The bands as they are, and the reports leave out whoever is below an even match.
 		assertThat(settings.threatSensitivity).isEqualTo(100);
 		assertThat(settings.threatReportFrom).isEqualTo(Threat.MEDIUM);
+		// Half a second between chat lines, as asked for.
+		assertThat(settings.reportIntervalTicks).isEqualTo(10);
 		assertThat(file).exists();
 	}
 
@@ -78,12 +80,13 @@ class ScoutSettingsTest {
 	void theThreatSettingsAreKeptSane() throws Exception {
 		Path file = dir.resolve("hypixelscout.json");
 		Files.writeString(file, """
-				{ "threatSensitivity": 5000, "threatReportFrom": "NICKED" }
+				{ "threatSensitivity": 5000, "threatReportFrom": "NICKED", "reportIntervalTicks": 0 }
 				""", StandardCharsets.UTF_8);
 
 		ScoutSettings settings = ScoutSettings.load(file);
 
 		assertThat(settings.threatSensitivity).isEqualTo(ScoutSettings.MAX_SENSITIVITY);
+		assertThat(settings.reportIntervalTicks).isEqualTo(10);
 		// Only a level a player can actually be rated at is something to report from.
 		assertThat(settings.threatReportFrom).isEqualTo(Threat.MEDIUM);
 

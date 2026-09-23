@@ -39,12 +39,12 @@ import java.util.concurrent.atomic.AtomicReference;
 public class HypixelScoutStartupTest implements FabricClientGameTest {
 	private static final List<String> EXPECTED_KEYS = List.of(
 			"key.hypixelscout.open", "key.hypixelscout.table", "key.hypixelscout.peek", "key.hypixelscout.settings",
-			"key.hypixelscout.move_table", "key.hypixelscout.profile_target", "key.hypixelscout.party_report",
+			"key.hypixelscout.move_table", "key.hypixelscout.profile_target", "key.hypixelscout.party_report", "key.hypixelscout.team_list", "key.hypixelscout.party_list",
 			"key.hypixelscout.queue_1", "key.hypixelscout.queue_9", "key.hypixelscout.queue_random");
 
 	private static final List<String> EXPECTED_SUBCOMMANDS = List.of(
 			"game", "teams", "lookup", "queue", "settings", "move", "table", "party", "refresh", "status",
-			"testkey", "key", "player");
+			"testkey", "key", "player", "list");
 
 	private record Seat(String team, HypixelStub.Player player) {
 	}
@@ -266,6 +266,19 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
 			context.waitTicks(5);
 			context.takeScreenshot("scout_team_report_sent");
+
+			// The whole enemy list into party chat: everybody, the harmless ones too, then sent out.
+			context.runOnClient(client -> client.player.connection.sendCommand("scout list party"));
+			context.runOnClient(client -> {
+				List<String> lines = mod.partyReport().pendingLines();
+				if (lines.size() != 12 || !lines.getFirst().equals("YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS")
+						|| lines.stream().noneMatch(line -> line.startsWith("GREEN mossy 17* - NONE"))
+						|| !lines.getLast().equals("BLUE Glimmer is nicked")
+						|| lines.stream().anyMatch(line -> line.startsWith("RED"))) {
+					throw new AssertionError("Unexpected enemy list: " + lines);
+				}
+			});
+			context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
 
 			// Chat: the names in a line gain the stats on hover, and nothing else changes.
 			context.runOnClient(client -> assertChatHover(mod));

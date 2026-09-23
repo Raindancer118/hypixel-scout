@@ -76,6 +76,8 @@ public final class ScoutKeys {
 
 		add("party_report", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().send(PartyReport.Channel.PARTY));
 		add("team_report", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().send(PartyReport.Channel.TEAM));
+		add("party_list", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().sendAll(PartyReport.Channel.PARTY));
+		add("team_list", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().sendAll(PartyReport.Channel.TEAM));
 		// Whoever is under the crosshair, into chat in one press: the call-out mid-fight.
 		add("send_target_team", GLFW.GLFW_KEY_UNKNOWN, () -> sendTarget(PartyReport.Channel.TEAM));
 		add("send_target_party", GLFW.GLFW_KEY_UNKNOWN, () -> sendTarget(PartyReport.Channel.PARTY));
@@ -121,7 +123,7 @@ public final class ScoutKeys {
 	/** The bindings the mod's own settings offer to change, in the order they are shown. */
 	public List<KeyMapping> settingsMappings() {
 		List<String> shown = List.of("open", "peek", "table", "profile_target", "send_target_team",
-				"send_target_party", "team_report", "party_report", "move_table", "refresh");
+				"send_target_party", "team_report", "party_report", "team_list", "party_list", "move_table", "refresh");
 		return shown.stream()
 				.map(name -> "key.hypixelscout." + name)
 				.map(id -> actions.stream().map(Action::mapping).filter(m -> m.getName().equals(id)).findFirst()

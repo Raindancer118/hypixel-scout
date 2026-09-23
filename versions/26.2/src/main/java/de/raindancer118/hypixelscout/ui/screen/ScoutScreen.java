@@ -440,6 +440,15 @@ public final class ScoutScreen extends Screen {
 					.bounds(channel == PartyReport.Channel.TEAM ? right - 164 : right - 80, contentTop - 2, 80, 16)
 					.build());
 			report.active = mod.partyReport().canSend(channel);
+
+			// The whole enemy list, not just the warnings, to the left of the report buttons.
+			String listKey = "message.hypixelscout.teams.list." + channel.name().toLowerCase(Locale.ROOT);
+			Button list = addRenderableWidget(Button.builder(Component.translatable(listKey),
+							button -> mod.partyReport().sendAll(channel))
+					.tooltip(Tooltip.create(Component.translatable(listKey + ".tooltip")))
+					.bounds(channel == PartyReport.Channel.TEAM ? right - 332 : right - 248, contentTop - 2, 80, 16)
+					.build());
+			list.active = mod.partyReport().canSend(channel);
 		}
 	}
 
@@ -486,7 +495,7 @@ public final class ScoutScreen extends Screen {
 				I18n.get("message.hypixelscout.threat_basis.short." + settings().threatBasis.name().toLowerCase(Locale.ROOT))
 						+ (settings().threatSensitivity == 100 ? ""
 								: ", " + I18n.get("message.hypixelscout.threat_sensitivity.short", settings().threatSensitivity))),
-				contentWidth() - 172),
+				contentWidth() - 340),
 				left, contentTop + 2, ScoutTheme.TEXT);
 
 		List<TeamGroup> groups = teamGroups();
