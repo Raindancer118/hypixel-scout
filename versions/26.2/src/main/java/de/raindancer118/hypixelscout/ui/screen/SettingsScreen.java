@@ -275,6 +275,24 @@ public final class SettingsScreen extends Screen {
 			rows.addChild(toggle("tab", settings().tab.enabled, value -> settings().tab.enabled = value));
 			rows.addChild(toggle("nametag_stars", settings().nametag.stars, value -> settings().nametag.stars = value));
 			rows.addChild(toggle("nametag_fkdr", settings().nametag.fkdr, value -> settings().nametag.fkdr = value));
+
+			rows.addChild(toggle("proximity", settings().proximity.enabled,
+					value -> settings().proximity.enabled = value));
+			rows.addChild(CycleButton.builder((Threat value) -> Component.literal(value.colour() + value.label()),
+							settings().proximity.from)
+					.withValues(Threat.rated())
+					.withTooltip(value -> Tooltip.create(
+							Component.translatable("message.hypixelscout.settings.proximity_from.tooltip")))
+					.create(0, 0, NARROW, 20, Component.translatable("message.hypixelscout.settings.proximity_from"),
+							(button, value) -> settings().proximity.from = value));
+			rows.addChild(new SettingSlider(0, 0, NARROW, "message.hypixelscout.settings.proximity_radius", 2,
+					ScoutSettings.MAX_RADIUS, settings().proximity.radius,
+					value -> settings().proximity.radius = (int) Math.round(value),
+					value -> String.valueOf(Math.round(value))));
+			rows.addChild(new SettingSlider(0, 0, NARROW, "message.hypixelscout.settings.proximity_seconds", 1,
+					ScoutSettings.MAX_POPUP_SECONDS, settings().proximity.seconds,
+					value -> settings().proximity.seconds = (int) Math.round(value),
+					value -> Math.round(value) + " s"));
 		}
 	}
 

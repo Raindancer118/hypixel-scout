@@ -19,6 +19,7 @@ import de.raindancer118.hypixelscout.game.ChatHover;
 import de.raindancer118.hypixelscout.game.LocationBridge;
 import de.raindancer118.hypixelscout.game.Nametags;
 import de.raindancer118.hypixelscout.game.PartyReport;
+import de.raindancer118.hypixelscout.game.ProximityAlerts;
 import de.raindancer118.hypixelscout.game.QuickQueue;
 import de.raindancer118.hypixelscout.game.ScoutAlerts;
 import de.raindancer118.hypixelscout.game.TabListReader;
@@ -26,6 +27,7 @@ import de.raindancer118.hypixelscout.ui.Chat;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
 import de.raindancer118.hypixelscout.ui.hud.LookTooltipElement;
 import de.raindancer118.hypixelscout.ui.hud.PeekElement;
+import de.raindancer118.hypixelscout.ui.hud.ProximityElement;
 import de.raindancer118.hypixelscout.ui.hud.TabStatsElement;
 import de.raindancer118.hypixelscout.ui.hud.TableEditorScreen;
 import de.raindancer118.hypixelscout.ui.hud.TableHud;
@@ -91,6 +93,8 @@ public final class HypixelScout implements ClientModInitializer {
 	private TableHud tableHud;
 	private TableHudElement table;
 	private PeekElement peek;
+	private ProximityAlerts proximity;
+	private ProximityElement proximityElement;
 	private ScoutKeys keys;
 	private ChatHover hover;
 	private boolean modApiPresent;
@@ -139,6 +143,9 @@ public final class HypixelScout implements ClientModInitializer {
 		HudElementRegistry.addLast(id("peek"), peek);
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, id("look_tooltip"),
 				new LookTooltipElement(roster, stats, () -> settings).hideWhile(() -> peek.isHeld()));
+		proximity = new ProximityAlerts(roster, stats, () -> settings);
+		proximityElement = new ProximityElement(proximity, stats, () -> settings).hideWhile(() -> peek.isHeld());
+		HudElementRegistry.attachElementBefore(id("peek"), id("proximity"), proximityElement);
 		HudElementRegistry.replaceElement(VanillaHudElements.PLAYER_LIST,
 				vanilla -> new TabStatsElement(vanilla, roster, stats, () -> settings));
 
@@ -172,6 +179,7 @@ public final class HypixelScout implements ClientModInitializer {
 	private void tick(Minecraft minecraft) {
 		keys.tick(minecraft);
 		partyReport.tick(minecraft);
+		proximity.tick(minecraft);
 
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
 			scanTicks = 0;
@@ -235,6 +243,7 @@ public final class HypixelScout implements ClientModInitializer {
 		table.close();
 		// Anybody who failed last game — a hiccup, a throttle — deserves another try in this one.
 		stats.clearFailures();
+		proximity.reset();
 		scanTicks = 0;
 		roster.refresh(TabListReader.current());
 	}
@@ -253,6 +262,7 @@ public final class HypixelScout implements ClientModInitializer {
 		roster.onLocationChanged(false, null, null);
 		table.close();
 		alerts.reset();
+		proximity.reset();
 		partyReport.cancel();
 	}
 
@@ -364,6 +374,11 @@ public final class HypixelScout implements ClientModInitializer {
 
 	public PeekElement peek() {
 		return peek;
+	}
+
+	/** The proximity popups as drawn, for the client game test. */
+	public ProximityElement proximity() {
+		return proximityElement;
 	}
 
 	public TableHudElement table() {

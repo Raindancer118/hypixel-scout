@@ -30,6 +30,28 @@ public final class StatLines {
 				+ Ranks.colour(stats.getRank()) + name;
 	}
 
+	/**
+	 * Two lines for a glance: who, then threat, FKDR and a winstreak if there is one. For the popup
+	 * when somebody comes close, which has to be read in a second.
+	 */
+	public static List<String> brief(String name, PlayerStats stats, boolean pending, String failure,
+			ThreatScale scale) {
+		if (stats == null) {
+			return List.of("§f" + name, pending || failure == null ? "§7Looking them up…" : "§c" + failure);
+		}
+		if (stats.isNicked()) {
+			return List.of("§f" + name, "§dNICK");
+		}
+
+		Threat threat = scale.threatOf(stats);
+		String line = threat.colour() + threat.label() + "  §7FKDR " + StatFormat.ratioColour(stats.getFkdr())
+				+ StatFormat.ratio(stats.getFkdr());
+		if (stats.getWinstreak() != null && stats.getWinstreak() > 0) {
+			line += "  §7WS §f" + stats.getWinstreak();
+		}
+		return List.of(name(name, stats), line);
+	}
+
 	/** The block shown when looking at a player, or hovering their name in chat. */
 	public static List<String> detail(String name, PlayerStats stats, boolean pending,
 			String failure) {

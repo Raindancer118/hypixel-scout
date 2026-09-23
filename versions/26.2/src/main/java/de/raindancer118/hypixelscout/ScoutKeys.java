@@ -64,6 +64,8 @@ public final class ScoutKeys {
 				mod.settings().alerts.chatHover = !mod.settings().alerts.chatHover));
 		add("toggle_nick_alert", GLFW.GLFW_KEY_UNKNOWN, () -> toggle("nick_alert",
 				mod.settings().alerts.nickAlert = !mod.settings().alerts.nickAlert));
+		add("toggle_proximity", GLFW.GLFW_KEY_UNKNOWN, () -> toggle("proximity",
+				mod.settings().proximity.enabled = !mod.settings().proximity.enabled));
 
 		add("cycle_sort", GLFW.GLFW_KEY_UNKNOWN, () -> {
 			SortMode[] modes = SortMode.values();

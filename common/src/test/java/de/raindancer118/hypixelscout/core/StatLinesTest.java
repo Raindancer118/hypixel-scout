@@ -3,6 +3,7 @@ package de.raindancer118.hypixelscout.core;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -106,5 +107,26 @@ class StatLinesTest {
 		assertThat(StatLines.chatLines("Sundial", enemy, scale).getFirst()).isEqualTo("Sundial 1502* is MED");
 		assertThat(StatLines.detail("Sundial", enemy, false, null, scale))
 				.extracting(StatLines::plain).anyMatch(line -> line.contains("Threat MED"));
+	}
+
+	@Test
+	void theBriefCardIsTheNameAndOneLineOfWhatMatters() {
+		PlayerStats stats = PlayerStats.builder("Sundial", UUID.randomUUID()).stars(1502)
+				.finals(40_100, 2_900).games(7_900, 1_500).winstreak(104).rank("MVP_PLUS").build();
+
+		List<String> lines = StatLines.brief("Sundial", stats, false, null, ThreatScale.ABSOLUTE).stream()
+				.map(StatLines::plain).toList();
+
+		assertThat(lines).hasSize(2);
+		assertThat(lines.getFirst()).contains("Sundial").contains("1502");
+		assertThat(lines.get(1)).isEqualTo("INSANE  FKDR 13.83  WS 104");
+	}
+
+	@Test
+	void theBriefCardSaysWhenThereIsNothingToShowYet() {
+		assertThat(StatLines.brief("Sundial", null, true, null, ThreatScale.ABSOLUTE).stream()
+				.map(StatLines::plain).toList()).containsExactly("Sundial", "Looking them up…");
+		assertThat(StatLines.brief("Glimmer", PlayerStats.nicked("Glimmer", UUID.randomUUID()), false, null,
+				ThreatScale.ABSOLUTE).stream().map(StatLines::plain).toList()).containsExactly("Glimmer", "NICK");
 	}
 }

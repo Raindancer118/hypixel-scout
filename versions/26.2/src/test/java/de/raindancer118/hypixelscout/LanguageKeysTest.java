@@ -98,11 +98,11 @@ class LanguageKeysTest {
 		}
 
 		for (String toggle : new String[] {"lobby", "hypixel_only", "group", "hide_own", "wlr", "winstreak", "beds", "beds_per_game", "kills_per_game", "age",
-				"tooltip", "walls", "tab", "nametag_stars", "nametag_fkdr", "chat_hover", "nick_alert", "streak_alert"}) {
+				"tooltip", "walls", "tab", "nametag_stars", "nametag_fkdr", "chat_hover", "nick_alert", "streak_alert", "proximity"}) {
 			used.add("message.hypixelscout.settings." + toggle);
 			used.add("message.hypixelscout.settings." + toggle + ".tooltip");
 		}
-		for (String feature : new String[] {"tab", "nametags", "tooltip", "chat_hover", "nick_alert"}) {
+		for (String feature : new String[] {"tab", "nametags", "tooltip", "chat_hover", "nick_alert", "proximity"}) {
 			used.add("message.hypixelscout.toggle." + feature);
 		}
 		for (int slot = 1; slot <= 9; slot++) {

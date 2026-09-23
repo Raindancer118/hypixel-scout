@@ -45,6 +45,8 @@ public final class ScoutSettings {
 	public static final double MAX_ANGLE = 20.0;
 	public static final int MAX_CACHE_MINUTES = 120;
 	public static final int MAX_LOOKUPS = 12;
+	public static final int MAX_RADIUS = 48;
+	public static final int MAX_POPUP_SECONDS = 15;
 	public static final int MIN_SENSITIVITY = 25;
 	public static final int MAX_SENSITIVITY = 400;
 
@@ -87,6 +89,7 @@ public final class ScoutSettings {
 	public Nametag nametag = new Nametag();
 	public Tooltip tooltip = new Tooltip();
 	public Alerts alerts = new Alerts();
+	public Proximity proximity = new Proximity();
 	public Queue queue = new Queue();
 
 	/** Names typed into the lookup screen lately, newest first. */
@@ -152,6 +155,17 @@ public final class ScoutSettings {
 		public boolean nickAlert = true;
 		public boolean streakAlert = true;
 		public int streakThreshold = 50;
+	}
+
+	/** A short popup with the stats of an enemy who comes close. */
+	public static final class Proximity {
+		public boolean enabled = true;
+		/** How close counts, in blocks. */
+		public int radius = 12;
+		/** How long a popup stays up. */
+		public int seconds = 4;
+		/** The lowest threat level worth a popup; nicks and players not looked up yet always get one. */
+		public Threat from = Threat.NONE;
 	}
 
 	/** The quick-queue hotkeys. */
@@ -259,6 +273,11 @@ public final class ScoutSettings {
 
 		alerts = alerts == null ? new Alerts() : alerts;
 		alerts.streakThreshold = Math.clamp(alerts.streakThreshold, 1, 10_000);
+
+		proximity = proximity == null ? new Proximity() : proximity;
+		proximity.radius = Math.clamp(proximity.radius, 2, MAX_RADIUS);
+		proximity.seconds = Math.clamp(proximity.seconds, 1, MAX_POPUP_SECONDS);
+		proximity.from = proximity.from == null || !proximity.from.isRated() ? Threat.NONE : proximity.from;
 
 		queue = queue == null ? new Queue() : queue;
 		String[] slots = queue.slots == null ? new String[0] : queue.slots;

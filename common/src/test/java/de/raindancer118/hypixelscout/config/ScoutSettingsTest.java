@@ -43,6 +43,11 @@ class ScoutSettingsTest {
 		assertThat(settings.threatReportFrom).isEqualTo(Threat.MEDIUM);
 		// Half a second between chat lines, as asked for.
 		assertThat(settings.reportIntervalTicks).isEqualTo(10);
+		// The proximity popup is on, for enemies within twelve blocks, for four seconds.
+		assertThat(settings.proximity.enabled).isTrue();
+		assertThat(settings.proximity.radius).isEqualTo(12);
+		assertThat(settings.proximity.seconds).isEqualTo(4);
+		assertThat(settings.proximity.from).isEqualTo(Threat.NONE);
 		assertThat(file).exists();
 	}
 
@@ -91,11 +96,20 @@ class ScoutSettingsTest {
 		assertThat(settings.threatReportFrom).isEqualTo(Threat.MEDIUM);
 
 		Files.writeString(file, """
-				{ "threatSensitivity": 1, "threatReportFrom": null }
+				{ "threatSensitivity": 1, "threatReportFrom": null, "proximity": null }
 				""", StandardCharsets.UTF_8);
 		settings = ScoutSettings.load(file);
 
 		assertThat(settings.threatSensitivity).isEqualTo(ScoutSettings.MIN_SENSITIVITY);
+		assertThat(settings.proximity).isNotNull();
+
+		Files.writeString(file, """
+				{ "proximity": { "radius": 900, "seconds": 0, "from": "UNKNOWN" } }
+				""", StandardCharsets.UTF_8);
+		ScoutSettings proximity = ScoutSettings.load(file);
+		assertThat(proximity.proximity.radius).isEqualTo(ScoutSettings.MAX_RADIUS);
+		assertThat(proximity.proximity.seconds).isEqualTo(1);
+		assertThat(proximity.proximity.from).isEqualTo(Threat.NONE);
 		assertThat(settings.threatReportFrom).isEqualTo(Threat.MEDIUM);
 	}
 

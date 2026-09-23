@@ -33,6 +33,11 @@ profiles, read from the official Hypixel API with your own key — in a real in-
 - **Chat hover**: hovering a player's name in chat shows their stats, clicking opens the profile.
 - **Tab list** with stats, faces and team colours (off by default).
 - **Nametags** with the star in front and the FKDR after (off by default).
+- **Proximity popup**: an enemy walking within 12 blocks (Settings → Overlays → *Popup radius*,
+  2–48) gets a small card at the top of the screen for 4 seconds — threat level, stars, FKDR,
+  winstreak. Once per approach: they have to walk a few blocks beyond the radius and 15 seconds
+  must pass before it shows again. *Popup from* skips players below a threat level; nicks and
+  players not looked up yet always show. Teammates never do.
 - **Nick and winstreak alerts** in your own chat.
 - **Settings screen** with everything in four tabs, also reachable from Mod Menu. English and German.
 

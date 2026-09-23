@@ -219,6 +219,23 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			});
 			context.takeScreenshot("scout_look_tooltip_nametag");
 
+			// Sundial, an enemy three and a half blocks away, came into the popup radius.
+			context.runOnClient(client -> {
+				var shown = mod.proximity().shown();
+				if (shown.isEmpty() || !shown.getFirst().name().equals("Sundial")) {
+					throw new AssertionError("No proximity popup for Sundial: " + shown);
+				}
+				mod.settings().proximity.from = de.raindancer118.hypixelscout.core.Threat.INSANE;
+				if (mod.proximity().shown().isEmpty()) {
+					throw new AssertionError("Sundial is INSANE and still filtered out");
+				}
+				mod.settings().proximity.from = de.raindancer118.hypixelscout.core.Threat.NONE;
+				mod.settings().tooltip.enabled = false;
+			});
+			context.waitTicks(2);
+			context.takeScreenshot("scout_proximity_popup");
+			context.runOnClient(client -> mod.settings().tooltip.enabled = true);
+
 			// Holding the peek key: the full profile of whoever is aimed at, gone on release.
 			context.getInput().holdKey(mod.keys().peekMapping());
 			context.waitTicks(3);

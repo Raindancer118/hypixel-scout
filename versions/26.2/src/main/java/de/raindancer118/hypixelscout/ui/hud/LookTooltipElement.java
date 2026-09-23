@@ -86,16 +86,25 @@ public final class LookTooltipElement implements HudElement {
 
 	static void draw(GuiGraphicsExtractor graphics, UUID uuid, Teams.Team team, List<String> lines,
 			int offsetY) {
+		// Below the crosshair, clear of it: the card must not sit where you are aiming.
+		card(graphics, uuid, team, lines, (graphics.guiWidth() - width(lines)) / 2,
+				graphics.guiHeight() / 2 + offsetY);
+	}
+
+	/** How wide {@link #card} draws these lines. */
+	static int width(List<String> lines) {
 		int textWidth = 0;
 		for (String line : lines) {
 			textWidth = Math.max(textWidth, ScoutTheme.width(line));
 		}
+		return PADDING + HEAD + 6 + textWidth + PADDING;
+	}
 
-		int width = PADDING + HEAD + 6 + textWidth + PADDING;
+	/** A card with a head, the team's colour and the lines; returns its height. */
+	static int card(GuiGraphicsExtractor graphics, UUID uuid, Teams.Team team, List<String> lines, int left,
+			int top) {
+		int width = width(lines);
 		int height = Math.max(HEAD, lines.size() * LINE - 1) + PADDING * 2;
-		int left = (graphics.guiWidth() - width) / 2;
-		// Below the crosshair, clear of it: the card must not sit where you are aiming.
-		int top = graphics.guiHeight() / 2 + offsetY;
 
 		ScoutTheme.panel(graphics, left, top, width, height, 88);
 		ScoutTheme.pill(graphics, left + 1, top + 3, 2, height - 6, team.argb());
@@ -107,5 +116,6 @@ public final class LookTooltipElement implements HudElement {
 			ScoutTheme.text(graphics, line, x, y, ScoutTheme.TEXT);
 			y += LINE;
 		}
+		return height;
 	}
 }
