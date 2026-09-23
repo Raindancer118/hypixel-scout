@@ -52,7 +52,10 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   acceleration), occluded by blocks like everything else.
 - **Incoming warning**: while an arrow or fireball is about to hit you — directly, or a fireball
   landing within 2.5 blocks — a pulsing card above the crosshair says what, from which side (↑ ahead,
-  ↓ behind, and the six between) and in how many seconds, with a short ping. Not for your own, and
+  ↓ behind, and the six between) and in how many seconds. For a fireball a **missile-inbound tone**
+  loops as long as its path or blast has you in it, rising over the last second and stopping the
+  moment you are out of the way; an arrow gets a short ping. (The tone is synthesised by
+  `tools/missile_tone.py`, no third-party audio.) Not for your own, and
   not for one first seen within 3 blocks of your eyes inside your view: thrown in your face, you see
   it anyway. That is judged once, when it appears; one that flew in from afar still counts up close.
 - **Fireball aim line**: while you hold a fire charge, the line your fireball would fly if you

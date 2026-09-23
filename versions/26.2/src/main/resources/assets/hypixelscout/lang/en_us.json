@@ -338,7 +338,7 @@
 	"message.hypixelscout.settings.incoming": "Incoming warning",
 	"message.hypixelscout.settings.incoming.tooltip": "A warning above the crosshair while an arrow or fireball is about to hit you, with the side it comes from and the time left. Not for your own, and not for one thrown right in front of you within 3 blocks — that one you see anyway.",
 	"message.hypixelscout.settings.incoming_sound": "Warning sound",
-	"message.hypixelscout.settings.incoming_sound.tooltip": "A short ping when the incoming warning comes up.",
+	"message.hypixelscout.settings.incoming_sound.tooltip": "A missile-inbound tone that loops while a fireball's path or blast has you in it, rising in the last second; a short ping for arrows.",
 	"message.hypixelscout.settings.fireball_aim": "Fireball aim line",
 	"message.hypixelscout.settings.fireball_aim.tooltip": "While you hold a fire charge: the line your fireball would fly if you threw it now, and the spot it would hit.",
 	"message.hypixelscout.settings.arrows": "Arrows",
@@ -348,5 +348,6 @@
 	"message.hypixelscout.settings.only_in_game": "Only in Bedwars",
 	"message.hypixelscout.settings.only_in_game.tooltip": "Flight paths, warning and aim line only on a Bedwars game server.",
 	"message.hypixelscout.incoming.fireball": "FIREBALL",
-	"message.hypixelscout.incoming.arrow": "ARROW"
+	"message.hypixelscout.incoming.arrow": "ARROW",
+	"subtitles.hypixelscout.missile_inbound": "Missile inbound"
 }

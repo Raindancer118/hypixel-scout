@@ -5,6 +5,7 @@ import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.flight.Box;
 import de.raindancer118.hypixelscout.flight.FlightPath;
 import de.raindancer118.hypixelscout.flight.IncomingWatch;
+import de.raindancer118.hypixelscout.flight.MissileAlarm;
 import de.raindancer118.hypixelscout.flight.ProjectileKind;
 import de.raindancer118.hypixelscout.flight.Vec;
 import net.minecraft.client.Minecraft;
@@ -49,6 +50,7 @@ public final class Flights {
 	private final Supplier<ScoutSettings> settings;
 	private final IncomingWatch watch = new IncomingWatch();
 	private IncomingWatch.Warning warning;
+	private MissileTone tone;
 
 	public Flights(Roster roster, Supplier<ScoutSettings> settings) {
 		this.roster = roster;
@@ -64,8 +66,7 @@ public final class Flights {
 	public void tick(Minecraft client) {
 		ScoutSettings.Projectiles options = settings.get().projectiles;
 		if (!options.alarm || !active(client)) {
-			warning = null;
-			watch.reset();
+			reset();
 			return;
 		}
 
@@ -79,8 +80,20 @@ public final class Flights {
 		warning = watch.update(seen, box(player.getBoundingBox()), vec(player.getEyePosition()),
 				vec(player.getViewVector(1.0f)), Math.cos(halfViewAngle(client))).orElse(null);
 
-		if (warning != null && warning.fresh() && options.sound) {
-			client.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_PLING.value(), 2.0f, 0.9f));
+		if (options.sound && MissileAlarm.sounds(warning)) {
+			// Missile inbound: looped until the fireball is no longer a danger, see MissileTone.
+			if (!isToneOn()) {
+				tone = new MissileTone(this::warning, () -> settings.get().projectiles.sound);
+				client.getSoundManager().play(tone);
+			}
+		} else {
+			// The tone stops itself too, but only while the sound engine ticks it.
+			if (isToneOn()) {
+				tone.end();
+			}
+			if (warning != null && warning.fresh() && options.sound) {
+				client.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_PLING.value(), 2.0f, 0.9f));
+			}
 		}
 	}
 
@@ -92,6 +105,20 @@ public final class Flights {
 	public void reset() {
 		warning = null;
 		watch.reset();
+		if (tone != null) {
+			tone.end();
+			tone = null;
+		}
+	}
+
+	/** Whether the missile-inbound tone is sounding, for the client game test. */
+	public boolean isToneOn() {
+		return tone != null && !tone.isStopped();
+	}
+
+	/** The tone's sound, for the client game test to check it resolves. */
+	public static net.minecraft.resources.Identifier toneId() {
+		return MissileTone.ID;
 	}
 
 	/**

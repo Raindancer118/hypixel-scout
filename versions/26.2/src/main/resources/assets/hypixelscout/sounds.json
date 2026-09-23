@@ -1,0 +1,8 @@
+{
+	"missile_inbound": {
+		"subtitle": "subtitles.hypixelscout.missile_inbound",
+		"sounds": [
+			{ "name": "hypixelscout:missile_inbound", "stream": false }
+		]
+	}
+}

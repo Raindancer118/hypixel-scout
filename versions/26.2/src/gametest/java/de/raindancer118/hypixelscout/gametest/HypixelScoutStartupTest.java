@@ -544,6 +544,12 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			if (mod.flights().flying(client.level, client.player, 1.0f).isEmpty()) {
 				throw new AssertionError("The fireball has no flight path");
 			}
+			if (!mod.flights().isToneOn()) {
+				throw new AssertionError("No missile-inbound tone for a fireball flying at the player");
+			}
+			if (client.getSoundManager().getSoundEvent(de.raindancer118.hypixelscout.game.Flights.toneId()) == null) {
+				throw new AssertionError("The missile-inbound sound is not in sounds.json");
+			}
 		});
 		context.takeScreenshot("scout_incoming_fireball");
 		context.runOnClient(client -> client.level.getEntity(525_001).discard());
@@ -551,6 +557,9 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		context.runOnClient(client -> {
 			if (mod.flights().warning() != null) {
 				throw new AssertionError("The warning outlived the fireball");
+			}
+			if (mod.flights().isToneOn()) {
+				throw new AssertionError("The missile-inbound tone outlived the fireball");
 			}
 		});
 
