@@ -103,15 +103,39 @@ class TeamReportTest {
 	}
 
 	@Test
-	void theThreatLineNamesThePlayersMostDangerousFirst() {
+	void theThreatLineNamesTheDangerousPlayersMostDangerousFirst() {
 		TeamReport report = TeamReport.of("Yellow", Arrays.asList(
 				player("Orchard", 305, 3900, 2450, 980, 760, 4),
 				player("Sundial", 1502, 40_100, 2900, 7900, 1500, 104),
-				PlayerStats.nicked("Glimmer", UUID.randomUUID()),
-				null));
+				PlayerStats.nicked("Glimmer", UUID.randomUUID())));
 
-		assertEquals("Yellow EXTREME: Sundial 1502* 13.8 WS104, Orchard 305* 1.6, Glimmer NICK, 1 unknown",
+		assertEquals("Yellow [EXTREME]: Sundial 1502* 13.8 FKDR 104 WS | Orchard 305* 1.6 FKDR | Glimmer nicked",
 				report.toThreatMessage(50));
+	}
+
+	@Test
+	void harmlessPlayersAreCountedNotListed() {
+		TeamReport report = TeamReport.of("Blue", Arrays.asList(
+				player("Orchard", 305, 3900, 2450, 980, 760, 4),
+				player("mossy", 17, 30, 70, 8, 30, 1),
+				player("PaperCrane", 44, 90, 160, 30, 60, 0)));
+
+		assertEquals("Blue [MED]: Orchard 305* 1.6 FKDR | 2 low", report.toThreatMessage(50));
+	}
+
+	@Test
+	void aTeamWithNobodyDangerousSaysSo() {
+		TeamReport report = TeamReport.of("Gray", Arrays.asList(
+				player("mossy", 17, 30, 70, 8, 30, 1), player("PaperCrane", 44, 90, 160, 30, 60, 0)));
+
+		assertEquals("Gray [LOW]: 2 low", report.toThreatMessage(50));
+	}
+
+	@Test
+	void playersStillBeingLookedUpAreCounted() {
+		TeamReport report = TeamReport.of("Gray", Arrays.asList(player("mossy", 17, 30, 70, 8, 30, 1), null));
+
+		assertEquals("Gray [LOW]: 1 low | 1 unknown", report.toThreatMessage(50));
 	}
 
 	@Test
@@ -124,8 +148,8 @@ class TeamReportTest {
 		String line = TeamReport.of("Red", many).toThreatMessage(50);
 
 		assertTrue(line.length() <= 100, line);
-		assertTrue(line.matches(".*, \\+\\d+ more$"), line);
-		assertTrue(line.startsWith("Red HIGH: LongPlayerName7 407* 5.0"), line);
+		assertTrue(line.matches(".* \\| \\+\\d+ more$"), line);
+		assertTrue(line.startsWith("Red [HIGH]: LongPlayerName7 407* 5.0 FKDR | "), line);
 	}
 
 	@Test
@@ -142,6 +166,6 @@ class TeamReportTest {
 		PlayerStats veteran = PlayerStats.builder("Me", UUID.randomUUID()).stars(3000).finals(100_000, 10_000).build();
 
 		assertTrue(report.toThreatMessage(50, ThreatScale.of(ThreatScale.Basis.ME, veteran, java.util.List.of()))
-				.startsWith("Yellow MED:"));
+				.startsWith("Yellow [MED]:"));
 	}
 }

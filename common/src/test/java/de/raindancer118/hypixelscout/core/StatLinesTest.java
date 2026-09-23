@@ -57,13 +57,13 @@ class StatLinesTest {
 	}
 
 	@Test
-	void aPlayerFitsIntoOneChatLineWithEverythingThatMatters() {
+	void aPlayerReadsLikeASentenceInChat() {
 		PlayerStats stats = PlayerStats.builder("Sundial", UUID.randomUUID()).stars(1502)
 				.finals(40_100, 2_900).games(7_900, 1_500).beds(15_800, 1_500).kills(80_200, 8_700)
 				.winstreak(104).rank("MVP_PLUS").build();
 
 		assertThat(StatLines.chatLine("Sundial", stats)).isEqualTo(
-				"Sundial [MVP+] 1502* EXTREME | FKDR 13.83 | WLR 5.27 | WS 104 | Beds/g 1.7 | Kills/g 8.5");
+				"Sundial [MVP+] 1502* - EXTREME threat - 13.8 FKDR, 5.3 WLR, 104 WS, 1.7 beds/game, 8.5 kills/game");
 	}
 
 	@Test
@@ -72,24 +72,27 @@ class StatLinesTest {
 				.finals(2_120, 1_700).games(610, 540).build();
 
 		assertThat(StatLines.chatLine("quietfox", stats))
-				.isEqualTo("quietfox 212* LOW | FKDR 1.25 | WLR 1.13 | Beds/g 0.0 | Kills/g 0.0");
+				.isEqualTo("quietfox 212* - LOW threat - 1.2 FKDR, 1.1 WLR, 0.0 beds/game, 0.0 kills/game");
 	}
 
 	@Test
 	void aNickIsSaidAsSuch() {
 		assertThat(StatLines.chatLine("Glimmer", PlayerStats.nicked("Glimmer", UUID.randomUUID())))
-				.isEqualTo("Glimmer is nicked - Hypixel has no profile under that name");
+				.isEqualTo("Glimmer is nicked (no Hypixel profile under that name)");
 	}
 
 	@Test
-	void theChatLineIsPlainAsciiAndShortEnough() {
+	void aLineThatDoesNotFitLosesWordsNotNumbers() {
 		PlayerStats stats = PlayerStats.builder("ABCDEFGHIJKLMNOP", UUID.randomUUID()).stars(10_000)
 				.finals(999_999, 1).games(999_999, 1).beds(999_999, 1).kills(999_999, 1)
 				.winstreak(99_999).rank("SUPERSTAR").build();
 
 		String line = StatLines.chatLine("ABCDEFGHIJKLMNOP", stats);
+
 		assertThat(line.length()).isLessThanOrEqualTo(100);
 		assertThat(line.chars()).allMatch(c -> c >= 32 && c < 127);
+		assertThat(line).startsWith("ABCDEFGHIJKLMNOP").contains("FKDR", "WLR", "WS", "beds", "kills")
+				.doesNotEndWith(" ");
 	}
 
 	@Test
@@ -101,7 +104,7 @@ class StatLinesTest {
 				.finals(100_000, 10_000).build();
 		ThreatScale scale = ThreatScale.of(ThreatScale.Basis.ME, veteran, java.util.List.of());
 
-		assertThat(StatLines.chatLine("Sundial", enemy, scale)).startsWith("Sundial 1502* MED |");
+		assertThat(StatLines.chatLine("Sundial", enemy, scale)).startsWith("Sundial 1502* - MED threat -");
 		assertThat(StatLines.detail("Sundial", enemy, false, null, scale))
 				.extracting(StatLines::plain).anyMatch(line -> line.contains("Threat MED"));
 	}

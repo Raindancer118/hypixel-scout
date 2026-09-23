@@ -10,14 +10,14 @@ profiles, read from the official Hypixel API with your own key — in a real in-
     columns. Click a column heading to sort by it, click a player for their profile.
   - **Teams**: one card per team, the most dangerous first — members, combined stars/FKDR/WLR,
     anybody on a long winstreak — and buttons that report the enemy teams to **team chat** or
-    **party chat**: one line per team with its threat level and every player's star and FKDR,
-    e.g. `Yellow EXTREME: Sundial 1502* 13.8 WS104, Orchard 305* 1.6, Glimmer NICK`.
+    **party chat**: one line per team, the players worth a warning named and the rest counted,
+    e.g. `Yellow [EXTREME]: Sundial 1502* 13.8 FKDR 104 WS | Orchard 305* 1.6 FKDR | 2 low`.
   - **Lookup**: any player at all, in your game or not, with your recent lookups as clickable faces.
   - **Queue**: the nine quick-queue slots, each bound to a key, set and played from here.
 - **Profile screen**: head, rank, level, karma, account age, last login, threat, and cards for
   combat, games and beds, plus the per-game rates and linked socials. **Team chat** and **Party
   chat** buttons send the player's stats in one line, e.g.
-  `Sundial [MVP+] 1502* EXTREME | FKDR 13.83 | WLR 5.27 | WS 104 | Beds/g 1.7 | Kills/g 8.5`.
+  `Sundial [MVP+] 1502* - EXTREME threat - 13.8 FKDR, 5.3 WLR, 104 WS, 1.7 beds/game, 8.5 kills/game`.
   Two bindings do the same for whoever you are aiming at, without opening anything.
 - **Peek** (hold `R`, rebindable under **Settings → Keys**): while the key is down, the full profile of whoever you aim at — or, aiming
   at nobody, the whole game's table — drawn over the game. Let go and it is gone. Nothing pauses and

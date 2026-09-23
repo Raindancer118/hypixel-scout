@@ -251,11 +251,11 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.runOnClient(client -> {
 				mod.partyReport().send(de.raindancer118.hypixelscout.game.PartyReport.Channel.TEAM);
 				List<String> lines = mod.partyReport().pendingLines();
-				if (lines.size() != 3 || !lines.getFirst().startsWith("Yellow EXTREME: Sundial 1502* 13.8 WS104")
+				if (lines.size() != 3 || !lines.getFirst().startsWith("Yellow [EXTREME]: Sundial 1502* 13.8 FKDR 104 WS")
 						|| lines.stream().anyMatch(line -> line.startsWith("Red"))) {
 					throw new AssertionError("Unexpected team report: " + lines);
 				}
-				if (lines.stream().noneMatch(line -> line.contains("Glimmer NICK"))) {
+				if (lines.stream().noneMatch(line -> line.contains("Glimmer nicked"))) {
 					throw new AssertionError("The nick is missing from the report: " + lines);
 				}
 			});
@@ -306,7 +306,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.runOnClient(client -> {
 				List<String> lines = mod.partyReport().pendingLines();
 				if (lines.isEmpty() || !lines.getLast().equals(
-						"Sundial [MVP+] 1502* EXTREME | FKDR 13.83 | WLR 5.27 | WS 104 | Beds/g 1.7 | Kills/g 8.5")) {
+						"Sundial [MVP+] 1502* - EXTREME threat - 13.8 FKDR, 5.3 WLR, 104 WS, 1.7 beds/game, 8.5 kills/game")) {
 					throw new AssertionError("Unexpected player line: " + lines);
 				}
 			});

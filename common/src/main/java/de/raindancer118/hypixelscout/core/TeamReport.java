@@ -151,11 +151,12 @@ public final class TeamReport {
 	}
 
 	/**
-	 * The team as a threat, for team or party chat: its worst threat level, then every player most
-	 * dangerous first with their star and FKDR, and anybody on a long winstreak marked.
+	 * The team as a threat, for team or party chat:
+	 * {@code Yellow [EXTREME]: Sundial 1502* 13.8 FKDR 104 WS | Orchard 305* 1.6 FKDR | 2 low}.
 	 *
-	 * <p>Plain ASCII — Hypixel's chat drops some symbols — and at most 100 characters; players who do
-	 * not fit are counted at the end rather than cut off mid-name.
+	 * <p>Only the players worth a warning get a full entry, most dangerous first; nicks are named,
+	 * harmless players and the ones still being looked up are counted. Plain ASCII, at most 100
+	 * characters; entries that do not fit are counted at the end rather than cut off.
 	 */
 	public String toThreatMessage(int streakThreshold) {
 		return toThreatMessage(streakThreshold, ThreatScale.ABSOLUTE);
@@ -164,77 +165,67 @@ public final class TeamReport {
 	/** The same, with the threat levels measured on {@code scale}. */
 	public String toThreatMessage(int streakThreshold, ThreatScale scale) {
 		List<PlayerStats> ordered = new ArrayList<PlayerStats>(known);
-		ordered.sort((left, right) -> {
-			if (left.isNicked() != right.isNicked()) {
-				return left.isNicked() ? 1 : -1;
-			}
-			return Double.compare(Threat.index(right), Threat.index(left));
-		});
+		ordered.sort((left, right) -> Double.compare(Threat.index(right), Threat.index(left)));
 
 		Threat worst = Threat.UNKNOWN;
-		for (PlayerStats member : known) {
+		List<String> entries = new ArrayList<String>();
+		List<String> nicks = new ArrayList<String>();
+		int low = 0;
+
+		for (PlayerStats member : ordered) {
+			if (member.isNicked()) {
+				nicks.add(member.getName() + " nicked");
+				continue;
+			}
+
 			Threat threat = scale.threatOf(member);
-			if (!member.isNicked() && threat.compareTo(worst) > 0) {
+			if (threat.compareTo(worst) > 0) {
 				worst = threat;
 			}
-		}
 
-		String head = team + (worst == Threat.UNKNOWN ? "" : " " + worst.label()) + ": ";
-		String tail = unknown - countNicked() > 0 ? (unknown - countNicked()) + " unknown" : "";
-
-		List<String> parts = new ArrayList<String>();
-		for (PlayerStats member : ordered) {
-			parts.add(describe(member, streakThreshold));
-		}
-
-		// Everybody who fits, then a count of who did not.
-		StringBuilder line = new StringBuilder(head);
-		int shown = 0;
-		for (String part : parts) {
-			int left = parts.size() - shown - 1;
-			String ending = left > 0 ? ", +" + left + " more" : tail.isEmpty() ? "" : ", " + tail;
-			String separator = shown == 0 ? "" : ", ";
-
-			if (line.length() + separator.length() + part.length() + ending.length() > MAX_CHAT) {
-				break;
+			Integer streak = member.getWinstreak();
+			boolean onARun = streak != null && streak.intValue() > streakThreshold;
+			if (threat == Threat.LOW && !onARun) {
+				low++;
+				continue;
 			}
 
-			line.append(separator).append(part);
-			shown++;
+			entries.add(member.getName() + " " + member.getStars() + "* "
+					+ StatLines.oneDecimal(member.getFkdr()) + " FKDR" + (onARun ? " " + streak + " WS" : ""));
 		}
 
-		int left = parts.size() - shown;
-		if (left > 0) {
-			line.append(shown == 0 ? "" : ", ").append('+').append(left).append(" more");
-		} else if (!tail.isEmpty()) {
-			line.append(shown == 0 ? "" : ", ").append(tail);
+		entries.addAll(nicks);
+		int stillUnknown = unknown - nicks.size();
+
+		List<String> counts = new ArrayList<String>();
+		if (low > 0) {
+			counts.add(low + " low");
+		}
+		if (stillUnknown > 0) {
+			counts.add(stillUnknown + " unknown");
 		}
 
-		return line.toString();
-	}
+		String head = team + " [" + (worst == Threat.UNKNOWN ? "?" : worst.label()) + "]: ";
+		List<String> all = new ArrayList<String>(entries);
+		all.addAll(counts);
 
-	/** The longest line the report puts into chat. */
-	private static final int MAX_CHAT = 100;
+		String line = head + String.join(" | ", all);
+		if (line.length() <= StatLines.MAX_CHAT) {
+			return line;
+		}
 
-	private int countNicked() {
-		int nicked = 0;
-		for (PlayerStats member : known) {
-			if (member.isNicked()) {
-				nicked++;
+		// Drop entries from the end until the rest and a count of what was dropped fit.
+		for (int keep = entries.size() - 1; keep >= 0; keep--) {
+			int dropped = entries.size() - keep + low + Math.max(0, stillUnknown);
+			List<String> kept = new ArrayList<String>(entries.subList(0, keep));
+			kept.add("+" + dropped + " more");
+			String shorter = head + String.join(" | ", kept);
+			if (shorter.length() <= StatLines.MAX_CHAT) {
+				return shorter;
 			}
 		}
-		return nicked;
-	}
 
-	private static String describe(PlayerStats member, int streakThreshold) {
-		if (member.isNicked()) {
-			return member.getName() + " NICK";
-		}
-
-		String text = member.getName() + " " + member.getStars() + "* "
-				+ String.format(Locale.ROOT, "%.1f", Double.valueOf(member.getFkdr()));
-		Integer streak = member.getWinstreak();
-		return streak != null && streak.intValue() > streakThreshold ? text + " WS" + streak : text;
+		return head.strip();
 	}
 
 	private static double ratio(long top, long bottom) {

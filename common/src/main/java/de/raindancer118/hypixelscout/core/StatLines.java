@@ -83,9 +83,12 @@ public final class StatLines {
 	}
 
 	/**
-	 * One player as a line for team or party chat: name, rank, star, threat, then the figures that
-	 * decide a fight. Plain ASCII — Hypixel's chat drops some symbols — and at most 100 characters.
-	 * A winstreak the player hides is left out rather than sent as zero.
+	 * One player as a line for team or party chat, written to be read by a person:
+	 * {@code Sundial [MVP+] 1502* - EXTREME threat - 13.8 FKDR, 5.3 WLR, 104 WS, 1.7 beds/game, ...}.
+	 *
+	 * <p>Plain ASCII — Hypixel's chat drops some symbols and takes no colour — and at most 100
+	 * characters. A line that does not fit loses words before numbers: first the rank, then
+	 * "threat", then the long unit names; it is never cut off in the middle.
 	 */
 	public static String chatLine(String name, PlayerStats stats) {
 		return chatLine(name, stats, ThreatScale.ABSOLUTE);
@@ -94,27 +97,41 @@ public final class StatLines {
 	/** The same, with the threat level measured on {@code scale}. */
 	public static String chatLine(String name, PlayerStats stats, ThreatScale scale) {
 		if (stats.isNicked()) {
-			return name + " is nicked - Hypixel has no profile under that name";
+			return name + " is nicked (no Hypixel profile under that name)";
 		}
 
 		String rank = plain(Ranks.tag(stats.getRank()));
-		StringBuilder line = new StringBuilder(name);
-		if (!rank.isEmpty()) {
-			line.append(' ').append(rank);
-		}
-		line.append(' ').append(stats.getStars()).append("* ").append(scale.threatOf(stats).label());
-		line.append(" | FKDR ").append(StatFormat.ratio(stats.getFkdr()));
-		line.append(" | WLR ").append(StatFormat.ratio(stats.getWlr()));
-		if (stats.getWinstreak() != null) {
-			line.append(" | WS ").append(stats.getWinstreak());
-		}
-		line.append(" | Beds/g ").append(oneDecimal(ProfileMetrics.bedsPerGame(stats)));
-		line.append(" | Kills/g ").append(oneDecimal(ProfileMetrics.killsPerGame(stats)));
+		String threat = scale.threatOf(stats).label();
+		String streak = stats.getWinstreak() == null ? "" : ", " + stats.getWinstreak() + " WS";
+		String ratios = oneDecimal(stats.getFkdr()) + " FKDR, " + oneDecimal(stats.getWlr()) + " WLR" + streak;
+		String beds = oneDecimal(ProfileMetrics.bedsPerGame(stats));
+		String kills = oneDecimal(ProfileMetrics.killsPerGame(stats));
+		String who = name + (rank.isEmpty() ? "" : " " + rank) + " " + stats.getStars() + "*";
+		String bare = name + " " + stats.getStars() + "*";
 
-		return line.length() <= 100 ? line.toString() : line.substring(0, 100);
+		// Most readable first; the first that fits is sent.
+		String[] candidates = {
+				who + " - " + threat + " threat - " + ratios + ", " + beds + " beds/game, " + kills + " kills/game",
+				bare + " - " + threat + " threat - " + ratios + ", " + beds + " beds/game, " + kills + " kills/game",
+				bare + " - " + threat + " - " + ratios + ", " + beds + " beds/g, " + kills + " kills/g",
+				bare + " " + threat + " " + ratios + ", " + beds + " beds/g, " + kills + " kills/g",
+		};
+
+		for (String candidate : candidates) {
+			if (candidate.length() <= MAX_CHAT) {
+				return candidate;
+			}
+		}
+
+		String last = candidates[candidates.length - 1];
+		return last.substring(0, MAX_CHAT).strip();
 	}
 
-	private static String oneDecimal(double value) {
+	/** The longest line the mod puts into chat; the length every version of the game will send. */
+	public static final int MAX_CHAT = 100;
+
+	/** One decimal: a figure read at a glance in chat, where the second one is noise. */
+	public static String oneDecimal(double value) {
 		return String.format(Locale.ROOT, "%.1f", value);
 	}
 
