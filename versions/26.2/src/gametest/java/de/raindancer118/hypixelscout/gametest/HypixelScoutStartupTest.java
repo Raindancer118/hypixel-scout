@@ -156,6 +156,10 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.waitTicks(25);
 			context.runOnClient(client -> assertRelativeThreat(mod, members));
 			context.runOnClient(client -> assertStats(mod, members));
+			// The nick was told apart through Mojang and cost no Hypixel request.
+			if (stub.asked.contains(UUID.nameUUIDFromBytes("scout-test:Glimmer".getBytes()).toString().replace("-", ""))) {
+				throw new AssertionError("Hypixel was asked about a nick Mojang already gave away");
+			}
 			context.runOnClient(client -> {
 				if (mod.client().getLimiter().limit() != 600) {
 					throw new AssertionError("The production key's limit was not taken from the answer: "

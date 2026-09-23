@@ -6,6 +6,7 @@ import de.raindancer118.hypixelscout.core.HypixelClient;
 import de.raindancer118.hypixelscout.core.KeyCheck;
 import de.raindancer118.hypixelscout.core.LookupHistory;
 import de.raindancer118.hypixelscout.core.MojangClient;
+import de.raindancer118.hypixelscout.core.NickAwareSource;
 import de.raindancer118.hypixelscout.core.RateLimiter;
 import de.raindancer118.hypixelscout.core.GameStart;
 import de.raindancer118.hypixelscout.core.Roster;
@@ -118,7 +119,8 @@ public final class HypixelScout implements ClientModInitializer {
 		client.setApiKey(settings.apiKey);
 		mojang = MojangClient.live();
 		cache = new StatsCache(Clock.SYSTEM, settings.cacheMinutes * 60_000L);
-		stats = new StatsService(client, cache);
+		// Nicks are told apart through Mojang first, so they cost nothing from the key's budget.
+		stats = new StatsService(new NickAwareSource(client, mojang::uuidOf), cache);
 		roster = new Roster(stats);
 		alerts = new ScoutAlerts(() -> settings, roster);
 		stats.setListener(alerts);

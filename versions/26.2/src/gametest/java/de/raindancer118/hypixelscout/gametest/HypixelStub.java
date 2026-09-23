@@ -40,6 +40,7 @@ final class HypixelStub implements AutoCloseable {
 			exchange.getResponseHeaders().add("RateLimit-Reset", "240");
 			String query = exchange.getRequestURI().getQuery();
 			String uuid = query.substring(query.indexOf("uuid=") + 5).toLowerCase(Locale.ROOT);
+			asked.add(uuid);
 
 			if (!KEY.equals(exchange.getRequestHeaders().getFirst("API-Key"))) {
 				send(exchange, 403, "{\"success\":false,\"cause\":\"Invalid API key\"}");
@@ -71,8 +72,14 @@ final class HypixelStub implements AutoCloseable {
 
 	void add(UUID uuid, Player player) {
 		byUuid.put(uuid.toString().replace("-", ""), player);
-		byName.put(player.name().toLowerCase(Locale.ROOT), uuid);
+		// A nick is a name no Mojang account has, as it is for real.
+		if (!player.nicked()) {
+			byName.put(player.name().toLowerCase(Locale.ROOT), uuid);
+		}
 	}
+
+	/** Every UUID Hypixel was asked about, undashed. */
+	final java.util.Set<String> asked = ConcurrentHashMap.newKeySet();
 
 	private static String json(Player p) {
 		long day = 86_400_000L;
