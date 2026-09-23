@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.SortMode;
+import de.raindancer118.hypixelscout.core.Threat;
 import de.raindancer118.hypixelscout.core.ThreatScale;
 
 import java.io.IOException;
@@ -43,6 +44,8 @@ public final class ScoutSettings {
 	public static final double MAX_ANGLE = 20.0;
 	public static final int MAX_CACHE_MINUTES = 120;
 	public static final int MAX_LOOKUPS = 12;
+	public static final int MIN_SENSITIVITY = 25;
+	public static final int MAX_SENSITIVITY = 400;
 
 	/** Personal key from developer.hypixel.net. Empty until the player sets one. */
 	public String apiKey = "";
@@ -59,6 +62,15 @@ public final class ScoutSettings {
 
 	/** What the threat levels are measured against: fixed bands, the player, or player and team. */
 	public ThreatScale.Basis threatBasis = ThreatScale.Basis.TEAM;
+
+	/**
+	 * How dangerous every enemy is taken to be, in percent of their numbers: above 100 the levels
+	 * come sooner, below 100 later.
+	 */
+	public int threatSensitivity = 100;
+
+	/** The lowest level the team and party reports name; below it only the count is sent. */
+	public Threat threatReportFrom = Threat.MEDIUM;
 
 	/** How long a player's stats are reused before being fetched again. */
 	public int cacheMinutes = 10;
@@ -216,6 +228,8 @@ public final class ScoutSettings {
 		apiKey = apiKey == null ? "" : apiKey.trim();
 		accent = accent == null ? Accent.GOLD : accent;
 		threatBasis = threatBasis == null ? ThreatScale.Basis.TEAM : threatBasis;
+		threatSensitivity = Math.clamp(threatSensitivity, MIN_SENSITIVITY, MAX_SENSITIVITY);
+		threatReportFrom = threatReportFrom == null || !threatReportFrom.isRated() ? Threat.MEDIUM : threatReportFrom;
 		cacheMinutes = Math.clamp(cacheMinutes, 1, MAX_CACHE_MINUTES);
 
 		table = table == null ? new Table() : table;

@@ -63,7 +63,7 @@ class StatLinesTest {
 				.winstreak(104).rank("MVP_PLUS").build();
 
 		assertThat(StatLines.chatLines("Sundial", stats, ThreatScale.ABSOLUTE)).containsExactly(
-				"Sundial [MVP+] 1502* is EXTREME",
+				"Sundial [MVP+] 1502* is INSANE",
 				"13.8 FKDR, 5.3 WLR, 104 winstreak, 1.7 beds and 8.5 kills a game");
 	}
 

@@ -2,6 +2,7 @@ package de.raindancer118.hypixelscout.config;
 
 import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.SortMode;
+import de.raindancer118.hypixelscout.core.Threat;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -37,6 +38,9 @@ class ScoutSettingsTest {
 		// the player and their team.
 		assertThat(settings.lookUpInLobby).isFalse();
 		assertThat(settings.threatBasis).isEqualTo(de.raindancer118.hypixelscout.core.ThreatScale.Basis.TEAM);
+		// The bands as they are, and the reports leave out whoever is below an even match.
+		assertThat(settings.threatSensitivity).isEqualTo(100);
+		assertThat(settings.threatReportFrom).isEqualTo(Threat.MEDIUM);
 		assertThat(file).exists();
 	}
 
@@ -52,6 +56,8 @@ class ScoutSettingsTest {
 		settings.alerts.streakThreshold = 25;
 		settings.queue.slots[8] = "bedwars_two_four";
 		settings.accent = Accent.AQUA;
+		settings.threatSensitivity = 150;
+		settings.threatReportFrom = Threat.VERY_HIGH;
 		settings.save();
 
 		ScoutSettings loaded = ScoutSettings.load(file);
@@ -64,6 +70,30 @@ class ScoutSettingsTest {
 		assertThat(loaded.alerts.streakThreshold).isEqualTo(25);
 		assertThat(loaded.queue.slots[8]).isEqualTo("bedwars_two_four");
 		assertThat(loaded.accent).isEqualTo(Accent.AQUA);
+		assertThat(loaded.threatSensitivity).isEqualTo(150);
+		assertThat(loaded.threatReportFrom).isEqualTo(Threat.VERY_HIGH);
+	}
+
+	@Test
+	void theThreatSettingsAreKeptSane() throws Exception {
+		Path file = dir.resolve("hypixelscout.json");
+		Files.writeString(file, """
+				{ "threatSensitivity": 5000, "threatReportFrom": "NICKED" }
+				""", StandardCharsets.UTF_8);
+
+		ScoutSettings settings = ScoutSettings.load(file);
+
+		assertThat(settings.threatSensitivity).isEqualTo(ScoutSettings.MAX_SENSITIVITY);
+		// Only a level a player can actually be rated at is something to report from.
+		assertThat(settings.threatReportFrom).isEqualTo(Threat.MEDIUM);
+
+		Files.writeString(file, """
+				{ "threatSensitivity": 1, "threatReportFrom": null }
+				""", StandardCharsets.UTF_8);
+		settings = ScoutSettings.load(file);
+
+		assertThat(settings.threatSensitivity).isEqualTo(ScoutSettings.MIN_SENSITIVITY);
+		assertThat(settings.threatReportFrom).isEqualTo(Threat.MEDIUM);
 	}
 
 	@Test

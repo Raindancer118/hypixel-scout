@@ -124,7 +124,7 @@ public final class PartyReport {
 		// A second press replaces the first report rather than queueing a duplicate behind it.
 		pending.clear();
 		List<String> lines = ThreatCallout.lines(enemies, settings.get().alerts.streakThreshold, Threats.scale(),
-				MAX_CALLOUTS);
+				settings.get().threatReportFrom, MAX_CALLOUTS);
 		lines.forEach(text -> pending.add(new Line(channel, text)));
 		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.sending_team"
 				: "message.hypixelscout.party.sending", lines.size());

@@ -483,7 +483,9 @@ public final class ScoutScreen extends Screen {
 	private void drawTeams(GuiGraphicsExtractor g) {
 		int left = contentLeft();
 		ScoutTheme.text(g, ScoutTheme.fit("§7" + I18n.get("message.hypixelscout.teams.caption",
-				I18n.get("message.hypixelscout.threat_basis.short." + settings().threatBasis.name().toLowerCase(Locale.ROOT))),
+				I18n.get("message.hypixelscout.threat_basis.short." + settings().threatBasis.name().toLowerCase(Locale.ROOT))
+						+ (settings().threatSensitivity == 100 ? ""
+								: ", " + I18n.get("message.hypixelscout.threat_sensitivity.short", settings().threatSensitivity))),
 				contentWidth() - 172),
 				left, contentTop + 2, ScoutTheme.TEXT);
 

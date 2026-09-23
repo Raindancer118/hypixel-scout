@@ -255,7 +255,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.runOnClient(client -> {
 				mod.partyReport().send(de.raindancer118.hypixelscout.game.PartyReport.Channel.TEAM);
 				List<String> lines = mod.partyReport().pendingLines();
-				if (lines.isEmpty() || !lines.getFirst().equals("YELLOW Sundial 1502* - EXTREME - 13.8 FKDR - 104 WS")
+				if (lines.isEmpty() || !lines.getFirst().equals("YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS")
 						|| lines.stream().anyMatch(line -> line.startsWith("RED"))) {
 					throw new AssertionError("Unexpected team report: " + lines);
 				}
@@ -310,7 +310,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.runOnClient(client -> {
 				List<String> lines = mod.partyReport().pendingLines();
 				if (lines.size() < 2 || !lines.subList(lines.size() - 2, lines.size()).equals(List.of(
-						"Sundial [MVP+] 1502* is EXTREME",
+						"Sundial [MVP+] 1502* is INSANE",
 						"13.8 FKDR, 5.3 WLR, 104 winstreak, 1.7 beds and 8.5 kills a game"))) {
 					throw new AssertionError("Unexpected player line: " + lines);
 				}
@@ -498,7 +498,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 	}
 
 	/**
-	 * Orchard (index about 770) is MED on the fixed bands but LOW against this team, which has a
+	 * Orchard (index about 770) is MED on the fixed bands but NONE against this team, which has a
 	 * 1123-star carry in it; Brickmason is HIGH either way.
 	 */
 	private static void assertRelativeThreat(HypixelScout mod, List<Roster.Member> members) {
@@ -508,13 +508,23 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		if (!mod.threatScale().isRelative()) {
 			throw new AssertionError("No relative threat scale although the own stats are known");
 		}
-		if (de.raindancer118.hypixelscout.ui.Threats.of(orchard) != de.raindancer118.hypixelscout.core.Threat.LOW
+		if (de.raindancer118.hypixelscout.ui.Threats.of(orchard) != de.raindancer118.hypixelscout.core.Threat.NONE
 				|| de.raindancer118.hypixelscout.core.Threat.of(orchard) != de.raindancer118.hypixelscout.core.Threat.MEDIUM) {
 			throw new AssertionError("Orchard: relative " + de.raindancer118.hypixelscout.ui.Threats.of(orchard)
 					+ ", absolute " + de.raindancer118.hypixelscout.core.Threat.of(orchard));
 		}
 		if (de.raindancer118.hypixelscout.ui.Threats.of(brickmason) != de.raindancer118.hypixelscout.core.Threat.HIGH) {
 			throw new AssertionError("Brickmason: " + de.raindancer118.hypixelscout.ui.Threats.of(brickmason));
+		}
+
+		// The sensitivity slider takes effect on the next read, without waiting for the rescan.
+		mod.settings().threatSensitivity = 300;
+		try {
+			if (de.raindancer118.hypixelscout.ui.Threats.of(brickmason).compareTo(de.raindancer118.hypixelscout.core.Threat.VERY_HIGH) < 0) {
+				throw new AssertionError("Brickmason at 300 %: " + de.raindancer118.hypixelscout.ui.Threats.of(brickmason));
+			}
+		} finally {
+			mod.settings().threatSensitivity = 100;
 		}
 	}
 

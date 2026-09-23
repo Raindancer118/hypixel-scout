@@ -18,10 +18,46 @@ class ThreatScaleTest {
 	void measuredAgainstMeAnEqualIsMediumAndFourTimesMeIsExtreme() {
 		ThreatScale scale = ThreatScale.of(ThreatScale.Basis.ME, index(1000), List.of());
 
+		assertThat(scale.threatOf(index(100))).isEqualTo(Threat.NONE);
 		assertThat(scale.threatOf(index(400))).isEqualTo(Threat.LOW);
 		assertThat(scale.threatOf(index(1000))).isEqualTo(Threat.MEDIUM);
 		assertThat(scale.threatOf(index(2000))).isEqualTo(Threat.HIGH);
+		assertThat(scale.threatOf(index(3000))).isEqualTo(Threat.VERY_HIGH);
 		assertThat(scale.threatOf(index(4000))).isEqualTo(Threat.EXTREME);
+		assertThat(scale.threatOf(index(10_000))).isEqualTo(Threat.INSANE);
+	}
+
+	@Test
+	void aHigherSensitivityRatesTheSameEnemyAsMoreDangerous() {
+		ThreatScale scale = ThreatScale.of(ThreatScale.Basis.ME, index(1000), List.of());
+		PlayerStats enemy = index(1000);
+
+		assertThat(scale.withSensitivity(1.0).threatOf(enemy)).isEqualTo(Threat.MEDIUM);
+		assertThat(scale.withSensitivity(2.0).threatOf(enemy)).isEqualTo(Threat.HIGH);
+		assertThat(scale.withSensitivity(0.4).threatOf(enemy)).isEqualTo(Threat.LOW);
+	}
+
+	@Test
+	void theSensitivityAppliesToTheFixedBandsToo() {
+		PlayerStats enemy = index(400);
+
+		assertThat(ThreatScale.ABSOLUTE.threatOf(enemy)).isEqualTo(Threat.LOW);
+		assertThat(ThreatScale.ABSOLUTE.withSensitivity(1.5).threatOf(enemy)).isEqualTo(Threat.MEDIUM);
+		assertThat(ThreatScale.ABSOLUTE.withSensitivity(1.5).isRelative()).isFalse();
+	}
+
+	@Test
+	void theSensitivityCannotRateUnknownOrNickedPlayers() {
+		ThreatScale scale = ThreatScale.ABSOLUTE.withSensitivity(4.0);
+
+		assertThat(scale.threatOf(null)).isEqualTo(Threat.UNKNOWN);
+		assertThat(scale.threatOf(PlayerStats.nicked("Nick", UUID.randomUUID()))).isEqualTo(Threat.NICKED);
+	}
+
+	@Test
+	void aSensitivityThatIsNoNumberIsTakenAsTheDefault() {
+		assertThat(ThreatScale.ABSOLUTE.withSensitivity(Double.NaN).sensitivity()).isEqualTo(1.0);
+		assertThat(ThreatScale.ABSOLUTE.withSensitivity(0).sensitivity()).isEqualTo(1.0);
 	}
 
 	@Test
@@ -65,7 +101,8 @@ class ThreatScaleTest {
 		ThreatScale scale = ThreatScale.of(ThreatScale.Basis.ME, index(0), List.of());
 
 		assertThat(scale.reference()).isEqualTo(ThreatScale.MIN_REFERENCE);
-		assertThat(scale.threatOf(index(20))).isEqualTo(Threat.LOW);
+		assertThat(scale.threatOf(index(10))).isEqualTo(Threat.NONE);
+		assertThat(scale.threatOf(index(40))).isEqualTo(Threat.LOW);
 	}
 
 	@Test

@@ -9,8 +9,8 @@ import java.util.Map;
  * The enemies worth a warning, one short chat line each, most dangerous first:
  * {@code YELLOW Sundial 1502* - EXTREME - 13.8 FKDR - 104 WS}.
  *
- * <p>Harmless players are left out — a report that names everybody is read by nobody — unless
- * they are on a winstreak worth a warning. Nicks are named. The report is capped, because every
+ * <p>Players below the chosen level are left out — a report that names everybody is read by
+ * nobody — unless they are on a winstreak worth a warning. Nicks are named. The report is capped, because every
  * line is a chat message and players without a rank may send one every few seconds only.
  */
 public final class ThreatCallout {
@@ -22,12 +22,13 @@ public final class ThreatCallout {
 
 	/**
 	 * @param enemies  each enemy team's players by team name; {@code null} for somebody not looked up yet
+	 * @param from     the lowest level worth naming
 	 * @param maxLines the most player lines to send; a last line then says how many more there were
 	 */
 	public static List<String> lines(Map<String, List<PlayerStats>> enemies, int streakThreshold,
-			ThreatScale scale, int maxLines) {
+			ThreatScale scale, Threat from, int maxLines) {
 		List<Entry> called = new ArrayList<>();
-		int low = 0;
+		int below = 0;
 		int unknown = 0;
 
 		for (Map.Entry<String, List<PlayerStats>> team : enemies.entrySet()) {
@@ -36,16 +37,16 @@ public final class ThreatCallout {
 					unknown++;
 				} else if (player.isNicked()) {
 					called.add(new Entry(team.getKey(), player, -1));
-				} else if (scale.threatOf(player) != Threat.LOW || onARun(player, streakThreshold)) {
+				} else if (scale.threatOf(player).compareTo(from) >= 0 || onARun(player, streakThreshold)) {
 					called.add(new Entry(team.getKey(), player, Threat.index(player)));
 				} else {
-					low++;
+					below++;
 				}
 			}
 		}
 
 		if (called.isEmpty()) {
-			return List.of("No dangerous enemies (" + low + " LOW"
+			return List.of("No dangerous enemies (" + below + " below " + from.label()
 					+ (unknown > 0 ? ", " + unknown + " not looked up yet" : "") + ")");
 		}
 

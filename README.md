@@ -12,13 +12,13 @@ profiles, read from the official Hypixel API with your own key — in a real in-
     anybody on a long winstreak — and buttons that report the enemy teams to **team chat** or
     **party chat**: one short line per enemy worth a warning, most dangerous first — harmless
     players are left out, nicks named, at most six lines:
-    `YELLOW Sundial 1502* - EXTREME - 13.8 FKDR - 104 WS`, `BLUE Glimmer is nicked`.
+    `YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS`, `BLUE Glimmer is nicked`.
   - **Lookup**: any player at all, in your game or not, with your recent lookups as clickable faces.
   - **Queue**: the nine quick-queue slots, each bound to a key, set and played from here.
 - **Profile screen**: head, rank, level, karma, account age, last login, threat, and cards for
   combat, games and beds, plus the per-game rates and linked socials. **Team chat** and **Party
   chat** buttons send the player's stats in two lines:
-  `Sundial [MVP+] 1502* is EXTREME` and `13.8 FKDR, 5.3 WLR, 104 winstreak, 1.7 beds and 8.5 kills a game`.
+  `Sundial [MVP+] 1502* is INSANE` and `13.8 FKDR, 5.3 WLR, 104 winstreak, 1.7 beds and 8.5 kills a game`.
   Two bindings do the same for whoever you are aiming at, without opening anything.
 - **Peek** (hold `R`, rebindable under **Settings → Keys**): while the key is down, the full profile of whoever you aim at — or, aiming
   at nobody, the whole game's table — drawn over the game. Let go and it is gone. Nothing pauses and
@@ -87,12 +87,20 @@ Settings → General → *Look up in lobby* switches the wait off.
 
 ## Threat levels
 
-Measured against **you and your team** by default: an enemy is LOW below half of that reference,
-MED up to 1.5 times it (an even match), HIGH up to 4 times, EXTREME beyond. The reference is the
-geometric mean of your own index (stars × FKDR²) and your teammates' average, so a strong teammate
-raises the bar and a weak one lowers it. Settings → General → *Threat vs* switches to measuring
-against **you** alone, or back to the fixed bands the same for everybody. Teammates are shown as
-allies, not rated. The team and party reports use the same scale.
+Seven levels: NONE, LOW, MED, HIGH, V.HIGH, EXTREME, INSANE (plus `?` for not looked up yet and
+NICK). Measured against **you and your team** by default: an enemy is NONE below a fifth of that
+reference, LOW below half, MED up to 1.5 times it (an even match), HIGH up to 2.5 times, V.HIGH up
+to 4 times, EXTREME up to 10 times, INSANE beyond. The reference is the geometric mean of your own
+index (stars × FKDR²) and your teammates' average, so a strong teammate raises the bar and a weak
+one lowers it. Settings → General → *Threat vs* switches to measuring against **you** alone, or to
+the fixed bands the same for everybody (index under 100 NONE, 500 LOW, 3 000 MED, 10 000 HIGH,
+30 000 V.HIGH, 150 000 EXTREME, above that INSANE). Teammates are shown as allies, not rated.
+
+**Threat sensitivity** (Settings → General, 25–400 %) rates every enemy as if they were that much
+stronger or weaker: at 200 % the levels come twice as early, at 50 % only the worst stand out.
+**Report from** picks the lowest level the team and party reports name (MED by default); anybody
+below it is only counted, unless they are on a winstreak above the alert threshold. The table, the
+cards, the tooltip and both reports all use the same scale.
 
 ## Colours
 
@@ -102,7 +110,7 @@ allies, not rated. The team and party reports use the same scale.
 - **Ranks** in Hypixel's chat colours: VIP green, MVP aqua, MVP++ gold, YouTube and admins red.
 - **FKDR and WLR** by how much trouble they mean: green under 1, yellow under 3, gold under 5, red
   under 10, dark red above. These bands are the mod's, not Hypixel's.
-- **Threat** from green (LOW) to dark red (EXTREME), measured as described above.
+- **Threat** from grey (NONE) over green (LOW), yellow, gold, red and dark red to purple (INSANE), measured as described above.
 - **Team bars** are the team's scoreboard colour; the **accent** (gold by default) is yours to pick.
 
 ## What it deliberately does not do

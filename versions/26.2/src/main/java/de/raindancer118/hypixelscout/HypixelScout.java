@@ -111,7 +111,8 @@ public final class HypixelScout implements ClientModInitializer {
 		}
 
 		ScoutTheme.useAccent(() -> settings.accent);
-		Threats.use(() -> threatScale);
+		// The sensitivity is applied on every read, so moving its slider shows at once.
+		Threats.use(() -> threatScale.withSensitivity(settings.threatSensitivity / 100.0));
 		Chat.useAccent(() -> settings.accent);
 
 		client = new HypixelClient(HypixelClient.DEFAULT_BASE_URL,

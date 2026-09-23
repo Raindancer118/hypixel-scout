@@ -27,23 +27,23 @@ class ThreatCalloutTest {
 
 	@Test
 	void oneLinePerDangerousPlayerMostDangerousFirstWithTheirTeam() {
-		assertThat(ThreatCallout.lines(game(), 50, ThreatScale.ABSOLUTE, 8)).containsExactly(
-				"YELLOW Sundial 1502* - EXTREME - 13.8 FKDR - 104 WS",
+		assertThat(ThreatCallout.lines(game(), 50, ThreatScale.ABSOLUTE, Threat.MEDIUM, 8)).containsExactly(
+				"YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS",
 				"GREEN Lanternfish 731* - EXTREME - 11.0 FKDR - 61 WS",
-				"BLUE Brickmason 488* - HIGH - 6.0 FKDR",
+				"BLUE Brickmason 488* - V.HIGH - 6.0 FKDR",
 				"BLUE Glimmer is nicked");
 	}
 
 	@Test
 	void aShortWinstreakIsNotWorthMentioning() {
-		assertThat(ThreatCallout.lines(game(), 50, ThreatScale.ABSOLUTE, 8))
+		assertThat(ThreatCallout.lines(game(), 50, ThreatScale.ABSOLUTE, Threat.MEDIUM, 8))
 				.noneMatch(line -> line.contains("12 WS"));
 	}
 
 	@Test
 	void aLongReportIsCutAndSaysHowManyMore() {
-		assertThat(ThreatCallout.lines(game(), 50, ThreatScale.ABSOLUTE, 2)).containsExactly(
-				"YELLOW Sundial 1502* - EXTREME - 13.8 FKDR - 104 WS",
+		assertThat(ThreatCallout.lines(game(), 50, ThreatScale.ABSOLUTE, Threat.MEDIUM, 2)).containsExactly(
+				"YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS",
 				"GREEN Lanternfish 731* - EXTREME - 11.0 FKDR - 61 WS",
 				"+2 more, see the Scout screen");
 	}
@@ -54,8 +54,8 @@ class ThreatCalloutTest {
 		teams.put("Blue", Arrays.asList(player("Nimbus_07", 64, 180, 310, 0), null));
 		teams.put("Red", Arrays.asList(player("PaperCrane", 44, 90, 160, 0)));
 
-		assertThat(ThreatCallout.lines(teams, 50, ThreatScale.ABSOLUTE, 8))
-				.containsExactly("No dangerous enemies (2 LOW, 1 not looked up yet)");
+		assertThat(ThreatCallout.lines(teams, 50, ThreatScale.ABSOLUTE, Threat.MEDIUM, 8))
+				.containsExactly("No dangerous enemies (2 below MED, 1 not looked up yet)");
 	}
 
 	@Test
@@ -63,7 +63,29 @@ class ThreatCalloutTest {
 		Map<String, List<PlayerStats>> teams = new LinkedHashMap<>();
 		teams.put("Red", Arrays.asList(player("Streaky", 40, 100, 100, 80)));
 
-		assertThat(ThreatCallout.lines(teams, 50, ThreatScale.ABSOLUTE, 8))
-				.containsExactly("RED Streaky 40* - LOW - 1.0 FKDR - 80 WS");
+		assertThat(ThreatCallout.lines(teams, 50, ThreatScale.ABSOLUTE, Threat.MEDIUM, 8))
+				.containsExactly("RED Streaky 40* - NONE - 1.0 FKDR - 80 WS");
+	}
+
+	@Test
+	void theReportStartsAtTheChosenLevel() {
+		assertThat(ThreatCallout.lines(game(), 50, ThreatScale.ABSOLUTE, Threat.EXTREME, 8)).containsExactly(
+				"YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS",
+				"GREEN Lanternfish 731* - EXTREME - 11.0 FKDR - 61 WS",
+				"BLUE Glimmer is nicked");
+	}
+
+	@Test
+	void fromTheLowestLevelEverybodyIsNamed() {
+		assertThat(ThreatCallout.lines(game(), 50, ThreatScale.ABSOLUTE, Threat.NONE, 8)).hasSize(6);
+	}
+
+	@Test
+	void theSummarySaysWhatTheChosenLevelWas() {
+		Map<String, List<PlayerStats>> teams = new LinkedHashMap<>();
+		teams.put("Red", Arrays.asList(player("Orchard", 305, 3_900, 2_450, 4)));
+
+		assertThat(ThreatCallout.lines(teams, 50, ThreatScale.ABSOLUTE, Threat.HIGH, 8))
+				.containsExactly("No dangerous enemies (1 below HIGH)");
 	}
 }

@@ -7,6 +7,7 @@ import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.KeyCheck;
 import de.raindancer118.hypixelscout.core.SortMode;
+import de.raindancer118.hypixelscout.core.Threat;
 import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.ui.widget.KeyBindButton;
 import de.raindancer118.hypixelscout.ui.widget.SettingSlider;
@@ -192,7 +193,28 @@ public final class SettingsScreen extends Screen {
 							+ value.name().toLowerCase(Locale.ROOT) + ".tooltip")))
 					.create(0, 0, NARROW, 20, Component.translatable("message.hypixelscout.settings.threat_basis"),
 							(button, value) -> settings().threatBasis = value));
+
+			SettingSlider sensitivity = new SettingSlider(0, 0, NARROW, "message.hypixelscout.settings.threat_sensitivity",
+					ScoutSettings.MIN_SENSITIVITY, ScoutSettings.MAX_SENSITIVITY, settings().threatSensitivity,
+					value -> settings().threatSensitivity = sensitivityStep(value),
+					value -> sensitivityStep(value) + "%");
+			sensitivity.setTooltip(Tooltip.create(
+					Component.translatable("message.hypixelscout.settings.threat_sensitivity.tooltip")));
+			rows.addChild(sensitivity);
+
+			rows.addChild(CycleButton.builder((Threat value) -> Component.literal(value.colour() + value.label()),
+							settings().threatReportFrom)
+					.withValues(Threat.rated())
+					.withTooltip(value -> Tooltip.create(
+							Component.translatable("message.hypixelscout.settings.report_from.tooltip")))
+					.create(0, 0, NARROW, 20, Component.translatable("message.hypixelscout.settings.report_from"),
+							(button, value) -> settings().threatReportFrom = value));
 		}
+	}
+
+	/** Steps of five percent: finer than anybody can tell apart in a game, coarse enough to hit 100 again. */
+	private static int sensitivityStep(double value) {
+		return (int) Math.round(value / 5.0) * 5;
 	}
 
 	private final class TableTab extends SettingsTab {
