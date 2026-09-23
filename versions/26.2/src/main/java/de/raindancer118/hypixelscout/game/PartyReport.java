@@ -7,6 +7,7 @@ import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.core.StatLines;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.core.TeamReport;
+import de.raindancer118.hypixelscout.core.ThreatCallout;
 import de.raindancer118.hypixelscout.ui.Chat;
 import de.raindancer118.hypixelscout.ui.Threats;
 import net.minecraft.client.Minecraft;
@@ -21,7 +22,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * Puts the enemy teams' threats into team chat or party chat, one line per team.
+ * Puts the enemies worth a warning into team chat or party chat, one short line each.
  *
  * <p>Only ever when the player asks. Sending this by itself when a game starts would be a chat
  * macro, which Hypixel bans people for.
@@ -58,8 +59,22 @@ public final class PartyReport {
 		this.settings = settings;
 	}
 
-	/** One report per enemy team, strongest-looking first. Also what the Teams tab draws. */
+	/**
+	 * The most players the report names. Every line is a chat message, and without a rank Hypixel
+	 * allows one every three seconds: six already take eighteen.
+	 */
+	private static final int MAX_CALLOUTS = 6;
+
+	/** One report per enemy team, strongest-looking first. */
 	public List<TeamReport> enemyTeams() {
+		List<TeamReport> reports = new ArrayList<>();
+		enemyPlayers().forEach((team, members) -> reports.add(TeamReport.of(team, members)));
+		reports.sort((left, right) -> Double.compare(danger(right), danger(left)));
+		return reports;
+	}
+
+	/** Every enemy player by team; {@code null} stands for somebody not looked up yet. */
+	private Map<String, List<PlayerStats>> enemyPlayers() {
 		Map<String, List<PlayerStats>> byTeam = new LinkedHashMap<>();
 		Teams.Team own = Teams.own();
 
@@ -75,10 +90,7 @@ public final class PartyReport {
 					.add(stats.peek(member.uuid()));
 		}
 
-		List<TeamReport> reports = new ArrayList<>();
-		byTeam.forEach((team, members) -> reports.add(TeamReport.of(team, members)));
-		reports.sort((left, right) -> Double.compare(danger(right), danger(left)));
-		return reports;
+		return byTeam;
 	}
 
 	private static double danger(TeamReport report) {
@@ -103,18 +115,19 @@ public final class PartyReport {
 			return;
 		}
 
-		List<TeamReport> reports = enemyTeams();
-		if (reports.isEmpty()) {
+		Map<String, List<PlayerStats>> enemies = enemyPlayers();
+		if (enemies.isEmpty()) {
 			Chat.sayTranslated("message.hypixelscout.party.no_teams");
 			return;
 		}
 
 		// A second press replaces the first report rather than queueing a duplicate behind it.
 		pending.clear();
-		int threshold = settings.get().alerts.streakThreshold;
-		reports.forEach(report -> pending.add(new Line(channel, report.toThreatMessage(threshold, Threats.scale()))));
+		List<String> lines = ThreatCallout.lines(enemies, settings.get().alerts.streakThreshold, Threats.scale(),
+				MAX_CALLOUTS);
+		lines.forEach(text -> pending.add(new Line(channel, text)));
 		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.sending_team"
-				: "message.hypixelscout.party.sending", reports.size());
+				: "message.hypixelscout.party.sending", lines.size());
 	}
 
 	/**
@@ -138,7 +151,7 @@ public final class PartyReport {
 			return;
 		}
 
-		pending.add(new Line(channel, StatLines.chatLine(name, playerStats, Threats.scale())));
+		StatLines.chatLines(name, playerStats, Threats.scale()).forEach(text -> pending.add(new Line(channel, text)));
 		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.player_team"
 				: "message.hypixelscout.report.player_party", name);
 	}

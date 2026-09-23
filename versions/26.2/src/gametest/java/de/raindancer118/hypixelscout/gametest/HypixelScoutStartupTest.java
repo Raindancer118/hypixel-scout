@@ -251,11 +251,11 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.runOnClient(client -> {
 				mod.partyReport().send(de.raindancer118.hypixelscout.game.PartyReport.Channel.TEAM);
 				List<String> lines = mod.partyReport().pendingLines();
-				if (lines.size() != 3 || !lines.getFirst().startsWith("Yellow [EXTREME]: Sundial 1502* 13.8 FKDR 104 WS")
-						|| lines.stream().anyMatch(line -> line.startsWith("Red"))) {
+				if (lines.isEmpty() || !lines.getFirst().equals("YELLOW Sundial 1502* - EXTREME - 13.8 FKDR - 104 WS")
+						|| lines.stream().anyMatch(line -> line.startsWith("RED"))) {
 					throw new AssertionError("Unexpected team report: " + lines);
 				}
-				if (lines.stream().noneMatch(line -> line.contains("Glimmer nicked"))) {
+				if (lines.stream().noneMatch(line -> line.equals("BLUE Glimmer is nicked"))) {
 					throw new AssertionError("The nick is missing from the report: " + lines);
 				}
 			});
@@ -305,8 +305,9 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.clickScreenButton("message.hypixelscout.profile.send.team");
 			context.runOnClient(client -> {
 				List<String> lines = mod.partyReport().pendingLines();
-				if (lines.isEmpty() || !lines.getLast().equals(
-						"Sundial [MVP+] 1502* - EXTREME threat - 13.8 FKDR, 5.3 WLR, 104 WS, 1.7 beds/game, 8.5 kills/game")) {
+				if (lines.size() < 2 || !lines.subList(lines.size() - 2, lines.size()).equals(List.of(
+						"Sundial [MVP+] 1502* is EXTREME",
+						"13.8 FKDR, 5.3 WLR, 104 winstreak, 1.7 beds and 8.5 kills a game"))) {
 					throw new AssertionError("Unexpected player line: " + lines);
 				}
 			});
@@ -314,7 +315,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.setScreen(() -> null);
 			context.runOnClient(client -> client.player.connection.sendCommand("scout Brickmason party"));
 			context.waitFor(client -> mod.partyReport().pendingLines().stream()
-					.anyMatch(line -> line.startsWith("Brickmason [MVP+] 488*")), 100);
+					.anyMatch(line -> line.startsWith("Brickmason [MVP+] 488* is ")), 100);
 			context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
 			context.waitTicks(3);
 			context.takeScreenshot("scout_player_sent");
