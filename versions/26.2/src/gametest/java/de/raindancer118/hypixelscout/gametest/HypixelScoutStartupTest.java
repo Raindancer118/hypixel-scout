@@ -44,7 +44,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 
 	private static final List<String> EXPECTED_SUBCOMMANDS = List.of(
 			"game", "teams", "lookup", "queue", "settings", "move", "table", "party", "refresh", "status",
-			"testkey", "key", "player", "list");
+			"testkey", "key", "player", "list", "requeue");
 
 	private record Seat(String team, HypixelStub.Player player) {
 	}
@@ -245,6 +245,41 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.waitTicks(2);
 			context.takeScreenshot("scout_proximity_popup");
 			context.runOnClient(client -> mod.settings().tooltip.enabled = true);
+
+			// Auto requeue, party mode: in a party with Ashenvale, nothing until both are finally out.
+			String self = context.computeOnClient(client -> client.player.getScoreboardName());
+			context.runOnClient(client -> {
+				mod.settings().requeue.mode = de.raindancer118.hypixelscout.core.RequeueMode.PARTY;
+				mod.settings().requeue.delaySeconds = 15;
+				mod.requeue().setPartyForTest(java.util.Set.of(client.player.getUUID(), uuidOf(members, "Ashenvale")),
+						client.player.getUUID());
+			});
+			singleplayer.getServer().runCommand("tellraw @a {\"text\":\"" + self + " fell into the void.\"}");
+			singleplayer.getServer().runCommand("tellraw @a {\"text\":\"" + self
+					+ " was knocked into the void by Sundial. FINAL KILL!\"}");
+			context.waitTicks(3);
+			context.runOnClient(client -> {
+				if (mod.requeue().isPending()) {
+					throw new AssertionError("Requeue although Ashenvale is still in");
+				}
+			});
+			singleplayer.getServer().runCommand("tellraw @a {\"text\":\"Ashenvale fell into the void. FINAL KILL!\"}");
+			context.waitTicks(3);
+			context.runOnClient(client -> {
+				if (!mod.requeue().isPending()) {
+					throw new AssertionError("No requeue after the whole party was out");
+				}
+			});
+			context.takeScreenshot("scout_requeue_pending");
+			context.runOnClient(client -> client.player.connection.sendCommand("scout requeue cancel"));
+			context.runOnClient(client -> {
+				if (mod.requeue().isPending()) {
+					throw new AssertionError("Requeue not cancelled");
+				}
+				mod.settings().requeue.mode = de.raindancer118.hypixelscout.core.RequeueMode.OFF;
+				mod.settings().requeue.delaySeconds = 3;
+				mod.requeue().setPartyForTest(java.util.Set.of(), null);
+			});
 
 			// Holding the peek key: the full profile of whoever is aimed at, gone on release.
 			context.getInput().holdKey(mod.keys().peekMapping());

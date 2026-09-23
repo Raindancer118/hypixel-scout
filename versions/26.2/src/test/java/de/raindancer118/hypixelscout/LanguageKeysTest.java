@@ -89,6 +89,10 @@ class LanguageKeysTest {
 			used.add("message.hypixelscout.threat_basis.short." + name(basis));
 		}
 		used.add("message.hypixelscout.game.look_up_now.tooltip");
+		for (de.raindancer118.hypixelscout.core.RequeueMode mode : de.raindancer118.hypixelscout.core.RequeueMode.values()) {
+			used.add("message.hypixelscout.requeue." + name(mode));
+			used.add("message.hypixelscout.requeue." + name(mode) + ".tooltip");
+		}
 		for (de.raindancer118.hypixelscout.game.PartyReport.Channel channel
 				: de.raindancer118.hypixelscout.game.PartyReport.Channel.values()) {
 			used.add("message.hypixelscout.teams." + name(channel));

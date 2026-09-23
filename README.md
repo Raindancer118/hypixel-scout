@@ -33,6 +33,13 @@ profiles, read from the official Hypixel API with your own key — in a real in-
 - **Chat hover**: hovering a player's name in chat shows their stats, clicking opens the profile.
 - **Tab list** with stats, faces and team colours (off by default).
 - **Nametags** with the star in front and the FKDR after (off by default).
+- **Auto requeue** (Settings → Alerts, off by default): joins the next game of the same mode once
+  you are *finally* out — bed gone and dead, i.e. a `FINAL KILL` on you; an ordinary death with the
+  bed standing does nothing. *when party is out* waits until you and every party member in the game
+  are out (party from Hypixel's Mod API; without a party it is the same as *when I'm out*). A
+  countdown (0–15 s, default 3) with a clickable **[Cancel]** comes first (`/scout requeue cancel`).
+  Only the party leader can move a party; a member gets a note instead. As leader, *when I'm out*
+  pulls the whole party along, living teammates included.
 - **Proximity popup**: an enemy walking within 12 blocks (Settings → Overlays → *Popup radius*,
   2–48) gets a small card at the top of the screen for 4 seconds — threat level, stars, FKDR,
   winstreak. Once per approach: they have to walk a few blocks beyond the radius and 15 seconds
@@ -81,6 +88,7 @@ free on purpose.
 | `/scout key <key>` / `/scout testkey` | Stores / checks your API key |
 | `/scout team` | Sends the enemy threat report to team chat (not in Solo) |
 | `/scout party` | Sends the enemy threat report to party chat |
+| `/scout requeue cancel` | Stops an auto requeue that is counting down |
 | `/scout list team` / `/scout list party` | Sends every enemy, one line each, to team or party chat |
 | `/scout table` | Toggles the table |
 | `/scout refresh` | Looks everybody up again |
@@ -125,10 +133,10 @@ cards, the tooltip and both reports all use the same scale.
 ## What it deliberately does not do
 
 - **No ban history.** The Hypixel API exposes no punishments per player.
-- **No automatic chat.** The team and party reports and `/play` are only sent when you press for
-  them — one line at a time, 0.5 s apart by default (Settings → Alerts → *Chat interval*), but
-  never faster than every 3.2 s for players without a rank, whom Hypixel lets chat only every three
-  seconds.
+- **No automatic chat.** The team and party reports are only sent when you press for them — one
+  line at a time, 0.5 s apart by default (Settings → Alerts → *Chat interval*), but never faster
+  than every 3.2 s for players without a rank, whom Hypixel lets chat only every three seconds.
+  `/play` goes out only on a key press, or through the auto requeue if you switched it on.
 - **No wallhack.** The look tooltip needs line of sight and only sees players the server sent you.
 - **Nicked players stay unknown.** There is no profile behind a nick; the mod says so.
 

@@ -48,6 +48,9 @@ class ScoutSettingsTest {
 		assertThat(settings.proximity.radius).isEqualTo(12);
 		assertThat(settings.proximity.seconds).isEqualTo(4);
 		assertThat(settings.proximity.from).isEqualTo(Threat.NONE);
+		// Joining the next game by itself is something to switch on knowingly.
+		assertThat(settings.requeue.mode).isEqualTo(de.raindancer118.hypixelscout.core.RequeueMode.OFF);
+		assertThat(settings.requeue.delaySeconds).isEqualTo(3);
 		assertThat(file).exists();
 	}
 
@@ -110,6 +113,13 @@ class ScoutSettingsTest {
 		assertThat(proximity.proximity.radius).isEqualTo(ScoutSettings.MAX_RADIUS);
 		assertThat(proximity.proximity.seconds).isEqualTo(1);
 		assertThat(proximity.proximity.from).isEqualTo(Threat.NONE);
+
+		Files.writeString(file, """
+				{ "requeue": { "mode": "SOMETIMES", "delaySeconds": 99 } }
+				""", StandardCharsets.UTF_8);
+		ScoutSettings requeue = ScoutSettings.load(file);
+		assertThat(requeue.requeue.mode).isEqualTo(de.raindancer118.hypixelscout.core.RequeueMode.OFF);
+		assertThat(requeue.requeue.delaySeconds).isEqualTo(ScoutSettings.MAX_REQUEUE_DELAY);
 		assertThat(settings.threatReportFrom).isEqualTo(Threat.MEDIUM);
 	}
 

@@ -8,6 +8,7 @@ import de.raindancer118.hypixelscout.core.HudMode;
 import de.raindancer118.hypixelscout.core.KeyCheck;
 import de.raindancer118.hypixelscout.core.SortMode;
 import de.raindancer118.hypixelscout.core.ChatPacing;
+import de.raindancer118.hypixelscout.core.RequeueMode;
 import de.raindancer118.hypixelscout.core.Threat;
 import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.ui.widget.KeyBindButton;
@@ -387,6 +388,17 @@ public final class SettingsScreen extends Screen {
 			interval.setTooltip(Tooltip.create(
 					Component.translatable("message.hypixelscout.settings.report_interval.tooltip")));
 			rows.addChild(interval);
+
+			rows.addChild(CycleButton.builder((RequeueMode value) -> enumLabel("requeue", value), settings().requeue.mode)
+					.withValues(RequeueMode.values())
+					.withTooltip(value -> Tooltip.create(Component.translatable("message.hypixelscout.requeue."
+							+ value.name().toLowerCase(Locale.ROOT) + ".tooltip")))
+					.create(0, 0, NARROW, 20, Component.translatable("message.hypixelscout.settings.requeue"),
+							(button, value) -> settings().requeue.mode = value));
+			rows.addChild(new SettingSlider(0, 0, NARROW, "message.hypixelscout.settings.requeue_delay", 0,
+					ScoutSettings.MAX_REQUEUE_DELAY, settings().requeue.delaySeconds,
+					value -> settings().requeue.delaySeconds = (int) Math.round(value),
+					value -> Math.round(value) + " s"));
 		}
 	}
 

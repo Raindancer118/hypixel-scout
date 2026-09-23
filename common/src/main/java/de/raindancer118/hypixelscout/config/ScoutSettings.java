@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import de.raindancer118.hypixelscout.core.ChatPacing;
 import de.raindancer118.hypixelscout.core.HudMode;
+import de.raindancer118.hypixelscout.core.RequeueMode;
 import de.raindancer118.hypixelscout.core.SortMode;
 import de.raindancer118.hypixelscout.core.Threat;
 import de.raindancer118.hypixelscout.core.ThreatScale;
@@ -47,6 +48,7 @@ public final class ScoutSettings {
 	public static final int MAX_LOOKUPS = 12;
 	public static final int MAX_RADIUS = 48;
 	public static final int MAX_POPUP_SECONDS = 15;
+	public static final int MAX_REQUEUE_DELAY = 15;
 	public static final int MIN_SENSITIVITY = 25;
 	public static final int MAX_SENSITIVITY = 400;
 
@@ -90,6 +92,7 @@ public final class ScoutSettings {
 	public Tooltip tooltip = new Tooltip();
 	public Alerts alerts = new Alerts();
 	public Proximity proximity = new Proximity();
+	public Requeue requeue = new Requeue();
 	public Queue queue = new Queue();
 
 	/** Names typed into the lookup screen lately, newest first. */
@@ -166,6 +169,13 @@ public final class ScoutSettings {
 		public int seconds = 4;
 		/** The lowest threat level worth a popup; nicks and players not looked up yet always get one. */
 		public Threat from = Threat.NONE;
+	}
+
+	/** Joining the next game once this one is lost. */
+	public static final class Requeue {
+		public RequeueMode mode = RequeueMode.OFF;
+		/** Time to read the last kill line — and to cancel — before {@code /play} goes out. */
+		public int delaySeconds = 3;
 	}
 
 	/** The quick-queue hotkeys. */
@@ -278,6 +288,10 @@ public final class ScoutSettings {
 		proximity.radius = Math.clamp(proximity.radius, 2, MAX_RADIUS);
 		proximity.seconds = Math.clamp(proximity.seconds, 1, MAX_POPUP_SECONDS);
 		proximity.from = proximity.from == null || !proximity.from.isRated() ? Threat.NONE : proximity.from;
+
+		requeue = requeue == null ? new Requeue() : requeue;
+		requeue.mode = requeue.mode == null ? RequeueMode.OFF : requeue.mode;
+		requeue.delaySeconds = Math.clamp(requeue.delaySeconds, 0, MAX_REQUEUE_DELAY);
 
 		queue = queue == null ? new Queue() : queue;
 		String[] slots = queue.slots == null ? new String[0] : queue.slots;

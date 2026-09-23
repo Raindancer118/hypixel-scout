@@ -64,6 +64,13 @@ public final class ScoutCommands {
 					mod.partyReport().send(PartyReport.Channel.TEAM);
 					return 1;
 				}))
+				.then(ClientCommands.literal("requeue")
+						.then(ClientCommands.literal("cancel").executes(context -> {
+							context.getSource().sendFeedback(Chat.prefixed(Component.translatable(
+									mod.requeue().cancel() ? "message.hypixelscout.requeue.cancelled"
+											: "message.hypixelscout.requeue.nothing")));
+							return 1;
+						})))
 				.then(ClientCommands.literal("list")
 						.then(ClientCommands.literal("team").executes(context -> {
 							mod.partyReport().sendAll(PartyReport.Channel.TEAM);

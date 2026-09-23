@@ -18,6 +18,7 @@ import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.game.ChatHover;
 import de.raindancer118.hypixelscout.game.LocationBridge;
 import de.raindancer118.hypixelscout.game.Nametags;
+import de.raindancer118.hypixelscout.game.AutoRequeue;
 import de.raindancer118.hypixelscout.game.PartyReport;
 import de.raindancer118.hypixelscout.game.ProximityAlerts;
 import de.raindancer118.hypixelscout.game.QuickQueue;
@@ -94,6 +95,7 @@ public final class HypixelScout implements ClientModInitializer {
 	private TableHudElement table;
 	private PeekElement peek;
 	private ProximityAlerts proximity;
+	private AutoRequeue requeue;
 	private ProximityElement proximityElement;
 	private ScoutKeys keys;
 	private ChatHover hover;
@@ -133,6 +135,7 @@ public final class HypixelScout implements ClientModInitializer {
 		stats.setListener(alerts);
 		partyReport = new PartyReport(roster, stats, () -> settings);
 		queue = new QuickQueue(() -> settings);
+		requeue = new AutoRequeue(roster, queue, () -> settings);
 		lookups = new LookupHistory(ScoutSettings.MAX_LOOKUPS, settings.recentLookups);
 		new Nametags(roster, stats, () -> settings);
 
@@ -158,6 +161,10 @@ public final class HypixelScout implements ClientModInitializer {
 			if (!overlay && roster.isInGame() && !roster.hasStarted() && GameStart.isStartLine(message.getString())) {
 				Minecraft.getInstance().execute(this::matchStarted);
 			}
+			if (!overlay) {
+				String text = message.getString();
+				Minecraft.getInstance().execute(() -> requeue.onChat(text));
+			}
 		});
 
 		keys = new ScoutKeys(this);
@@ -169,6 +176,7 @@ public final class HypixelScout implements ClientModInitializer {
 				minecraft.execute(this::leftServer));
 
 		new LocationBridge(roster, this::gameJoined).register();
+		requeue.register();
 		modApiPresent = FabricLoader.getInstance().isModLoaded("hypixel-mod-api");
 
 		LOGGER.info("Hypixel Scout ready ({} API key)", client.hasApiKey() ? "with" : "without an");
@@ -182,6 +190,7 @@ public final class HypixelScout implements ClientModInitializer {
 		keys.tick(minecraft);
 		partyReport.tick(minecraft);
 		proximity.tick(minecraft);
+		requeue.tick(minecraft);
 
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
 			scanTicks = 0;
@@ -248,6 +257,7 @@ public final class HypixelScout implements ClientModInitializer {
 		stats.clearFailures();
 		proximity.reset();
 		teamsReady = false;
+		requeue.gameJoined();
 		scanTicks = 0;
 		roster.refresh(TabListReader.current());
 	}
@@ -268,6 +278,7 @@ public final class HypixelScout implements ClientModInitializer {
 		alerts.reset();
 		proximity.reset();
 		teamsReady = false;
+		requeue.reset();
 		partyReport.cancel();
 	}
 
@@ -379,6 +390,10 @@ public final class HypixelScout implements ClientModInitializer {
 
 	public PeekElement peek() {
 		return peek;
+	}
+
+	public AutoRequeue requeue() {
+		return requeue;
 	}
 
 	/** The proximity popups as drawn, for the client game test. */
