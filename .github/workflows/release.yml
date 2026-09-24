@@ -37,11 +37,11 @@ jobs:
 
       # A green build does not prove the mod loads, so both client tests gate the release.
       - name: Client startup test (1.8.9)
-        run: xvfb-run -a ./gradlew -p versions/1.8.9 runClientStartupTest
+        run: xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew -p versions/1.8.9 runClientStartupTest
 
       - name: Production startup test (1.8.9)
         # The shipped jar in a launcher-style Forge client: vanilla jar, Forge universal, mods/.
-        run: xvfb-run -a ./gradlew -p versions/1.8.9 runProductionStartupTest
+        run: xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew -p versions/1.8.9 runProductionStartupTest
 
       - uses: softprops/action-gh-release@v2
         with:
