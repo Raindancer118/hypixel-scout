@@ -109,6 +109,7 @@ public final class ScoutSettings {
 	public Projectiles projectiles = new Projectiles();
 	public Awareness awareness = new Awareness();
 	public Cheats cheats = new Cheats();
+	public Cards cards = new Cards();
 	public Callouts callouts = new Callouts();
 	public Queue queue = new Queue();
 
@@ -290,6 +291,64 @@ public final class ScoutSettings {
 		}
 	}
 
+	/** What each player card shows, and how big it is drawn. */
+	public static final class Cards {
+		public Card tooltip = Card.of(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
+		public Card popup = Card.of(de.raindancer118.hypixelscout.core.CardLines.Layout.POPUP);
+		/** The chat hover is vanilla's own tooltip: its contents can be chosen, its size cannot. */
+		public Card hover = Card.of(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
+		public Profile profile = new Profile();
+		/** The peek overlay's size; the profile screen fills the window as it is. */
+		public double peekScale = 1.0;
+	}
+
+	/** One card: its fields in order, how many to a line, the name's star and rank, the face, the size. */
+	public static final class Card {
+		public List<de.raindancer118.hypixelscout.core.CardField> fields;
+		public int perLine = 3;
+		public boolean stars = true;
+		public boolean rank = true;
+		public boolean head = true;
+		public double scale = 1.0;
+
+		public static Card of(de.raindancer118.hypixelscout.core.CardLines.Layout layout) {
+			Card card = new Card();
+			card.fields = new ArrayList<>(layout.fields());
+			card.perLine = layout.perLine();
+			card.stars = layout.stars();
+			card.rank = layout.rank();
+			return card;
+		}
+
+		public de.raindancer118.hypixelscout.core.CardLines.Layout layout() {
+			return new de.raindancer118.hypixelscout.core.CardLines.Layout(fields, perLine, stars, rank);
+		}
+
+		/** Pulls the numbers into range and puts back the defaults where the file had none. */
+		void sanitise(de.raindancer118.hypixelscout.core.CardLines.Layout defaults) {
+			if (fields == null) {
+				Card fresh = of(defaults);
+				fields = fresh.fields;
+				perLine = fresh.perLine;
+			}
+			fields = new ArrayList<>(new java.util.LinkedHashSet<>(fields.stream().filter(java.util.Objects::nonNull).toList()));
+			perLine = Math.clamp(perLine, 1, 6);
+			scale = finiteClamp(scale, MIN_SCALE, MAX_SCALE, 1.0);
+		}
+	}
+
+	/** Which parts of the profile — on its screen and under the peek key — are shown. */
+	public static final class Profile {
+		public boolean threat = true;
+		public boolean facts = true;
+		public boolean lastLogin = true;
+		public boolean combat = true;
+		public boolean games = true;
+		public boolean beds = true;
+		public boolean pace = true;
+		public boolean socials = true;
+	}
+
 	/** The suspects in a corner of the screen. */
 	public static final class Hud {
 		public boolean enabled = true;
@@ -439,6 +498,16 @@ public final class ScoutSettings {
 		projectiles = projectiles == null ? new Projectiles() : projectiles;
 		awareness = awareness == null ? new Awareness() : awareness;
 		awareness.offscreenRange = Math.clamp(awareness.offscreenRange, 8, MAX_OFFSCREEN_RANGE);
+
+		cards = cards == null ? new Cards() : cards;
+		cards.tooltip = cards.tooltip == null ? Card.of(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP) : cards.tooltip;
+		cards.tooltip.sanitise(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
+		cards.popup = cards.popup == null ? Card.of(de.raindancer118.hypixelscout.core.CardLines.Layout.POPUP) : cards.popup;
+		cards.popup.sanitise(de.raindancer118.hypixelscout.core.CardLines.Layout.POPUP);
+		cards.hover = cards.hover == null ? Card.of(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP) : cards.hover;
+		cards.hover.sanitise(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
+		cards.profile = cards.profile == null ? new Profile() : cards.profile;
+		cards.peekScale = finiteClamp(cards.peekScale, MIN_SCALE, MAX_SCALE, 1.0);
 
 		cheats = cheats == null ? new Cheats() : cheats;
 		cheats.sensitivity = Math.clamp(cheats.sensitivity, MIN_CHEAT_SENSITIVITY, MAX_CHEAT_SENSITIVITY);

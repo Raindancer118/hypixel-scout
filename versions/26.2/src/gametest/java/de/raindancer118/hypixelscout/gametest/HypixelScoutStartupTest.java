@@ -225,6 +225,24 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 				}
 			});
 			context.takeScreenshot("scout_look_tooltip_nametag");
+			// The same card made the player's own: two fields, one a line, no face, half as big again.
+			context.runOnClient(client -> {
+				var card = mod.settings().cards.tooltip;
+				card.fields = new java.util.ArrayList<>(List.of(de.raindancer118.hypixelscout.core.CardField.FKDR,
+						de.raindancer118.hypixelscout.core.CardField.WINSTREAK));
+				card.perLine = 1;
+				card.head = false;
+				card.scale = 1.5;
+			});
+			context.waitTicks(2);
+			context.takeScreenshot("scout_look_tooltip_custom");
+			context.runOnClient(client -> mod.settings().cards.tooltip = de.raindancer118.hypixelscout.config.ScoutSettings.Card.of(
+					de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP));
+			context.setScreen(() -> new de.raindancer118.hypixelscout.ui.screen.CardsScreen(mod, null));
+			context.waitTicks(3);
+			context.takeScreenshot("scout_cards_settings");
+			context.setScreen(() -> null);
+			context.waitTicks(2);
 
 			// Sundial, an enemy three and a half blocks away, came into the popup radius.
 			context.runOnClient(client -> {

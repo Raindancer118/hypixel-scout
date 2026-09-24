@@ -55,14 +55,21 @@ public final class ProximityElement implements HudElement {
 			return;
 		}
 
-		int top = TOP;
+		de.raindancer118.hypixelscout.config.ScoutSettings.Card card = settings.get().cards.popup;
+		float scale = (float) card.scale;
+		graphics.pose().pushMatrix();
+		graphics.pose().scale(scale, scale);
+		int screenWidth = Math.round(graphics.guiWidth() / scale);
+		int top = Math.round(TOP / scale);
 		for (ProximityWatch.Popup popup : shown()) {
-			List<String> lines = StatLines.brief(popup.name(), stats.peek(popup.uuid()),
-					stats.isPending(popup.uuid()), stats.failureFor(popup.uuid()), Threats.scale());
-			int width = LookTooltipElement.width(lines);
+			List<String> lines = de.raindancer118.hypixelscout.core.CardLines.lines(popup.name(), stats.peek(popup.uuid()),
+					stats.isPending(popup.uuid()), stats.failureFor(popup.uuid()), Threats.scale(), card.layout(),
+					de.raindancer118.hypixelscout.ui.Suspects.cardExtras(popup.name()));
+			int width = LookTooltipElement.width(lines, card.head);
 			top += LookTooltipElement.card(graphics, popup.uuid(), Teams.of(popup.name()), lines,
-					(graphics.guiWidth() - width) / 2, top) + GAP;
+					(screenWidth - width) / 2, top, card.head) + GAP;
 		}
+		graphics.pose().popMatrix();
 	}
 
 	/** The popups that pass the level filter, for drawing and for the client game test. */

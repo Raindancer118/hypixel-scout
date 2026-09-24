@@ -305,6 +305,10 @@ public final class SettingsScreen extends Screen {
 					ScoutSettings.MAX_POPUP_SECONDS, settings().proximity.seconds,
 					value -> settings().proximity.seconds = (int) Math.round(value),
 					value -> Math.round(value) + " s"));
+			rows.addChild(Button.builder(Component.translatable("message.hypixelscout.settings.cards"),
+							button -> minecraft.gui.setScreen(new CardsScreen(mod, SettingsScreen.this)))
+					.tooltip(Tooltip.create(Component.translatable("message.hypixelscout.settings.cards.tooltip")))
+					.width(NARROW).build());
 		}
 	}
 

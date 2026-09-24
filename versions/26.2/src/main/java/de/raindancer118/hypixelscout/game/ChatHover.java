@@ -72,9 +72,9 @@ public final class ChatHover {
 
 	private Style decorate(Style style, String name) {
 		UUID uuid = roster.uuidOf(name);
-		List<String> lines = StatLines.detail(name, uuid == null ? null : stats.peek(uuid),
+		List<String> lines = de.raindancer118.hypixelscout.core.CardLines.lines(name, uuid == null ? null : stats.peek(uuid),
 				uuid != null && stats.isPending(uuid), uuid == null ? null : stats.failureFor(uuid),
-				Threats.scale());
+				Threats.scale(), settings.get().cards.hover.layout(), de.raindancer118.hypixelscout.ui.Suspects.cardExtras(name));
 
 		MutableComponent tooltip = Component.empty();
 		for (int i = 0; i < lines.size(); i++) {

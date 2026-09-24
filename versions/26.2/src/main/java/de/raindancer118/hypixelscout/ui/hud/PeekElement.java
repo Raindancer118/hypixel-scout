@@ -106,15 +106,28 @@ public final class PeekElement implements HudElement {
 		showing = Showing.PLAYER;
 		shownPlayer = name;
 
-		int width = Math.min(graphics.guiWidth() - 16, 420);
-		int left = (graphics.guiWidth() - width) / 2;
-		int bottom = graphics.guiHeight() - 30;
+		float scale = (float) settings.get().cards.peekScale;
+		graphics.pose().pushMatrix();
+		graphics.pose().scale(scale, scale);
+		try {
+			drawPlayer(graphics, name, uuid, profile, Math.round(graphics.guiWidth() / scale),
+					Math.round(graphics.guiHeight() / scale));
+		} finally {
+			graphics.pose().popMatrix();
+		}
+	}
+
+	private void drawPlayer(GuiGraphicsExtractor graphics, String name, UUID uuid, PlayerStats profile,
+			int screenWidth, int screenHeight) {
+		int width = Math.min(screenWidth - 16, 420);
+		int left = (screenWidth - width) / 2;
+		int bottom = screenHeight - 30;
 
 		if (profile == null) {
 			String failure = stats.failureFor(uuid);
 			String line = failure != null && !stats.isPending(uuid) ? "§c" + failure
 					: I18n.get("message.hypixelscout.profile.loading", name);
-			int top = graphics.guiHeight() / 2 - 16;
+			int top = screenHeight / 2 - 16;
 			ScoutTheme.panel(graphics, left, top, width, 24, 92);
 			ScoutTheme.textCentred(graphics, line, left + width / 2, top + 8, ScoutTheme.TEXT);
 			return;
@@ -122,7 +135,7 @@ public final class PeekElement implements HudElement {
 
 		// Header plus one row of cards where three fit side by side; centred as a block.
 		int cardsHeight = profile.isNicked() ? 0 : (width >= 390 ? 84 + ProfileView.GAP : 0);
-		int top = Math.max(8, (graphics.guiHeight() - 52 - cardsHeight) / 2);
+		int top = Math.max(8, (screenHeight - 52 - cardsHeight) / 2);
 
 		int y = ProfileView.header(graphics, name, uuid, profile, left, top, width, 94);
 		if (!profile.isNicked()) {

@@ -80,6 +80,13 @@ class ScoutSettingsTest {
 		assertThat(settings.cheats.sensitivity).isEqualTo(100);
 		assertThat(settings.cheats.off).isEmpty();
 		assertThat(settings.cheats.log).isFalse();
+		// The cards say by default what they always said, at their usual size.
+		assertThat(settings.cards.tooltip.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
+		assertThat(settings.cards.popup.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.POPUP);
+		assertThat(settings.cards.hover.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
+		assertThat(settings.cards.tooltip.scale).isEqualTo(1.0);
+		assertThat(settings.cards.peekScale).isEqualTo(1.0);
+		assertThat(settings.cards.profile.combat).isTrue();
 		assertThat(settings.cheats.sensitivityOf(de.raindancer118.hypixelscout.cheat.Check.REACH)).isEqualTo(100);
 		assertThat(settings.cheats.tuning()).isEqualTo(de.raindancer118.hypixelscout.cheat.CheatWatch.Tuning.DEFAULT);
 		assertThat(settings.cheats.hud.enabled).isTrue();
@@ -186,6 +193,18 @@ class ScoutSettingsTest {
 		assertThat(tuned.cheats.hud.minPercent).isEqualTo(99);
 		assertThat(tuned.cheats.hud.maxRows).isEqualTo(1);
 		assertThat(tuned.cheats.hud.scale).isEqualTo(ScoutSettings.MAX_SCALE);
+		Files.writeString(file, """
+				{ "cards": { "tooltip": { "fields": ["WLR", "NOT_A_FIELD", "WLR", "FKDR"], "perLine": 99, "scale": 0.1 },
+				  "popup": { "fields": null }, "hover": null, "peekScale": 7 } }
+				""", StandardCharsets.UTF_8);
+		ScoutSettings cards = ScoutSettings.load(file);
+		assertThat(cards.cards.tooltip.fields).containsExactly(de.raindancer118.hypixelscout.core.CardField.WLR,
+				de.raindancer118.hypixelscout.core.CardField.FKDR);
+		assertThat(cards.cards.tooltip.perLine).isEqualTo(6);
+		assertThat(cards.cards.tooltip.scale).isEqualTo(ScoutSettings.MIN_SCALE);
+		assertThat(cards.cards.popup.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.POPUP);
+		assertThat(cards.cards.hover.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
+		assertThat(cards.cards.peekScale).isEqualTo(ScoutSettings.MAX_SCALE);
 		Files.writeString(file, """
 				{ "cheats": null }
 				""", StandardCharsets.UTF_8);

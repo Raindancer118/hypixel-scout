@@ -4,6 +4,8 @@ import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.core.StatLines;
+import de.raindancer118.hypixelscout.core.CardLines;
+import de.raindancer118.hypixelscout.ui.Suspects;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.game.LookTarget;
 import de.raindancer118.hypixelscout.game.Teams;
@@ -78,39 +80,47 @@ public final class LookTooltipElement implements HudElement {
 		}
 
 		PlayerStats playerStats = stats.peek(uuid);
-		List<String> lines = StatLines.detail(name, playerStats, stats.isPending(uuid),
-				stats.failureFor(uuid), Threats.scale());
+		ScoutSettings.Card card = settings.get().cards.tooltip;
+		List<String> lines = CardLines.lines(name, playerStats, stats.isPending(uuid), stats.failureFor(uuid),
+				Threats.scale(), card.layout(), Suspects.cardExtras(name));
 
-		draw(graphics, uuid, Teams.of(name), lines, tooltip.offsetY);
+		draw(graphics, uuid, Teams.of(name), lines, tooltip.offsetY, card);
 	}
 
 	static void draw(GuiGraphicsExtractor graphics, UUID uuid, Teams.Team team, List<String> lines,
-			int offsetY) {
+			int offsetY, ScoutSettings.Card card) {
+		float scale = (float) card.scale;
+		graphics.pose().pushMatrix();
+		graphics.pose().scale(scale, scale);
 		// Below the crosshair, clear of it: the card must not sit where you are aiming.
-		card(graphics, uuid, team, lines, (graphics.guiWidth() - width(lines)) / 2,
-				graphics.guiHeight() / 2 + offsetY);
+		int screenWidth = Math.round(graphics.guiWidth() / scale);
+		int middle = Math.round((graphics.guiHeight() / 2f + offsetY) / scale);
+		card(graphics, uuid, team, lines, (screenWidth - width(lines, card.head)) / 2, middle, card.head);
+		graphics.pose().popMatrix();
 	}
 
 	/** How wide {@link #card} draws these lines. */
-	static int width(List<String> lines) {
+	static int width(List<String> lines, boolean head) {
 		int textWidth = 0;
 		for (String line : lines) {
 			textWidth = Math.max(textWidth, ScoutTheme.width(line));
 		}
-		return PADDING + HEAD + 6 + textWidth + PADDING;
+		return PADDING + (head ? HEAD + 6 : 2) + textWidth + PADDING;
 	}
 
-	/** A card with a head, the team's colour and the lines; returns its height. */
+	/** A card with a head (or not), the team's colour and the lines; returns its height. */
 	static int card(GuiGraphicsExtractor graphics, UUID uuid, Teams.Team team, List<String> lines, int left,
-			int top) {
-		int width = width(lines);
-		int height = Math.max(HEAD, lines.size() * LINE - 1) + PADDING * 2;
+			int top, boolean head) {
+		int width = width(lines, head);
+		int height = Math.max(head ? HEAD : 0, lines.size() * LINE - 1) + PADDING * 2;
 
 		ScoutTheme.panel(graphics, left, top, width, height, 88);
 		ScoutTheme.pill(graphics, left + 1, top + 3, 2, height - 6, team.argb());
-		Heads.draw(graphics, uuid, left + PADDING, top + PADDING, HEAD);
+		if (head) {
+			Heads.draw(graphics, uuid, left + PADDING, top + PADDING, HEAD);
+		}
 
-		int x = left + PADDING + HEAD + 6;
+		int x = left + PADDING + (head ? HEAD + 6 : 2);
 		int y = top + PADDING;
 		for (String line : lines) {
 			ScoutTheme.text(graphics, line, x, y, ScoutTheme.TEXT);

@@ -25,7 +25,15 @@ import java.util.UUID;
 public final class ProfileView {
 	public static final int GAP = 8;
 
+	private static java.util.function.Supplier<de.raindancer118.hypixelscout.config.ScoutSettings.Profile> parts =
+			de.raindancer118.hypixelscout.config.ScoutSettings.Profile::new;
+
 	private ProfileView() {
+	}
+
+	/** Which parts are shown, from the settings; installed by the mod. */
+	public static void use(java.util.function.Supplier<de.raindancer118.hypixelscout.config.ScoutSettings.Profile> source) {
+		parts = source;
 	}
 
 	/** The head, the name as Hypixel prints it, and the account facts. Returns its bottom edge. */
@@ -44,14 +52,17 @@ public final class ProfileView {
 		int textX = left + 52;
 		ScoutTheme.text(g, Suspects.mark(name) + StatLines.name(name, profile), textX, top + 9, ScoutTheme.TEXT);
 
+		var shown = parts.get();
 		if (!profile.isNicked()) {
 			long now = System.currentTimeMillis();
+			if (shown.facts) {
 			ScoutTheme.text(g, "§7" + I18n.get("message.hypixelscout.profile.facts",
 					"§f" + (int) profile.getNetworkLevel() + "§7",
 					"§f" + StatFormat.count(profile.getKarma()) + "§7",
 					"§f" + StatFormat.age(profile.getFirstLogin(), now) + "§7"), textX, top + 22, ScoutTheme.TEXT);
+			}
 
-			if (profile.getLastLogin() > 0) {
+			if (shown.lastLogin && profile.getLastLogin() > 0) {
 				ScoutTheme.text(g, "§8" + I18n.get("message.hypixelscout.profile.last_login",
 						StatFormat.age(profile.getLastLogin(), now)), textX, top + 34, ScoutTheme.TEXT);
 			}
@@ -59,6 +70,9 @@ public final class ProfileView {
 			ThreatScale scale = Threats.scale();
 			ThreatScale.Rating rating = scale.rate(profile);
 			int right = left + width - 8;
+			if (!shown.threat) {
+				return top + height;
+			}
 			if (scale.focus() == ThreatFocus.BOTH) {
 				// Both dangers side by side, the fight on the left, as the cards below are laid out.
 				right = threatBadge(g, "message.hypixelscout.profile.threat.beds", rating.beds(), right, top + 8) - 4;
@@ -86,7 +100,7 @@ public final class ProfileView {
 	/** Three cards side by side where they fit, one under another where they do not. */
 	public static int cards(GuiGraphicsExtractor g, PlayerStats p, int left, int top, int width, int bottom,
 			int opacity) {
-		List<List<Stat>> cards = List.of(
+		List<List<Stat>> allCards = List.of(
 				List.of(new Stat("final_kills", "§a" + StatFormat.count(p.getFinalKills())),
 						new Stat("final_deaths", "§c" + StatFormat.count(p.getFinalDeaths())),
 						new Stat("fkdr", StatFormat.ratioColour(p.getFkdr()) + StatFormat.ratio(p.getFkdr())),
@@ -102,9 +116,24 @@ public final class ProfileView {
 						new Stat("bblr", "§f" + StatFormat.ratio(ProfileMetrics.bedRatio(p))),
 						new Stat("games", "§f" + StatFormat.count(ProfileMetrics.gamesPlayed(p))),
 						new Stat("stars", StatFormat.star(p.getStars()))));
-		String[] titles = {"combat", "games", "beds"};
+		String[] allTitles = {"combat", "games", "beds"};
+		var shown = parts.get();
+		boolean[] wanted = {shown.combat, shown.games, shown.beds};
+		List<List<Stat>> kept = new java.util.ArrayList<>();
+		List<String> keptTitles = new java.util.ArrayList<>();
+		for (int i = 0; i < allCards.size(); i++) {
+			if (wanted[i]) {
+				kept.add(allCards.get(i));
+				keptTitles.add(allTitles[i]);
+			}
+		}
+		if (kept.isEmpty()) {
+			return top - GAP;
+		}
+		List<List<Stat>> cards = kept;
+		String[] titles = keptTitles.toArray(String[]::new);
 
-		int columns = width >= 390 ? 3 : 1;
+		int columns = width >= 390 ? cards.size() : 1;
 		int cardWidth = (width - GAP * (columns - 1)) / columns;
 		int cardHeight = ScoutTheme.HEADER_HEIGHT + 6 + 5 * 11 + 3;
 
@@ -136,26 +165,29 @@ public final class ProfileView {
 	/** Rates rather than totals: how much happens per game and per star, and where they link to. */
 	public static void pace(GuiGraphicsExtractor g, PlayerStats p, int left, int top, int width, int bottom,
 			int opacity) {
-		if (top + 30 > bottom) {
+		var shown = parts.get();
+		Map<String, String> socials = shown.socials ? p.getSocials() : Map.of();
+		if (top + 30 > bottom || !shown.pace && socials.isEmpty()) {
 			return;
 		}
 
-		Map<String, String> socials = p.getSocials();
-		int height = socials.isEmpty() ? 20 : 31;
+		int height = (shown.pace ? 20 : 9) + (socials.isEmpty() ? 0 : 11);
 
 		ScoutTheme.panel(g, left, top, width, height, opacity);
-		String pace = "§7" + I18n.get("message.hypixelscout.profile.pace",
-				"§f" + StatFormat.ratio(ProfileMetrics.finalsPerGame(p)) + "§7",
-				"§f" + StatFormat.ratio(ProfileMetrics.finalsPerStar(p)) + "§7",
-				"§f" + StatFormat.ratio(ProfileMetrics.killsPerGame(p)) + "§7",
-				"§f" + StatFormat.ratio(ProfileMetrics.bedsPerGame(p)) + "§7");
-		ScoutTheme.textCentred(g, ScoutTheme.fit(pace, width - 14), left + width / 2, top + 6, ScoutTheme.TEXT);
+		if (shown.pace) {
+			String pace = "§7" + I18n.get("message.hypixelscout.profile.pace",
+					"§f" + StatFormat.ratio(ProfileMetrics.finalsPerGame(p)) + "§7",
+					"§f" + StatFormat.ratio(ProfileMetrics.finalsPerStar(p)) + "§7",
+					"§f" + StatFormat.ratio(ProfileMetrics.killsPerGame(p)) + "§7",
+					"§f" + StatFormat.ratio(ProfileMetrics.bedsPerGame(p)) + "§7");
+			ScoutTheme.textCentred(g, ScoutTheme.fit(pace, width - 14), left + width / 2, top + 6, ScoutTheme.TEXT);
+		}
 
 		if (!socials.isEmpty()) {
 			StringBuilder line = new StringBuilder("§8" + I18n.get("message.hypixelscout.profile.linked"));
 			socials.forEach((service, link) -> line.append(" §7").append(service.toLowerCase(Locale.ROOT))
 					.append(" §8").append(shorten(link)));
-			ScoutTheme.textCentred(g, ScoutTheme.fit(line.toString(), width - 14), left + width / 2, top + 18,
+			ScoutTheme.textCentred(g, ScoutTheme.fit(line.toString(), width - 14), left + width / 2, top + (shown.pace ? 18 : 5),
 					ScoutTheme.TEXT);
 		}
 	}

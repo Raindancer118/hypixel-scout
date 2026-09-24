@@ -97,6 +97,12 @@ profiles, read from the official Hypixel API with your own key — in a real in-
 - **Edge markers**: enemies beside or behind you, outside your view, within 32 blocks (8–64), as
   small markers on the screen's edge in their team colour with the distance. Only with a clear line
   of sight from your eyes — never through walls — and never for invisible players.
+- **Player cards your way** (Settings → Overlays → *Card contents & sizes…*): the look tooltip, the
+  proximity popup and the chat hover each choose their own fields — threat level or both ratings,
+  FKDR, WLR, BBLR, KDR, winstreak, finals, wins, beds, win rate, per-game rates, games, level, karma,
+  account age, last seen, socials, cheat confidence — in their own order, so many to a line, with or
+  without star, rank and face, and at their own size (not the chat hover, which is vanilla's). The
+  profile and the peek overlay switch their parts on and off, and the peek has a size of its own.
 - **Cheat detection** (Settings → Cheats): every player in the game is watched — also in fights
   you are not part of — for what only a cheat makes possible, from nothing but what your client is
   told anyway. Each check can be switched off on its own (Settings → Cheats → **Checks…**):

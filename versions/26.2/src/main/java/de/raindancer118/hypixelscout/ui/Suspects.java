@@ -60,6 +60,12 @@ public final class Suspects {
 		};
 	}
 
+	/** What a card's cheat field says about this player: {@code ⚠ 91%} when flagged, else nothing. */
+	public static java.util.Map<de.raindancer118.hypixelscout.core.CardField, String> cardExtras(String name) {
+		return of(name).isEmpty() ? java.util.Map.of()
+				: java.util.Map.of(de.raindancer118.hypixelscout.core.CardField.CHEATS, MARK + percent(confidence(name)));
+	}
+
 	/** {@code ⚠ 91% } in front of a flagged player's nametag; nothing for anybody else. */
 	public static String tagMark(String name) {
 		return of(name).isEmpty() ? "" : MARK + percent(confidence(name)) + " ";

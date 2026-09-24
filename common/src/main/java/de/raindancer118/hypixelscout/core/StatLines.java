@@ -166,7 +166,7 @@ public final class StatLines {
 	}
 
 	/** Whether the level shown for this player comes from their beds rather than their fights. */
-	private static boolean aboutBeds(ThreatScale scale, PlayerStats stats) {
+	static boolean aboutBeds(ThreatScale scale, PlayerStats stats) {
 		return scale.focus() == ThreatFocus.BEDS || bedsAreTheWorse(scale, stats);
 	}
 

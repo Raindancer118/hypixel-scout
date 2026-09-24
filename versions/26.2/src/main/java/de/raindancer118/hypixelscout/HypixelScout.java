@@ -133,6 +133,7 @@ public final class HypixelScout implements ClientModInitializer {
 
 		ScoutTheme.useAccent(() -> settings.accent);
 		// Sensitivity and focus are applied on every read, so changing either shows at once.
+		de.raindancer118.hypixelscout.ui.ProfileView.use(() -> settings.cards.profile);
 		Threats.use(() -> threatScale.withSensitivity(settings.threatSensitivity / 100.0)
 				.withFocus(settings.threatFocus));
 		Chat.useAccent(() -> settings.accent);
