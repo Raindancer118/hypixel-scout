@@ -178,3 +178,8 @@ tasks.register('mrpack', Zip) {
 		]))
 	}
 }
+
+// Parts of the cheat checks derive from MIT-licensed code, whose notice has to travel with the mod.
+jar {
+	from(rootProject.file('../../THIRD_PARTY_NOTICES.md'))
+}

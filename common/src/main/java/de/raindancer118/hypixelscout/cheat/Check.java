@@ -40,7 +40,25 @@ public enum Check {
 	/** Moving faster than a Speed II sprint-jump, with nothing to push them. */
 	SPEED("Speed", 3.0, 40, 0.3),
 	/** Moving about in mid-air without falling. */
-	FLY("Fly", 5.0, 60, 0.4);
+	FLY("Fly", 5.0, 60, 0.4),
+	/** Swings too fast, too evenly or too smoothly spaced to be a hand — an autoclicker. */
+	AUTOCLICKER("AutoClicker", 3.0, 20, 0.3),
+	/** A snap of the aim past what a hand can turn in one tick, out of an aim that was still. */
+	AIMSNAP("AimSnap", 3.5, 20, 0.3),
+	/** An aim that keeps pointing at the same nearby player's body almost every tick of a fight. */
+	AIMTRACK("AimTrack", 4.0, 40, 0.3),
+	/** A hit landing within a tick or two of the crosshair first reaching the victim, every time. */
+	TRIGGERBOT("Triggerbot", 4.0, 20, 0.3),
+	/** The aim flicked off the victim at the hit and snapped back onto them a tick or two later. */
+	HITFLICK("HitFlick", 3.5, 20, 0.3),
+	/** Fell far enough to be hurt by it, and was not. */
+	NOFALL("NoFall", 3.0, 20, 0.3),
+	/** Stepped up more than a jump lets a leg climb, without jumping. */
+	STEP("Step", 2.5, 20, 0.25),
+	/** Froze for several ticks, then snapped several blocks — a blink cheat holding packets back. */
+	BLINK("Blink", 3.0, 20, 0.3),
+	/** Every hit lands with the small rise of a critical, on a fixed rhythm no fall gives by hand. */
+	CRITICALS("Criticals", 3.0, 40, 0.25);
 
 	private final String label;
 	private final double weight;
