@@ -22,11 +22,16 @@ jobs:
       - name: Build and unit test
         run: ./gradlew build
 
-      - name: Client startup test
+      - name: Client startup test (26.2)
         # A real client, a staged Bedwars game, every screen photographed.
         run: xvfb-run -a ./gradlew -p versions/26.2 runClientGameTest
 
-      - name: Modpack
+      - name: Client startup test (1.8.9)
+        # Forge 1.8.9 has no client-gametest API: boots headlessly to the main menu, screenshots
+        # it, exits — see de.raindancer118.hypixelscout.startup in versions/1.8.9.
+        run: xvfb-run -a ./gradlew -p versions/1.8.9 runClientStartupTest
+
+      - name: Modpack (26.2)
         run: ./gradlew -p versions/26.2 mrpack
 
       - uses: actions/upload-artifact@v4
@@ -35,9 +40,12 @@ jobs:
           path: |
             versions/26.2/build/libs/hypixelscout-mc26.2-*.jar
             versions/26.2/build/hypixel-scout-*.mrpack
+            versions/1.8.9/build/libs/hypixelscout-mc1.8.9-forge-*.jar
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: screenshots
-          path: versions/26.2/build/run/clientGameTest/screenshots
+          path: |
+            versions/26.2/build/run/clientGameTest/screenshots
+            versions/1.8.9/build/run/startupTest/screenshots

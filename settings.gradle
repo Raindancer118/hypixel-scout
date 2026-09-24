@@ -5,3 +5,4 @@ rootProject.name = 'hypixel-scout'
 // Loom, mappings or Java level leaking into the other — the 1.8.9-support branch is exactly that.
 includeBuild 'common'
 includeBuild 'versions/26.2'
+includeBuild 'versions/1.8.9'

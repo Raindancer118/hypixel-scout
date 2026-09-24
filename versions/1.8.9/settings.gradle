@@ -1,0 +1,33 @@
+pluginManagement {
+	repositories {
+		mavenCentral()
+		maven {
+			name = 'MinecraftForge'
+			url = 'https://maven.minecraftforge.net/'
+		}
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		maven {
+			name = 'WagYourTail'
+			url = 'https://maven.wagyourtail.xyz/releases'
+		}
+		gradlePluginPortal()
+	}
+}
+
+plugins {
+	// Minecraft 1.8.9 runs the dev client on Java 8. A Temurin 8 is fetched/pinned by Gradle
+	// itself rather than requiring one to be installed system-wide.
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+apply from: '../../gradle/shared.gradle'
+
+rootProject.name = 'hypixelscout-1.8.9'
+
+// Gradle substitutes de.raindancer118:hypixelscout-common with this build's output, same as
+// versions/26.2. There is no jar-in-jar on legacy Forge, so build.gradle shades the resulting
+// classes into the mod jar by hand instead of Loom's `include implementation(...)`.
+includeBuild '../../common'

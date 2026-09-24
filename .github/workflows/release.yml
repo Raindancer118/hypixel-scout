@@ -33,11 +33,14 @@ jobs:
       - name: Build and unit test
         run: ./gradlew build
 
-      # A green build does not prove the mod loads, so the client test gates the release too.
-      - name: Client startup test
+      # A green build does not prove the mod loads, so the client tests gate the release too.
+      - name: Client startup test (26.2)
         run: xvfb-run -a ./gradlew -p versions/26.2 runClientGameTest
 
-      - name: Modpack
+      - name: Client startup test (1.8.9)
+        run: xvfb-run -a ./gradlew -p versions/1.8.9 runClientStartupTest
+
+      - name: Modpack (26.2)
         run: ./gradlew -p versions/26.2 mrpack
 
       - uses: softprops/action-gh-release@v2
@@ -48,3 +51,4 @@ jobs:
           files: |
             versions/26.2/build/libs/hypixelscout-mc26.2-${{ github.ref_name }}.jar
             versions/26.2/build/hypixel-scout-${{ github.ref_name }}-mc26.2.mrpack
+            versions/1.8.9/build/libs/hypixelscout-mc1.8.9-forge-${{ github.ref_name }}.jar

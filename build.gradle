@@ -3,7 +3,7 @@
 //
 // The names are the included builds' directory names, which is what Gradle keys them by — not the
 // rootProject.name each of them sets.
-def builds = ['common', '26.2']
+def builds = ['common', '26.2', '1.8.9']
 
 ['build', 'test', 'clean'].each { name ->
 	tasks.register(name) {
