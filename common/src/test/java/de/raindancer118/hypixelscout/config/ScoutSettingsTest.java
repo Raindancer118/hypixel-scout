@@ -61,6 +61,10 @@ class ScoutSettingsTest {
 		assertThat(settings.projectiles.arrows).isTrue();
 		assertThat(settings.projectiles.fireballs).isTrue();
 		assertThat(settings.projectiles.onlyInGame).isTrue();
+		// Six callouts, the first the classic, all into team chat.
+		assertThat(settings.callouts.messages).hasSize(ScoutSettings.CALLOUTS);
+		assertThat(settings.callouts.messages[0]).isEqualTo("{team} inc");
+		assertThat(settings.callouts.toParty).isFalse();
 		assertThat(file).exists();
 	}
 
@@ -156,6 +160,7 @@ class ScoutSettingsTest {
 				  "alerts": null,
 				  "threatFocus": "NONSENSE",
 				  "projectiles": null,
+				  "callouts": { "messages": ["{team} rush", null] },
 				  "queue": { "slots": ["bedwars_four_four"] },
 				  "cacheMinutes": 0
 				}
@@ -178,6 +183,16 @@ class ScoutSettingsTest {
 		assertThat(settings.threatFocus).isEqualTo(de.raindancer118.hypixelscout.core.ThreatFocus.BOTH);
 		assertThat(settings.projectiles).isNotNull();
 		assertThat(settings.projectiles.alarm).isTrue();
+		// A short list is filled up with empty slots, not with the defaults over what was typed.
+		assertThat(settings.callouts.messages).hasSize(ScoutSettings.CALLOUTS);
+		assertThat(settings.callouts.messages[0]).isEqualTo("{team} rush");
+		assertThat(settings.callouts.messages[1]).isEmpty();
+		assertThat(settings.callouts.messages[5]).isEmpty();
+		// A short list is filled up with empty slots, not with the defaults over what was typed.
+		assertThat(settings.callouts.messages).hasSize(ScoutSettings.CALLOUTS);
+		assertThat(settings.callouts.messages[0]).isEqualTo("{team} rush");
+		assertThat(settings.callouts.messages[1]).isEmpty();
+		assertThat(settings.callouts.messages[5]).isEmpty();
 		assertThat(settings.threatBasis).isEqualTo(de.raindancer118.hypixelscout.core.ThreatScale.Basis.TEAM);
 	}
 

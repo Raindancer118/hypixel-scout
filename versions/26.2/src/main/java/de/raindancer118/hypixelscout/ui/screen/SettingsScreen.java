@@ -92,8 +92,11 @@ public final class SettingsScreen extends Screen {
 					? "message.hypixelscout.key.stored" : "message.hypixelscout.key.none");
 		}
 
+		// Built anew with the tabs on every layout; two tabs hold key buttons.
+		keyButtons.clear();
 		tabBar = MenuTabBar.builder(tabManager, width)
-				.addTabs(new GeneralTab(), new TableTab(), new OverlaysTab(), new AlertsTab(), new ProjectilesTab(), new KeysTab())
+				.addTabs(new GeneralTab(), new TableTab(), new OverlaysTab(), new AlertsTab(), new ProjectilesTab(),
+						new CalloutsTab(), new KeysTab())
 				.build();
 		addRenderableWidget(tabBar);
 
@@ -321,8 +324,40 @@ public final class SettingsScreen extends Screen {
 		}
 	}
 
+	/**
+	 * The callout hotkeys: each message beside its key. The placeholders are in every field's
+	 * tooltip, where they are needed, rather than taking a row of their own.
+	 */
+	private final class CalloutsTab extends SettingsTab {
+		CalloutsTab() {
+			super("callouts");
+
+			ScoutSettings.Callouts callouts = settings().callouts;
+			for (int slot = 0; slot < ScoutSettings.CALLOUTS; slot++) {
+				int index = slot;
+				EditBox box = new EditBox(font, 0, 0, WIDE - NARROW / 2 - 10 - 40, 20,
+						Component.translatable("message.hypixelscout.settings.callout", slot + 1));
+				box.setMaxLength(100);
+				box.setValue(callouts.messages[slot]);
+				box.setHint(Component.translatable("message.hypixelscout.settings.callout.hint"));
+				box.setTooltip(Tooltip.create(Component.translatable("message.hypixelscout.settings.callout.tooltip")));
+				box.setResponder(value -> callouts.messages[index] = value);
+				rows.addChild(box);
+
+				keyButtons.add(rows.addChild(new KeyBindButton(NARROW / 2 + 40, mod.keys().calloutMapping(slot),
+						Component.translatable("message.hypixelscout.settings.callout.key", slot + 1),
+						SettingsScreen.this::listenWith)));
+			}
+
+			rows.addChild(toggle("callout_party", callouts.toParty, value -> callouts.toParty = value), 2,
+					rows.newCellSettings().alignHorizontallyCenter());
+		}
+	}
+
 	/** Index of the keys tab, for whoever wants to open the screen right there. */
-	public static final int KEYS_TAB = 5;
+	public static final int KEYS_TAB = 6;
+	/** Index of the callouts tab. */
+	public static final int CALLOUTS_TAB = 5;
 
 	/**
 	 * The bindings that matter mid-game, changeable without leaving for vanilla's controls — which
@@ -331,7 +366,6 @@ public final class SettingsScreen extends Screen {
 	private final class KeysTab extends SettingsTab {
 		KeysTab() {
 			super("keys");
-			keyButtons.clear();
 
 			for (KeyMapping mapping : mod.keys().settingsMappings()) {
 				String name = mapping.getName().substring("key.hypixelscout.".length());

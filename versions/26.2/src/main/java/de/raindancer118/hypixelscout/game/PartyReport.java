@@ -182,6 +182,24 @@ public final class PartyReport {
 				: "message.hypixelscout.report.player_party", name);
 	}
 
+	/**
+	 * Sends one line typed by the player, from a callout hotkey. The same channel rules as a single
+	 * player's stats; a line already waiting is not queued twice, so hammering the key does not flood
+	 * the chat.
+	 */
+	public void sendCallout(Channel channel, String text) {
+		if (!canSendPlayer(channel)) {
+			Chat.sayTranslated(channel == Channel.TEAM && roster.isInGame()
+					? "message.hypixelscout.report.solo" : "message.hypixelscout.report.nowhere");
+			return;
+		}
+
+		Line line = new Line(channel, text);
+		if (!pending.contains(line)) {
+			pending.add(line);
+		}
+	}
+
 	/** The lines the report is about to send, for the client game test. */
 	public List<String> pendingLines() {
 		return pending.stream().map(Line::text).toList();

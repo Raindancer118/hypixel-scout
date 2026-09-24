@@ -37,6 +37,7 @@ public final class ScoutKeys {
 	private final HypixelScout mod;
 	private final List<Action> actions = new ArrayList<>();
 	private final KeyMapping[] queueKeys = new KeyMapping[ScoutSettings.QUEUE_SLOTS];
+	private final KeyMapping[] calloutKeys = new KeyMapping[ScoutSettings.CALLOUTS];
 	private KeyMapping tableKey;
 	private KeyMapping peekKey;
 
@@ -88,6 +89,12 @@ public final class ScoutKeys {
 			Chat.sayTranslated("message.hypixelscout.refreshed");
 		});
 
+		// Unbound like everything else mid-game: the player picks the keys on the Callouts tab.
+		for (int slot = 0; slot < ScoutSettings.CALLOUTS; slot++) {
+			int index = slot;
+			calloutKeys[slot] = add("callout_" + (slot + 1), GLFW.GLFW_KEY_UNKNOWN, () -> mod.callouts().fire(index));
+		}
+
 		int[] numpad = {GLFW.GLFW_KEY_KP_1, GLFW.GLFW_KEY_KP_2, GLFW.GLFW_KEY_KP_3, GLFW.GLFW_KEY_KP_4,
 				GLFW.GLFW_KEY_KP_5, GLFW.GLFW_KEY_KP_6, GLFW.GLFW_KEY_KP_7, GLFW.GLFW_KEY_KP_8,
 				GLFW.GLFW_KEY_KP_9};
@@ -131,6 +138,11 @@ public final class ScoutKeys {
 				.map(id -> actions.stream().map(Action::mapping).filter(m -> m.getName().equals(id)).findFirst()
 						.orElseThrow())
 				.toList();
+	}
+
+	/** The binding of callout {@code slot} (from 0), for the Callouts tab. */
+	public KeyMapping calloutMapping(int slot) {
+		return calloutKeys[slot];
 	}
 
 	/** The peek key itself, for the client game test to hold down. */

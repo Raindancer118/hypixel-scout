@@ -349,5 +349,20 @@
 	"message.hypixelscout.settings.only_in_game.tooltip": "Flugbahnen, Warnung und Ziellinie nur auf einem Bedwars-Spielserver.",
 	"message.hypixelscout.incoming.fireball": "FEUERBALL",
 	"message.hypixelscout.incoming.arrow": "PFEIL",
-	"subtitles.hypixelscout.missile_inbound": "Raketenwarnung"
+	"subtitles.hypixelscout.missile_inbound": "Raketenwarnung",
+	"message.hypixelscout.settings.tab.callouts": "Callouts",
+	"message.hypixelscout.settings.callout": "Callout %s",
+	"message.hypixelscout.settings.callout.hint": "z. B. {team} inc",
+	"message.hypixelscout.settings.callout.tooltip": "Wird per Taste in den Team-Chat geschickt, über den Spieler unter deinem Fadenkreuz. Platzhalter: {team} {name} {stars} {threat} {fkdr} {wlr} {bblr} {ws} {distance}. Ohne Platzhalter muss niemand anvisiert sein.",
+	"message.hypixelscout.settings.callout.key": "Taste %s",
+	"message.hypixelscout.settings.callout_party": "In den Party-Chat",
+	"message.hypixelscout.settings.callout_party.tooltip": "Callouts gehen in den Party-Chat (/pc) statt in den Team-Chat. Team-Chat wird in Solo verweigert, dort läse ihn jeder.",
+	"message.hypixelscout.callout.empty": "Callout %s hat keine Nachricht; leg eine unter Einstellungen → Callouts fest.",
+	"message.hypixelscout.callout.no_team": "Das Scoreboard zeigt für ihn kein Team.",
+	"key.hypixelscout.callout_1": "Callout 1",
+	"key.hypixelscout.callout_2": "Callout 2",
+	"key.hypixelscout.callout_3": "Callout 3",
+	"key.hypixelscout.callout_4": "Callout 4",
+	"key.hypixelscout.callout_5": "Callout 5",
+	"key.hypixelscout.callout_6": "Callout 6"
 }

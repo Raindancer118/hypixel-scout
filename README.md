@@ -46,7 +46,7 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   must pass before it shows again. *Popup from* skips players below a threat level; nicks and
   players not looked up yet always show. Only players the scoreboard puts on another team than
   yours get one — no teammates, and nobody while the teams are not readable yet (waiting lobby).
-- **Flight paths** (Settings → Projectiles): every arrow and fireball in the air gets its predicted
+- **Flight paths** (Settings → Missiles): every arrow and fireball in the air gets its predicted
   path drawn into the world, up to the block it hits — white for arrows, orange for fireballs, red
   when it is headed at you. Vanilla's own flight rules (arrow drag and gravity, fireball
   acceleration), occluded by blocks like everything else.
@@ -60,8 +60,14 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   it anyway. That is judged once, when it appears; one that flew in from afar still counts up close.
 - **Fireball aim line**: while you hold a fire charge, the line your fireball would fly if you
   threw it now, and the spot it would hit. Just a line — nothing aims for you.
+- **Callouts** (Settings → Callouts): six messages on keys of your choice, about whoever is under
+  your crosshair. `{team} inc` while aiming at a red player sends `RED inc` to team chat (or party
+  chat, one switch). Placeholders: `{team}` `{name}` `{stars}` `{threat}` `{fkdr}` `{wlr}` `{bblr}`
+  `{ws}` `{distance}`; stats not looked up yet read `?`. A message without placeholders needs nobody
+  aimed at. One press, one message; a second press while it is still waiting sends nothing twice.
+  Team chat is refused in Solo, where everybody would read it.
 - **Nick and winstreak alerts** in your own chat.
-- **Settings screen** with everything in six tabs, also reachable from Mod Menu. English and German.
+- **Settings screen** with everything in seven tabs, also reachable from Mod Menu. English and German.
 
 ## Requirements
 

@@ -40,6 +40,9 @@ public final class ScoutSettings {
 	/** Nine quick-queue slots, because nine is as many hotkeys as anybody remembers. */
 	public static final int QUEUE_SLOTS = 9;
 
+	/** Callout hotkeys: as many as fit on one settings tab. */
+	public static final int CALLOUTS = 6;
+
 	public static final int MAX_ROWS = 32;
 	public static final double MIN_SCALE = 0.5;
 	public static final double MAX_SCALE = 2.0;
@@ -98,6 +101,7 @@ public final class ScoutSettings {
 	public Proximity proximity = new Proximity();
 	public Requeue requeue = new Requeue();
 	public Projectiles projectiles = new Projectiles();
+	public Callouts callouts = new Callouts();
 	public Queue queue = new Queue();
 
 	/** Names typed into the lookup screen lately, newest first. */
@@ -197,6 +201,16 @@ public final class ScoutSettings {
 		public boolean fireballs = true;
 		/** Only in a Bedwars game, so a lobby or another server is left alone. */
 		public boolean onlyInGame = true;
+	}
+
+	/** Messages on hotkeys, filled in with whoever is aimed at ({@link de.raindancer118.hypixelscout.core.Callout}). */
+	public static final class Callouts {
+		public String[] messages = {
+				"{team} inc", "{team} {name} inc - {stars}* {threat}", "{team} is rushing us",
+				"Going {team} bed", "{team} bed is open", "Need help, {team} on me"
+		};
+		/** Into party chat instead of team chat. */
+		public boolean toParty = false;
 	}
 
 	/** The quick-queue hotkeys. */
@@ -316,6 +330,14 @@ public final class ScoutSettings {
 		requeue.delaySeconds = Math.clamp(requeue.delaySeconds, 0, MAX_REQUEUE_DELAY);
 
 		projectiles = projectiles == null ? new Projectiles() : projectiles;
+
+		callouts = callouts == null ? new Callouts() : callouts;
+		String[] messages = callouts.messages == null ? new String[0] : callouts.messages;
+		callouts.messages = Arrays.copyOf(messages, CALLOUTS);
+		for (int i = 0; i < CALLOUTS; i++) {
+			String message = callouts.messages[i];
+			callouts.messages[i] = message == null ? "" : message.strip();
+		}
 
 		queue = queue == null ? new Queue() : queue;
 		String[] slots = queue.slots == null ? new String[0] : queue.slots;

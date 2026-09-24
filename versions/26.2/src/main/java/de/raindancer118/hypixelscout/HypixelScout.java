@@ -15,6 +15,7 @@ import de.raindancer118.hypixelscout.game.Teams;
 import de.raindancer118.hypixelscout.ui.Threats;
 import de.raindancer118.hypixelscout.core.StatsCache;
 import de.raindancer118.hypixelscout.core.StatsService;
+import de.raindancer118.hypixelscout.game.Callouts;
 import de.raindancer118.hypixelscout.game.ChatHover;
 import de.raindancer118.hypixelscout.game.Flights;
 import de.raindancer118.hypixelscout.ui.hud.IncomingElement;
@@ -101,6 +102,7 @@ public final class HypixelScout implements ClientModInitializer {
 	private AutoRequeue requeue;
 	private ProximityElement proximityElement;
 	private Flights flights;
+	private Callouts callouts;
 	private ScoutKeys keys;
 	private ChatHover hover;
 	private boolean modApiPresent;
@@ -139,6 +141,7 @@ public final class HypixelScout implements ClientModInitializer {
 		alerts = new ScoutAlerts(() -> settings, roster);
 		stats.setListener(alerts);
 		partyReport = new PartyReport(roster, stats, () -> settings);
+		callouts = new Callouts(roster, stats, partyReport, () -> settings);
 		queue = new QuickQueue(() -> settings);
 		requeue = new AutoRequeue(roster, queue, () -> settings);
 		lookups = new LookupHistory(ScoutSettings.MAX_LOOKUPS, settings.recentLookups);
@@ -390,6 +393,10 @@ public final class HypixelScout implements ClientModInitializer {
 
 	public PartyReport partyReport() {
 		return partyReport;
+	}
+
+	public Callouts callouts() {
+		return callouts;
 	}
 
 	public QuickQueue queue() {

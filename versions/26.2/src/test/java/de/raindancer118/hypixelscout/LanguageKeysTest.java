@@ -79,7 +79,7 @@ class LanguageKeysTest {
 		for (String page : new String[] {"game", "teams", "lookup", "queue"}) {
 			used.add("message.hypixelscout.page." + page);
 		}
-		for (String tab : new String[] {"general", "table", "overlays", "alerts", "projectiles", "keys"}) {
+		for (String tab : new String[] {"general", "table", "overlays", "alerts", "projectiles", "callouts", "keys"}) {
 			used.add("message.hypixelscout.settings.tab." + tab);
 		}
 		for (de.raindancer118.hypixelscout.core.ThreatScale.Basis basis
@@ -108,7 +108,7 @@ class LanguageKeysTest {
 
 		for (String toggle : new String[] {"lobby", "hypixel_only", "group", "hide_own", "wlr", "winstreak", "beds", "beds_per_game", "kills_per_game", "age",
 				"tooltip", "walls", "tab", "nametag_stars", "nametag_fkdr", "chat_hover", "nick_alert", "streak_alert", "proximity",
-				"paths", "incoming", "incoming_sound", "fireball_aim", "arrows", "fireballs", "only_in_game"}) {
+				"callout_party", "paths", "incoming", "incoming_sound", "fireball_aim", "arrows", "fireballs", "only_in_game"}) {
 			used.add("message.hypixelscout.settings." + toggle);
 			used.add("message.hypixelscout.settings." + toggle + ".tooltip");
 		}
@@ -117,6 +117,9 @@ class LanguageKeysTest {
 		}
 		for (int slot = 1; slot <= 9; slot++) {
 			used.add("key.hypixelscout.queue_" + slot);
+		}
+		for (int slot = 1; slot <= de.raindancer118.hypixelscout.config.ScoutSettings.CALLOUTS; slot++) {
+			used.add("key.hypixelscout.callout_" + slot);
 		}
 
 		return used;

@@ -314,6 +314,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.runOnClient(client -> mod.settings().nametag.stars = false);
 
 			assertProjectiles(context, singleplayer, mod);
+			assertCallouts(context, mod);
 
 			// The threat report into team chat: one line per enemy team, most dangerous first.
 			context.runOnClient(client -> {
@@ -622,6 +623,50 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
 		});
+	}
+
+	/**
+	 * The callout hotkeys: aimed at Sundial (Yellow), "{team} inc" is "YELLOW inc"; with nobody aimed
+	 * at it is refused; a message without placeholders goes out anyway; a second press while the first
+	 * is still waiting sends nothing twice.
+	 */
+	private static void assertCallouts(ClientGameTestContext context, HypixelScout mod) {
+		context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
+		context.runOnClient(client -> {
+			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
+			mod.settings().callouts.messages[2] = "Going mid";
+		});
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			mod.callouts().fire(0);
+			mod.callouts().fire(0);
+			mod.callouts().fire(1);
+			List<String> lines = mod.partyReport().pendingLines();
+			if (lines.size() != 2 || !lines.get(0).equals("YELLOW inc")
+					|| !lines.get(1).equals("YELLOW Sundial inc - 1502* INSANE")) {
+				throw new AssertionError("Unexpected callouts: " + lines);
+			}
+		});
+		context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
+
+		context.runOnClient(client -> client.player.snapTo(client.player.getX(), client.player.getY(),
+				client.player.getZ(), 180.0f, 0.0f));
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			mod.callouts().fire(0);
+			if (!mod.partyReport().pendingLines().isEmpty()) {
+				throw new AssertionError("A callout about nobody: " + mod.partyReport().pendingLines());
+			}
+			mod.callouts().fire(2);
+			if (!mod.partyReport().pendingLines().equals(List.of("Going mid"))) {
+				throw new AssertionError("A callout without placeholders was not sent: " + mod.partyReport().pendingLines());
+			}
+			mod.settings().callouts.messages[2] = "{team} is rushing us";
+			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
+		});
+		context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
+		context.waitTicks(3);
+		context.takeScreenshot("scout_callouts_sent");
 	}
 
 	/** Moves the real mouse onto the binding whose label starts with {@code label} and clicks it. */
