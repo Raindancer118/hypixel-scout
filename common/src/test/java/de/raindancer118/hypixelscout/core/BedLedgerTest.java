@@ -93,7 +93,7 @@ class BedLedgerTest {
 	}
 
 	@Test
-	void everyLookAddsToWhatIsKnownOfTheDefence() {
+	void aNewScanReplacesBlocksThatHaveBeenRemoved() {
 		List<BedDefense.Cell> bed = List.of(HEAD, new BedDefense.Cell(11, 64, -3));
 		BedDefense.Cell top = new BedDefense.Cell(10, 66, -3);
 		BedDefense.Cell inner = new BedDefense.Cell(10, 65, -3);
@@ -103,8 +103,8 @@ class BedLedgerTest {
 				java.util.Map.of(inner, new BedDefense.Block("Wool", 0.8))));
 
 		BedLedger.Entry red = ledger.of("Red").orElseThrow();
-		assertThat(red.seen()).containsKeys(top, inner);
-		assertThat(red.layers()).extracting(BedDefense.Layer::material).containsExactly("End Stone", "Wool");
+		assertThat(red.seen()).containsKey(inner).doesNotContainKey(top);
+		assertThat(red.layers()).extracting(BedDefense.Layer::material).containsExactly("Wool");
 	}
 
 	@Test

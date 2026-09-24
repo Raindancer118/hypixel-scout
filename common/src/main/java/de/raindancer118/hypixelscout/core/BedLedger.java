@@ -10,7 +10,7 @@ import java.util.Optional;
 /**
  * Every bed's defence as last seen this round, by the team it belongs to.
  *
- * <p>Looking at a bed shows its outside only while the crosshair is on it; this remembers the last
+ * <p>Looking at a bed scans its loaded layers while the crosshair is on it; this remembers the last
  * look until the round is over — through deaths, respawns and walking away — so the Teams screen can
  * say what each enemy bed was wrapped in. A look is only as fresh as its age says: nobody sees a bed
  * being rebuilt from the other side of the map.
@@ -34,7 +34,7 @@ public final class BedLedger {
 			return goneAt != 0;
 		}
 
-		/** Every layer seen of this bed's defence this round, outermost first. */
+		/** Every layer in the last snapshot of this bed's defence, outermost first. */
 		public List<BedDefense.Layer> layers() {
 			return BedDefense.layers(bed, seen);
 		}
@@ -56,19 +56,10 @@ public final class BedLedger {
 		record(dye, List.of(head), report);
 	}
 
-	/**
-	 * A look at the bed of this dye colour. What it saw of the defence joins what earlier looks saw,
-	 * so a layer stays known after it has been dug through or built over.
-	 */
+	/** A complete defence scan replaces the previous snapshot, including removed blocks. */
 	public synchronized void record(String dye, List<BedDefense.Cell> bed, BedDefense.Report report) {
 		String team = teamOf(dye);
-		Entry before = entries.get(team);
-		Map<BedDefense.Cell, BedDefense.Block> seen = new java.util.HashMap<>();
-		if (before != null && before.bed().equals(bed)) {
-			seen.putAll(before.seen());
-		}
-		seen.putAll(report.seen());
-		entries.put(team, new Entry(team, bed.getFirst(), report, clock.millis(), 0, bed, seen));
+		entries.put(team, new Entry(team, bed.getFirst(), report, clock.millis(), 0, bed, report.seen()));
 	}
 
 	/**

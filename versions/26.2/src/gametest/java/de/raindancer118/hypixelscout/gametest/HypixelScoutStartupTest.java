@@ -797,7 +797,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		server.runCommand("gamemode survival @a");
 		context.waitTicks(5);
 
-		// A red bed in wool under end stone, ten blocks ahead: only the end stone shows.
+		// A fully covered red bed: the inner wool must be known before any shell is opened.
 		server.runCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d end_stone", x - 2, y, z + 8, x + 3, y + 2, z + 12));
 		server.runCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d white_wool", x - 1, y, z + 9, x + 2, y + 1, z + 11));
 		server.runCommand(String.format(java.util.Locale.ROOT, "setblock %d %d %d red_bed[facing=east,part=foot]", x, y, z + 10));
@@ -815,6 +815,17 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			var outside = bed.report().outside().stream().map(de.raindancer118.hypixelscout.core.BedDefense.Material::name).toList();
 			if (outside.size() != 1 || !outside.getFirst().equals("End Stone")) {
 				throw new AssertionError("The bed's outside is not just its end stone: " + outside);
+			}
+		});
+		context.runOnClient(client -> {
+			var red = mod.hazards().ledger().of("Red").orElseThrow();
+			var layers = red.layers().stream().map(de.raindancer118.hypixelscout.core.BedDefense.Layer::material).toList();
+			if (!layers.equals(List.of("End Stone", "White Wool"))) {
+				throw new AssertionError("Covered layers missing on first scan: " + layers);
+			}
+			String hud = de.raindancer118.hypixelscout.ui.hud.HazardElement.bedText(mod.hazards().bed());
+			if (!hud.contains("End Stone") || !hud.contains("White Wool")) {
+				throw new AssertionError("Covered layers missing from bed HUD: " + hud);
 			}
 		});
 		// Somebody breaks the end stone on top: the wool under it is out.

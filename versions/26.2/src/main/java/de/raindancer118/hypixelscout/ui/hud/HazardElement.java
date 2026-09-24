@@ -84,9 +84,16 @@ public final class HazardElement implements HudElement {
 				+ Math.round(tnt.knock().strength() * 100) + "%";
 	}
 
-	/** {@code RED BED · OPEN}, or {@code RED BED · Wool 3 · End Stone 12} with the softest first. */
+	/** All loaded layers, outside to inside, including covered layers. */
 	public static String bedText(Hazards.Bed bed) {
-		return "§f§l" + I18n.get("message.hypixelscout.hazard.bed", bed.colour()) + " §7· " + defenceText(bed.report());
+		String layers = BedDefense.layers(bed.cells(), bed.report().seen()).stream()
+				.map(layer -> "§f" + layer.material())
+				.collect(java.util.stream.Collectors.joining(" §8› "));
+		String detail = layers.isEmpty() ? defenceText(bed.report()) : layers;
+		if (bed.report().open() && !layers.isEmpty()) {
+			detail = defenceText(bed.report()) + " §7· " + layers;
+		}
+		return "§f§l" + I18n.get("message.hypixelscout.hazard.bed", bed.colour()) + " §7· " + detail;
 	}
 
 	/** {@code OPEN}, or {@code Wool 3 · End Stone 12} with the softest first — also on the Teams screen. */

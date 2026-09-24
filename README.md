@@ -86,17 +86,13 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   than 4 blocks down; if nothing is under your path but the void, **⚠ NO SAFE LANDING** under the
   crosshair. Vanilla's air movement assuming you let go of the keys — the question when you are
   knocked off a bridge.
-- **Bed defence**: looking at (or near) a bed, a card under the crosshair — `RED BED · Wool 3 · End
-  Stone 12`, softest first — with the softest exposed block outlined, or `RED BED · OPEN`. Only
-  blocks with a face to the air: the layers under the outer shell are what you cannot see, and the
-  mod does not tell you either; they show up as soon as somebody uncovers them.
-  Every bed's defence is remembered for the whole round — through deaths and respawns — as **layers,
-  outside to inside** (`End Stone › Wood › Wool`, `› ?` where there is more inside than anybody saw):
-  every block that was ever in sight at one of your looks, and every block placed around a bed while
-  you could see it go up — so a defence watched being built across the void is known layer by layer,
-  even if you never look at that bed. The **Teams** screen shows it on each team's card with how long
-  ago you last looked, **BROKEN** (with its layers) once it is gone, or *not seen yet*. Blocks placed
-  where you could not see them stay unknown: nothing is read through walls.
+- **Bed defence**: looking at (or near) a bed shows all loaded defence layers, outside to inside
+  (`End Stone › Wood › Wool`), including fully covered blocks you have never seen. Scans cover up to
+  four axial blocks from the bed, excluding its supporting floor. The softest exposed block is
+  outlined, and an accessible bed is marked **OPEN**. The server must supply the block data.
+  The **Teams** screen remembers the latest scan through deaths and respawns, with its age and
+  **BROKEN** once the bed is gone. A fresh scan replaces the snapshot, so removed layers disappear.
+  Visible placements can also start a record before you look at the bed.
 - **Edge markers**: enemies beside or behind you, outside your view, within 32 blocks (8–64), as
   small markers on the screen's edge in their team colour with the distance. Only with a clear line
   of sight from your eyes — never through walls — and never for invisible players.

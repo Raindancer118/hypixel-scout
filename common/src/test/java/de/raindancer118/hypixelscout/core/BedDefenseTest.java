@@ -103,12 +103,12 @@ class BedDefenseTest {
 	}
 
 	@Test
-	void everyAirFacingBlockIsKeptWithWhereItIs() {
+	void everyDefenseBlockIsKeptIncludingCoveredBlocks() {
 		defend(WOOL, END_STONE);
 		BedDefense.Report report = analyse();
 
 		assertThat(report.seen()).isNotEmpty();
-		assertThat(report.seen().values()).extracting(BedDefense.Block::name).containsOnly("End Stone");
+		assertThat(report.seen().values()).extracting(BedDefense.Block::name).containsOnly("End Stone", "Wool");
 	}
 
 	@Test
@@ -126,12 +126,13 @@ class BedDefenseTest {
 	}
 
 	@Test
-	void layersNobodyHasSeenYetAreUnknownNotGuessed() {
-		defend(WOOL, WOOD, END_STONE);
+	void fullyCoveredLayersAreDetectedWithoutPriorSightings() {
+		defend(WOOL, WOOD, END_STONE, FLOOR);
 		List<BedDefense.Layer> layers = BedDefense.layers(BED, analyse().seen());
 
-		assertThat(layers).extracting(BedDefense.Layer::material).containsExactly("End Stone");
-		assertThat(BedDefense.unknownInside(layers)).isTrue();
+		assertThat(layers).extracting(BedDefense.Layer::material).containsExactly("Floor", "End Stone", "Wood", "Wool");
+		assertThat(layers).extracting(BedDefense.Layer::depth).containsExactly(4, 3, 2, 1);
+		assertThat(BedDefense.unknownInside(layers)).isFalse();
 		assertThat(BedDefense.unknownInside(List.of())).isTrue();
 	}
 

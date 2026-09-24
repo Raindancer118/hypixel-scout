@@ -370,7 +370,7 @@
 	"message.hypixelscout.settings.void_warning": "Landevorhersage",
 	"message.hypixelscout.settings.void_warning.tooltip": "Während du fällst: die Stelle, auf der du landest, wenn sie mehr als 4 Blöcke tiefer liegt — oder KEINE SICHERE LANDUNG, wenn unter deiner Bahn nur das Void ist. Geht davon aus, dass du die Tasten loslässt.",
 	"message.hypixelscout.settings.bed_defense": "Bettverteidigung",
-	"message.hypixelscout.settings.bed_defense.tooltip": "Beim Blick auf ein Bett: die Materialien an der Außenseite seiner Verteidigung, das weichste zuerst, der weichste Block umrandet — oder OFFEN. Nur Blöcke, die du sehen könntest; was unter der äußeren Schicht liegt, bleibt unbekannt, bis es freigelegt ist.",
+	"message.hypixelscout.settings.bed_defense.tooltip": "Beim Blick auf ein Bett: alle geladenen Verteidigungsschichten einschließlich verdeckter Blöcke, von außen nach innen (bis vier Blöcke vom Bett). Der weichste freiliegende Block wird umrandet; ein zugängliches Bett als OFFEN markiert.",
 	"message.hypixelscout.settings.offscreen": "Randmarker",
 	"message.hypixelscout.settings.offscreen.tooltip": "Gegner neben oder hinter dir, außerhalb deines Blickfelds, als Marker am Bildschirmrand mit ihrer Entfernung — nur bei freier Sichtlinie, nie durch Wände, nie unsichtbare Spieler.",
 	"message.hypixelscout.settings.offscreen_range": "Randmarker-Reichweite: %s Blöcke",

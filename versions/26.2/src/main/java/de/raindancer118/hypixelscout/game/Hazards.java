@@ -33,12 +33,11 @@ import java.util.function.Supplier;
 
 /**
  * What is about to happen around the player, worked out once a tick from what the client already
- * has: primed TNT and the push it would give, where a fall ends (or that it does not), the outside
+ * has: primed TNT and the push it would give, where a fall ends (or that it does not), the loaded layers
  * of the bed being looked at, and enemies in plain sight outside the view. Every bed looked at goes
  * into the round's {@link BedLedger}, which outlives deaths and only a new game clears.
  *
- * <p>Nothing here looks through walls. TNT and falls are physics of things in sight; the bed shows
- * only blocks with a face to the air; an edge marker needs a clear line from the player's eyes to
+ * <p>Bed scans include covered blocks supplied by the server. An edge marker needs a clear line from the player's eyes to
  * the enemy, and an invisible enemy never gets one.
  */
 public final class Hazards {

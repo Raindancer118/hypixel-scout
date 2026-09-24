@@ -370,7 +370,7 @@
 	"message.hypixelscout.settings.void_warning": "Landing prediction",
 	"message.hypixelscout.settings.void_warning.tooltip": "While you fall: the spot you come down on, if it is more than 4 blocks down — or NO SAFE LANDING when there is nothing under your path but the void. Assumes you let go of the keys.",
 	"message.hypixelscout.settings.bed_defense": "Bed defence",
-	"message.hypixelscout.settings.bed_defense.tooltip": "Looking at a bed: the materials on the outside of its defence, softest first, with the softest block outlined — or OPEN. Only blocks you could see; what is under the outer layer stays unknown until it is uncovered.",
+	"message.hypixelscout.settings.bed_defense.tooltip": "Looking at a bed scans all loaded defence layers, including covered blocks, outside to inside (up to four blocks from the bed). The softest exposed block is outlined; an accessible bed is marked OPEN.",
 	"message.hypixelscout.settings.offscreen": "Edge markers",
 	"message.hypixelscout.settings.offscreen.tooltip": "Enemies beside or behind you, outside your view, as markers on the edge of the screen with their distance — only in plain line of sight, never through walls, never invisible players.",
 	"message.hypixelscout.settings.offscreen_range": "Edge marker range: %s blocks",

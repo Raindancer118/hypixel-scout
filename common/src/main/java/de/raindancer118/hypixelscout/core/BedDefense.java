@@ -9,13 +9,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * What a bed's defence looks like from outside: which materials are exposed, the softest first, and
- * where the softest one is — or that the bed is open.
- *
- * <p>Only blocks with a face to the air count. What sits under the outer shell is exactly what the
- * player cannot see, and this does not tell them: wool under end stone stays unknown until somebody
- * digs to it. The defence is the blocks from the bed's height up, within {@link #RADIUS} blocks of it
- * (counted along the axes) — the floor it stands on is not part of it.
+ * A bed's loaded defence: all blocks within {@link #RADIUS} axial steps, from bed height up.
+ * The layer snapshot includes covered blocks; exposed materials and the weakest accessible block
+ * are tracked separately. The supporting floor is excluded.
  */
 public final class BedDefense {
 	/** Further than this from the bed a block is scenery, not defence. */
@@ -45,7 +41,7 @@ public final class BedDefense {
 	 * @param open    whether the bed itself has a face to the air
 	 * @param outside the exposed materials, softest first
 	 * @param weakest the exposed block of the softest material closest to the bed; {@code null} if none
-	 * @param seen    every block with a face to the air, where it is — what a look could see
+	 * @param seen    every loaded defence block, including fully covered inner layers
 	 */
 	public record Report(boolean open, List<Material> outside, Cell weakest, Map<Cell, Block> seen) {
 		public Report {
@@ -98,11 +94,14 @@ public final class BedDefense {
 				for (int z = origin.z() - RADIUS - 1; z <= origin.z() + RADIUS + 1; z++) {
 					Cell cell = new Cell(x, y, z);
 					Block block = world.at(cell);
-					if (block == null || bedCells.contains(cell) || distance(cell, bed) > RADIUS || !facesAir(cell, bedCells, world)) {
+					if (block == null || bedCells.contains(cell) || distance(cell, bed) > RADIUS) {
+						continue;
+					}
+					seen.put(cell, block);
+					if (!facesAir(cell, bedCells, world)) {
 						continue;
 					}
 					counts.computeIfAbsent(block.name(), name -> new int[1])[0]++;
-					seen.put(cell, block);
 					hardness.put(block.name(), block.hardness());
 					exposed.add(cell);
 				}
@@ -125,9 +124,7 @@ public final class BedDefense {
 	}
 
 	/**
-	 * The layers of a defence from the blocks ever seen of it — a layer seen once, before it was
-	 * dug through or built over, is still a layer — outermost first. Only what was in sight: a layer
-	 * nobody has looked at is missing here, not guessed ({@link #unknownInside}).
+	 * The layers of a defence snapshot, outermost first, including covered blocks.
 	 */
 	public static List<Layer> layers(List<Cell> bed, Map<Cell, Block> seen) {
 		Map<Integer, Map<String, int[]>> byDepth = new java.util.TreeMap<>(Comparator.reverseOrder());
