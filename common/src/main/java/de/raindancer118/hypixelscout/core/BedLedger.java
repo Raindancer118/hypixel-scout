@@ -1,10 +1,13 @@
 package de.raindancer118.hypixelscout.core;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -23,11 +26,60 @@ public final class BedLedger {
 	 * @param seenAt when that look was
 	 * @param goneAt when the bed was found missing; {@code 0} while it stands
 	 */
-	public record Entry(String team, BedDefense.Cell head, BedDefense.Report report, long seenAt, long goneAt,
-			List<BedDefense.Cell> bed, Map<BedDefense.Cell, BedDefense.Block> seen) {
-		public Entry {
-			bed = List.copyOf(bed);
-			seen = Map.copyOf(seen);
+	public static final class Entry {
+		private final String team;
+		private final BedDefense.Cell head;
+		private final BedDefense.Report report;
+		private final long seenAt;
+		private final long goneAt;
+		private final List<BedDefense.Cell> bed;
+		private final Map<BedDefense.Cell, BedDefense.Block> seen;
+
+		public Entry(String team, BedDefense.Cell head, BedDefense.Report report, long seenAt, long goneAt,
+				List<BedDefense.Cell> bed, Map<BedDefense.Cell, BedDefense.Block> seen) {
+			this.team = team;
+			this.head = head;
+			this.report = report;
+			this.seenAt = seenAt;
+			this.goneAt = goneAt;
+			List<BedDefense.Cell> bedCopy = new ArrayList<>(bed.size());
+			for (BedDefense.Cell cell : bed) {
+				bedCopy.add(Objects.requireNonNull(cell));
+			}
+			this.bed = Collections.unmodifiableList(bedCopy);
+			Map<BedDefense.Cell, BedDefense.Block> seenCopy = new LinkedHashMap<>();
+			for (Map.Entry<BedDefense.Cell, BedDefense.Block> e : seen.entrySet()) {
+				seenCopy.put(Objects.requireNonNull(e.getKey()), Objects.requireNonNull(e.getValue()));
+			}
+			this.seen = Collections.unmodifiableMap(seenCopy);
+		}
+
+		public String team() {
+			return team;
+		}
+
+		public BedDefense.Cell head() {
+			return head;
+		}
+
+		public BedDefense.Report report() {
+			return report;
+		}
+
+		public long seenAt() {
+			return seenAt;
+		}
+
+		public long goneAt() {
+			return goneAt;
+		}
+
+		public List<BedDefense.Cell> bed() {
+			return bed;
+		}
+
+		public Map<BedDefense.Cell, BedDefense.Block> seen() {
+			return seen;
 		}
 
 		public boolean gone() {
@@ -42,6 +94,27 @@ public final class BedLedger {
 		public long ageMillis(long now) {
 			return Math.max(0, now - seenAt);
 		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Entry)) return false;
+			Entry other = (Entry) obj;
+			return seenAt == other.seenAt && goneAt == other.goneAt && Objects.equals(team, other.team)
+					&& Objects.equals(head, other.head) && Objects.equals(report, other.report)
+					&& Objects.equals(bed, other.bed) && Objects.equals(seen, other.seen);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(team, head, report, seenAt, goneAt, bed, seen);
+		}
+
+		@Override
+		public String toString() {
+			return "Entry[team=" + team + ", head=" + head + ", report=" + report + ", seenAt=" + seenAt
+					+ ", goneAt=" + goneAt + ", bed=" + bed + ", seen=" + seen + "]";
+		}
 	}
 
 	private final Clock clock;
@@ -53,13 +126,13 @@ public final class BedLedger {
 
 	/** A look at the bed of this dye colour ({@code red}, {@code light_blue}, …), known only by its head. */
 	public synchronized void record(String dye, BedDefense.Cell head, BedDefense.Report report) {
-		record(dye, List.of(head), report);
+		record(dye, Collections.singletonList(head), report);
 	}
 
 	/** A complete defence scan replaces the previous snapshot, including removed blocks. */
 	public synchronized void record(String dye, List<BedDefense.Cell> bed, BedDefense.Report report) {
 		String team = teamOf(dye);
-		entries.put(team, new Entry(team, bed.getFirst(), report, clock.millis(), 0, bed, report.seen()));
+		entries.put(team, new Entry(team, bed.get(0), report, clock.millis(), 0, bed, report.seen()));
 	}
 
 	/**
@@ -72,14 +145,16 @@ public final class BedLedger {
 		if (before != null && before.gone()) {
 			return;
 		}
-		Map<BedDefense.Cell, BedDefense.Block> seen = new java.util.HashMap<>();
+		Map<BedDefense.Cell, BedDefense.Block> seen = new HashMap<>();
 		if (before != null && before.bed().equals(bed)) {
 			seen.putAll(before.seen());
 		}
 		seen.put(cell, block);
-		BedDefense.Report report = before == null ? new BedDefense.Report(false, List.of(), null) : before.report();
+		BedDefense.Report report = before == null
+				? new BedDefense.Report(false, Collections.<BedDefense.Material>emptyList(), null)
+				: before.report();
 		long seenAt = before == null ? clock.millis() : before.seenAt();
-		entries.put(team, new Entry(team, bed.getFirst(), report, seenAt, 0, bed, seen));
+		entries.put(team, new Entry(team, bed.get(0), report, seenAt, 0, bed, seen));
 	}
 
 	/** The bed is no longer where it was: broken. Its last defence stays on record. */
@@ -97,7 +172,7 @@ public final class BedLedger {
 
 	/** Every bed seen this round, in the order they were first seen. */
 	public synchronized List<Entry> entries() {
-		return List.copyOf(entries.values());
+		return Collections.unmodifiableList(new ArrayList<>(entries.values()));
 	}
 
 	/** The beds seen this round that were still standing at the last check. */
@@ -121,18 +196,33 @@ public final class BedLedger {
 	 */
 	public static String teamOf(String dye) {
 		String key = dye.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
-		return switch (key) {
-			case "red" -> "Red";
-			case "blue" -> "Blue";
-			case "lime", "green" -> "Green";
-			case "yellow" -> "Yellow";
-			case "light_blue", "cyan" -> "Aqua";
-			case "pink", "magenta", "purple" -> "Pink";
-			case "gray", "light_gray" -> "Gray";
-			case "white" -> "White";
-			case "black" -> "Black";
-			default -> capitalise(key);
-		};
+		switch (key) {
+			case "red":
+				return "Red";
+			case "blue":
+				return "Blue";
+			case "lime":
+			case "green":
+				return "Green";
+			case "yellow":
+				return "Yellow";
+			case "light_blue":
+			case "cyan":
+				return "Aqua";
+			case "pink":
+			case "magenta":
+			case "purple":
+				return "Pink";
+			case "gray":
+			case "light_gray":
+				return "Gray";
+			case "white":
+				return "White";
+			case "black":
+				return "Black";
+			default:
+				return capitalise(key);
+		}
 	}
 
 	private static String capitalise(String key) {

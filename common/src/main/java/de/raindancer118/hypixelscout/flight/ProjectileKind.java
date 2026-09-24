@@ -34,13 +34,17 @@ public enum ProjectileKind {
 
 	/** The velocity one tick later. */
 	Vec nextVelocity(Vec velocity, double accelerationPower) {
-		return switch (this) {
-			case ARROW -> {
+		switch (this) {
+			case ARROW: {
 				Vec dragged = velocity.scale(0.99);
-				yield new Vec(dragged.x(), dragged.y() - 0.05, dragged.z());
+				return new Vec(dragged.x(), dragged.y() - 0.05, dragged.z());
 			}
-			case FIREBALL -> velocity.add(velocity.normalize().scale(accelerationPower)).scale(0.95);
-			case PEARL -> new Vec(velocity.x(), velocity.y() - 0.03, velocity.z()).scale(0.99);
-		};
+			case FIREBALL:
+				return velocity.add(velocity.normalize().scale(accelerationPower)).scale(0.95);
+			case PEARL:
+				return new Vec(velocity.x(), velocity.y() - 0.03, velocity.z()).scale(0.99);
+			default:
+				throw new IllegalStateException("Unexpected kind: " + this);
+		}
 	}
 }

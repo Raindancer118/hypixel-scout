@@ -38,7 +38,7 @@ public final class CheatReport {
 		for (String player : players) {
 			String team = ascii(teamOf.apply(player)).toUpperCase(Locale.ROOT);
 			StringBuilder line = new StringBuilder("CHEATER? ");
-			if (!team.isBlank()) {
+			if (!team.trim().isEmpty()) {
 				line.append(team).append(' ');
 			}
 			line.append(ascii(player)).append(' ')

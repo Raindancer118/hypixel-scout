@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -32,7 +33,60 @@ public final class IncomingWatch {
 	 * @param path     where it will fly
 	 * @param mine     whether the player shot or threw it
 	 */
-	public record Seen(int id, ProjectileKind kind, Vec position, FlightPath path, boolean mine) {
+	public static final class Seen {
+		private final int id;
+		private final ProjectileKind kind;
+		private final Vec position;
+		private final FlightPath path;
+		private final boolean mine;
+
+		public Seen(int id, ProjectileKind kind, Vec position, FlightPath path, boolean mine) {
+			this.id = id;
+			this.kind = kind;
+			this.position = position;
+			this.path = path;
+			this.mine = mine;
+		}
+
+		public int id() {
+			return id;
+		}
+
+		public ProjectileKind kind() {
+			return kind;
+		}
+
+		public Vec position() {
+			return position;
+		}
+
+		public FlightPath path() {
+			return path;
+		}
+
+		public boolean mine() {
+			return mine;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Seen)) return false;
+			Seen other = (Seen) obj;
+			return id == other.id && mine == other.mine && kind == other.kind
+					&& Objects.equals(position, other.position) && Objects.equals(path, other.path);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(id, kind, position, path, mine);
+		}
+
+		@Override
+		public String toString() {
+			return "Seen[id=" + id + ", kind=" + kind + ", position=" + position + ", path=" + path
+					+ ", mine=" + mine + "]";
+		}
 	}
 
 	/**
@@ -42,7 +96,41 @@ public final class IncomingWatch {
 	 * @param position where it is now
 	 * @param fresh    whether this is the first tick it is warned about, for a sound
 	 */
-	public record Warning(int id, ProjectileKind kind, double ticks, Vec position, boolean fresh) {
+	public static final class Warning {
+		private final int id;
+		private final ProjectileKind kind;
+		private final double ticks;
+		private final Vec position;
+		private final boolean fresh;
+
+		public Warning(int id, ProjectileKind kind, double ticks, Vec position, boolean fresh) {
+			this.id = id;
+			this.kind = kind;
+			this.ticks = ticks;
+			this.position = position;
+			this.fresh = fresh;
+		}
+
+		public int id() {
+			return id;
+		}
+
+		public ProjectileKind kind() {
+			return kind;
+		}
+
+		public double ticks() {
+			return ticks;
+		}
+
+		public Vec position() {
+			return position;
+		}
+
+		public boolean fresh() {
+			return fresh;
+		}
+
 		/**
 		 * Where it comes from as seen by the player, in degrees: 0 straight ahead, negative to the
 		 * left, positive to the right, ±180 behind. Height is left out.
@@ -53,6 +141,27 @@ public final class IncomingWatch {
 
 		public double seconds() {
 			return ticks / 20.0;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Warning)) return false;
+			Warning other = (Warning) obj;
+			return id == other.id && fresh == other.fresh && kind == other.kind
+					&& Double.doubleToLongBits(ticks) == Double.doubleToLongBits(other.ticks)
+					&& Objects.equals(position, other.position);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(id, kind, ticks, position, fresh);
+		}
+
+		@Override
+		public String toString() {
+			return "Warning[id=" + id + ", kind=" + kind + ", ticks=" + ticks + ", position=" + position
+					+ ", fresh=" + fresh + "]";
 		}
 	}
 

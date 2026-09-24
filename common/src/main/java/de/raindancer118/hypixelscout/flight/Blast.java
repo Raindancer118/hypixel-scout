@@ -2,6 +2,7 @@ package de.raindancer118.hypixelscout.flight;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Explosions as vanilla works them out (ServerExplosion.hurtEntities): whoever stands within twice
@@ -19,11 +20,78 @@ public final class Blast {
 	private static final double TNT_HEIGHT = 0.98;
 
 	/** A push from a blast. */
-	public record Knock(double strength, Vec push) {
+	public static final class Knock {
+		private final double strength;
+		private final Vec push;
+
+		public Knock(double strength, Vec push) {
+			this.strength = strength;
+			this.push = push;
+		}
+
+		public double strength() {
+			return strength;
+		}
+
+		public Vec push() {
+			return push;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Knock)) return false;
+			Knock other = (Knock) obj;
+			return Double.doubleToLongBits(strength) == Double.doubleToLongBits(other.strength)
+					&& Objects.equals(push, other.push);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(strength, push);
+		}
+
+		@Override
+		public String toString() {
+			return "Knock[strength=" + strength + ", push=" + push + "]";
+		}
 	}
 
 	/** Where TNT will fall, and the centre of its blast. */
-	public record Tnt(List<Vec> path, Vec center) {
+	public static final class Tnt {
+		private final List<Vec> path;
+		private final Vec center;
+
+		public Tnt(List<Vec> path, Vec center) {
+			this.path = path;
+			this.center = center;
+		}
+
+		public List<Vec> path() {
+			return path;
+		}
+
+		public Vec center() {
+			return center;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Tnt)) return false;
+			Tnt other = (Tnt) obj;
+			return Objects.equals(path, other.path) && Objects.equals(center, other.center);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(path, center);
+		}
+
+		@Override
+		public String toString() {
+			return "Tnt[path=" + path + ", center=" + center + "]";
+		}
 	}
 
 	private Blast() {

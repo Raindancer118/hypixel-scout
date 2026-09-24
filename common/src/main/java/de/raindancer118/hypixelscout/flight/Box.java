@@ -1,7 +1,49 @@
 package de.raindancer118.hypixelscout.flight;
 
+import java.util.Objects;
+
 /** An axis-aligned box: a hitbox, grown by whatever a projectile needs to touch it. */
-public record Box(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+public final class Box {
+	private final double minX;
+	private final double minY;
+	private final double minZ;
+	private final double maxX;
+	private final double maxY;
+	private final double maxZ;
+
+	public Box(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+		this.minX = minX;
+		this.minY = minY;
+		this.minZ = minZ;
+		this.maxX = maxX;
+		this.maxY = maxY;
+		this.maxZ = maxZ;
+	}
+
+	public double minX() {
+		return minX;
+	}
+
+	public double minY() {
+		return minY;
+	}
+
+	public double minZ() {
+		return minZ;
+	}
+
+	public double maxX() {
+		return maxX;
+	}
+
+	public double maxY() {
+		return maxY;
+	}
+
+	public double maxZ() {
+		return maxZ;
+	}
+
 	public Box inflate(double amount) {
 		return new Box(minX - amount, minY - amount, minZ - amount, maxX + amount, maxY + amount, maxZ + amount);
 	}
@@ -53,5 +95,29 @@ public record Box(double minX, double minY, double minZ, double maxX, double max
 			}
 		}
 		return enter;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) return true;
+		if (!(obj instanceof Box)) return false;
+		Box other = (Box) obj;
+		return Double.doubleToLongBits(minX) == Double.doubleToLongBits(other.minX)
+				&& Double.doubleToLongBits(minY) == Double.doubleToLongBits(other.minY)
+				&& Double.doubleToLongBits(minZ) == Double.doubleToLongBits(other.minZ)
+				&& Double.doubleToLongBits(maxX) == Double.doubleToLongBits(other.maxX)
+				&& Double.doubleToLongBits(maxY) == Double.doubleToLongBits(other.maxY)
+				&& Double.doubleToLongBits(maxZ) == Double.doubleToLongBits(other.maxZ);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(minX, minY, minZ, maxX, maxY, maxZ);
+	}
+
+	@Override
+	public String toString() {
+		return "Box[minX=" + minX + ", minY=" + minY + ", minZ=" + minZ
+				+ ", maxX=" + maxX + ", maxY=" + maxY + ", maxZ=" + maxZ + "]";
 	}
 }

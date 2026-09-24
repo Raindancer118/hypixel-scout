@@ -1,9 +1,11 @@
 package de.raindancer118.hypixelscout.core;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * The enemies worth a warning, one short chat line each, most dangerous first:
@@ -17,7 +19,47 @@ public final class ThreatCallout {
 	private ThreatCallout() {
 	}
 
-	private record Entry(String team, PlayerStats stats, double danger) {
+	private static final class Entry {
+		private final String team;
+		private final PlayerStats stats;
+		private final double danger;
+
+		Entry(String team, PlayerStats stats, double danger) {
+			this.team = team;
+			this.stats = stats;
+			this.danger = danger;
+		}
+
+		String team() {
+			return team;
+		}
+
+		PlayerStats stats() {
+			return stats;
+		}
+
+		double danger() {
+			return danger;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Entry)) return false;
+			Entry other = (Entry) obj;
+			return Double.doubleToLongBits(danger) == Double.doubleToLongBits(other.danger)
+					&& Objects.equals(team, other.team) && Objects.equals(stats, other.stats);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(team, stats, danger);
+		}
+
+		@Override
+		public String toString() {
+			return "Entry[team=" + team + ", stats=" + stats + ", danger=" + danger + "]";
+		}
 	}
 
 	/**
@@ -46,7 +88,7 @@ public final class ThreatCallout {
 		}
 
 		if (called.isEmpty()) {
-			return List.of("No dangerous enemies (" + below + " below " + from.label()
+			return Collections.singletonList("No dangerous enemies (" + below + " below " + from.label()
 					+ (unknown > 0 ? ", " + unknown + " not looked up yet" : "") + ")");
 		}
 
@@ -86,7 +128,7 @@ public final class ThreatCallout {
 		}
 
 		if (all.isEmpty()) {
-			return List.of("No enemies looked up yet (" + unknown + " waiting)");
+			return Collections.singletonList("No enemies looked up yet (" + unknown + " waiting)");
 		}
 
 		all.sort((left, right) -> Double.compare(right.danger(), left.danger()));

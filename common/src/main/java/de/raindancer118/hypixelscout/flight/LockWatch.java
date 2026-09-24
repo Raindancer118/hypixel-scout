@@ -1,6 +1,7 @@
 package de.raindancer118.hypixelscout.flight;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -27,7 +28,53 @@ public final class LockWatch {
 	 * @param eye  where their eyes are, which is where a fireball leaves
 	 * @param path where a fireball thrown now would fly
 	 */
-	public record Aimer(int id, String name, Vec eye, FlightPath path) {
+	public static final class Aimer {
+		private final int id;
+		private final String name;
+		private final Vec eye;
+		private final FlightPath path;
+
+		public Aimer(int id, String name, Vec eye, FlightPath path) {
+			this.id = id;
+			this.name = name;
+			this.eye = eye;
+			this.path = path;
+		}
+
+		public int id() {
+			return id;
+		}
+
+		public String name() {
+			return name;
+		}
+
+		public Vec eye() {
+			return eye;
+		}
+
+		public FlightPath path() {
+			return path;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Aimer)) return false;
+			Aimer other = (Aimer) obj;
+			return id == other.id && Objects.equals(name, other.name) && Objects.equals(eye, other.eye)
+					&& Objects.equals(path, other.path);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(id, name, eye, path);
+		}
+
+		@Override
+		public String toString() {
+			return "Aimer[id=" + id + ", name=" + name + ", eye=" + eye + ", path=" + path + "]";
+		}
 	}
 
 	/**
@@ -38,10 +85,72 @@ public final class LockWatch {
 	 * @param ticks how long a fireball thrown now would take to get there
 	 * @param blast whether it is the blast that would reach the player, not the fireball itself
 	 */
-	public record Lock(int id, String name, Vec from, Vec point, double ticks, boolean blast) {
+	public static final class Lock {
+		private final int id;
+		private final String name;
+		private final Vec from;
+		private final Vec point;
+		private final double ticks;
+		private final boolean blast;
+
+		public Lock(int id, String name, Vec from, Vec point, double ticks, boolean blast) {
+			this.id = id;
+			this.name = name;
+			this.from = from;
+			this.point = point;
+			this.ticks = ticks;
+			this.blast = blast;
+		}
+
+		public int id() {
+			return id;
+		}
+
+		public String name() {
+			return name;
+		}
+
+		public Vec from() {
+			return from;
+		}
+
+		public Vec point() {
+			return point;
+		}
+
+		public double ticks() {
+			return ticks;
+		}
+
+		public boolean blast() {
+			return blast;
+		}
+
 		/** Where they stand as seen by the player, in degrees; see {@link IncomingWatch.Warning#bearing}. */
 		public double bearing(Vec eye, Vec look) {
 			return IncomingWatch.bearing(from, eye, look);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Lock)) return false;
+			Lock other = (Lock) obj;
+			return id == other.id && blast == other.blast
+					&& Double.doubleToLongBits(ticks) == Double.doubleToLongBits(other.ticks)
+					&& Objects.equals(name, other.name) && Objects.equals(from, other.from)
+					&& Objects.equals(point, other.point);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(id, name, from, point, ticks, blast);
+		}
+
+		@Override
+		public String toString() {
+			return "Lock[id=" + id + ", name=" + name + ", from=" + from + ", point=" + point
+					+ ", ticks=" + ticks + ", blast=" + blast + "]";
 		}
 	}
 
@@ -86,17 +195,21 @@ public final class LockWatch {
 		Vec middle = new Vec((self.minX() + self.maxX()) / 2, (self.minY() + self.maxY()) / 2,
 				(self.minZ() + self.maxZ()) / 2);
 		List<Vec> points = path.points();
-		Vec closest = points.getFirst();
+		Vec closest = points.get(0);
 		for (int i = 1; i < points.size(); i++) {
 			Vec from = points.get(i - 1);
 			Vec along = points.get(i).subtract(from);
 			double lengthSquared = along.dot(along);
-			double t = lengthSquared < 1e-12 ? 0 : Math.clamp(middle.subtract(from).dot(along) / lengthSquared, 0.0, 1.0);
+			double t = lengthSquared < 1e-12 ? 0 : clamp(middle.subtract(from).dot(along) / lengthSquared, 0.0, 1.0);
 			Vec candidate = from.add(along.scale(t));
 			if (candidate.distanceTo(middle) < closest.distanceTo(middle)) {
 				closest = candidate;
 			}
 		}
 		return closest;
+	}
+
+	private static double clamp(double value, double min, double max) {
+		return Math.max(min, Math.min(max, value));
 	}
 }

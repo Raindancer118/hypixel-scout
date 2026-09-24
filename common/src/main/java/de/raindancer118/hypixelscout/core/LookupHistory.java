@@ -2,6 +2,7 @@ package de.raindancer118.hypixelscout.core;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -15,7 +16,7 @@ public final class LookupHistory {
 	private final List<String> names = new ArrayList<>();
 
 	public LookupHistory(int limit) {
-		this(limit, List.of());
+		this(limit, Collections.<String>emptyList());
 	}
 
 	public LookupHistory(int limit, Collection<String> initial) {
@@ -24,26 +25,26 @@ public final class LookupHistory {
 		if (initial != null) {
 			// Oldest first, so the list comes out in the order it was stored.
 			List<String> reversed = new ArrayList<>(initial);
-			java.util.Collections.reverse(reversed);
+			Collections.reverse(reversed);
 			reversed.forEach(this::add);
 		}
 	}
 
 	public synchronized void add(String name) {
-		if (name == null || name.isBlank()) {
+		if (name == null || name.trim().isEmpty()) {
 			return;
 		}
 
 		String trimmed = name.trim();
 		names.removeIf(existing -> existing.equalsIgnoreCase(trimmed));
-		names.addFirst(trimmed);
+		names.add(0, trimmed);
 
 		while (names.size() > limit) {
-			names.removeLast();
+			names.remove(names.size() - 1);
 		}
 	}
 
 	public synchronized List<String> names() {
-		return List.copyOf(names);
+		return Collections.unmodifiableList(new ArrayList<>(names));
 	}
 }

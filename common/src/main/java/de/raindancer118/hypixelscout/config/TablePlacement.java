@@ -1,5 +1,7 @@
 package de.raindancer118.hypixelscout.config;
 
+import java.util.Objects;
+
 /**
  * Where the table sits, stored so it survives the window changing size.
  *
@@ -7,14 +9,30 @@ package de.raindancer118.hypixelscout.config;
  * the top-left corner: a pixel offset puts a bottom-right table in the middle of the screen the
  * moment the player goes fullscreen, and a table that ends up off-screen cannot be dragged back.
  */
-public record TablePlacement(TableAnchor anchor, double offsetX, double offsetY) {
+public final class TablePlacement {
 	/** A few pixels in from the top-left corner on an ordinary window. */
 	public static final TablePlacement DEFAULT = new TablePlacement(TableAnchor.TOP_LEFT, 0.006, 0.01);
 
-	public TablePlacement {
-		anchor = anchor == null ? TableAnchor.TOP_LEFT : anchor;
-		offsetX = Double.isFinite(offsetX) ? offsetX : 0;
-		offsetY = Double.isFinite(offsetY) ? offsetY : 0;
+	private final TableAnchor anchor;
+	private final double offsetX;
+	private final double offsetY;
+
+	public TablePlacement(TableAnchor anchor, double offsetX, double offsetY) {
+		this.anchor = anchor == null ? TableAnchor.TOP_LEFT : anchor;
+		this.offsetX = Double.isFinite(offsetX) ? offsetX : 0;
+		this.offsetY = Double.isFinite(offsetY) ? offsetY : 0;
+	}
+
+	public TableAnchor anchor() {
+		return anchor;
+	}
+
+	public double offsetX() {
+		return offsetX;
+	}
+
+	public double offsetY() {
+		return offsetY;
 	}
 
 	public int x(int screenWidth, int tableWidth) {
@@ -34,7 +52,7 @@ public record TablePlacement(TableAnchor anchor, double offsetX, double offsetY)
 		int limit = screenSize - size;
 
 		// Wider than the screen would give a negative limit; pin it rather than flip the clamp.
-		return limit <= 0 ? 0 : Math.clamp(Math.round(position), 0, limit);
+		return limit <= 0 ? 0 : (int) Math.max(0, Math.min(limit, Math.round(position)));
 	}
 
 	/**
@@ -74,5 +92,25 @@ public record TablePlacement(TableAnchor anchor, double offsetX, double offsetY)
 		}
 
 		return best;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) return true;
+		if (!(obj instanceof TablePlacement)) return false;
+		TablePlacement other = (TablePlacement) obj;
+		return Double.doubleToLongBits(offsetX) == Double.doubleToLongBits(other.offsetX)
+				&& Double.doubleToLongBits(offsetY) == Double.doubleToLongBits(other.offsetY)
+				&& anchor == other.anchor;
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(anchor, offsetX, offsetY);
+	}
+
+	@Override
+	public String toString() {
+		return "TablePlacement[anchor=" + anchor + ", offsetX=" + offsetX + ", offsetY=" + offsetY + "]";
 	}
 }

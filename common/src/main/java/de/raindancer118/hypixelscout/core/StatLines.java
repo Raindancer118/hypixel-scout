@@ -1,6 +1,8 @@
 package de.raindancer118.hypixelscout.core;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,10 +39,10 @@ public final class StatLines {
 	public static List<String> brief(String name, PlayerStats stats, boolean pending, String failure,
 			ThreatScale scale) {
 		if (stats == null) {
-			return List.of("§f" + name, pending || failure == null ? "§7Looking them up…" : "§c" + failure);
+			return Collections.unmodifiableList(Arrays.asList("§f" + name, pending || failure == null ? "§7Looking them up…" : "§c" + failure));
 		}
 		if (stats.isNicked()) {
-			return List.of("§f" + name, "§dNICK");
+			return Collections.unmodifiableList(Arrays.asList("§f" + name, "§dNICK"));
 		}
 
 		String line = threat(scale, stats) + "  " + (aboutBeds(scale, stats)
@@ -49,7 +51,7 @@ public final class StatLines {
 		if (stats.getWinstreak() != null && stats.getWinstreak() > 0) {
 			line += "  §7WS §f" + stats.getWinstreak();
 		}
-		return List.of(name(name, stats), line);
+		return Collections.unmodifiableList(Arrays.asList(name(name, stats), line));
 	}
 
 	/** The block shown when looking at a player, or hovering their name in chat. */
@@ -122,7 +124,7 @@ public final class StatLines {
 	 */
 	public static List<String> chatLines(String name, PlayerStats stats, ThreatScale scale) {
 		if (stats.isNicked()) {
-			return List.of(name + " is nicked (no Hypixel profile under that name)");
+			return Collections.singletonList(name + " is nicked (no Hypixel profile under that name)");
 		}
 
 		String rank = plain(Ranks.tag(stats.getRank()));
@@ -134,7 +136,7 @@ public final class StatLines {
 				+ oneDecimal(ProfileMetrics.bedsPerGame(stats)) + " beds and "
 				+ oneDecimal(ProfileMetrics.killsPerGame(stats)) + " kills a game";
 
-		return List.of(fit(who), fit(numbers));
+		return Collections.unmodifiableList(Arrays.asList(fit(who), fit(numbers)));
 	}
 
 	/**
@@ -177,7 +179,7 @@ public final class StatLines {
 		}
 
 		int space = line.lastIndexOf(' ', MAX_CHAT);
-		return (space > 0 ? line.substring(0, space) : line.substring(0, MAX_CHAT)).strip();
+		return (space > 0 ? line.substring(0, space) : line.substring(0, MAX_CHAT)).trim();
 	}
 
 	/** The longest line the mod puts into chat; the length every version of the game will send. */

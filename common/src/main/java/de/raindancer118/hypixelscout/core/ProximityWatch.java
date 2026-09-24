@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -27,11 +28,97 @@ public final class ProximityWatch {
 	public static final int MAX_SHOWN = 3;
 
 	/** An enemy in the world this tick, and how far they are. */
-	public record Sighting(UUID uuid, String name, double distance) {
+	public static final class Sighting {
+		private final UUID uuid;
+		private final String name;
+		private final double distance;
+
+		public Sighting(UUID uuid, String name, double distance) {
+			this.uuid = uuid;
+			this.name = name;
+			this.distance = distance;
+		}
+
+		public UUID uuid() {
+			return uuid;
+		}
+
+		public String name() {
+			return name;
+		}
+
+		public double distance() {
+			return distance;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Sighting)) return false;
+			Sighting other = (Sighting) obj;
+			return Double.doubleToLongBits(distance) == Double.doubleToLongBits(other.distance)
+					&& Objects.equals(uuid, other.uuid) && Objects.equals(name, other.name);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(uuid, name, distance);
+		}
+
+		@Override
+		public String toString() {
+			return "Sighting[uuid=" + uuid + ", name=" + name + ", distance=" + distance + "]";
+		}
 	}
 
 	/** One popup, showing until {@code until}. */
-	public record Popup(UUID uuid, String name, long until, long since) {
+	public static final class Popup {
+		private final UUID uuid;
+		private final String name;
+		private final long until;
+		private final long since;
+
+		public Popup(UUID uuid, String name, long until, long since) {
+			this.uuid = uuid;
+			this.name = name;
+			this.until = until;
+			this.since = since;
+		}
+
+		public UUID uuid() {
+			return uuid;
+		}
+
+		public String name() {
+			return name;
+		}
+
+		public long until() {
+			return until;
+		}
+
+		public long since() {
+			return since;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Popup)) return false;
+			Popup other = (Popup) obj;
+			return until == other.until && since == other.since
+					&& Objects.equals(uuid, other.uuid) && Objects.equals(name, other.name);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(uuid, name, until, since);
+		}
+
+		@Override
+		public String toString() {
+			return "Popup[uuid=" + uuid + ", name=" + name + ", until=" + until + ", since=" + since + "]";
+		}
 	}
 
 	private final Clock clock;

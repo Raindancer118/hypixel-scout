@@ -267,7 +267,7 @@ public final class ScoutSettings {
 			if (percent == 100) {
 				checkSensitivity.remove(check.name());
 			} else {
-				checkSensitivity.put(check.name(), Math.clamp(percent, MIN_CHEAT_SENSITIVITY, MAX_CHEAT_SENSITIVITY));
+				checkSensitivity.put(check.name(), Math.max(MIN_CHEAT_SENSITIVITY, Math.min(MAX_CHEAT_SENSITIVITY, percent)));
 			}
 		}
 
@@ -331,8 +331,8 @@ public final class ScoutSettings {
 				fields = fresh.fields;
 				perLine = fresh.perLine;
 			}
-			fields = new ArrayList<>(new java.util.LinkedHashSet<>(fields.stream().filter(java.util.Objects::nonNull).toList()));
-			perLine = Math.clamp(perLine, 1, 6);
+			fields = new ArrayList<>(new java.util.LinkedHashSet<>(fields.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toList())));
+			perLine = Math.max(1, Math.min(6, perLine));
 			scale = finiteClamp(scale, MIN_SCALE, MAX_SCALE, 1.0);
 		}
 	}
@@ -403,7 +403,8 @@ public final class ScoutSettings {
 		String problem = null;
 
 		try {
-			loaded = GSON.fromJson(Files.readString(file, StandardCharsets.UTF_8), ScoutSettings.class);
+			byte[] bytes = Files.readAllBytes(file);
+			loaded = GSON.fromJson(new String(bytes, StandardCharsets.UTF_8), ScoutSettings.class);
 
 			if (loaded == null) {
 				loaded = new ScoutSettings();
@@ -430,7 +431,7 @@ public final class ScoutSettings {
 
 		try {
 			Files.createDirectories(file.toAbsolutePath().getParent());
-			Files.writeString(tmp, GSON.toJson(this), StandardCharsets.UTF_8);
+			Files.write(tmp, GSON.toJson(this).getBytes(StandardCharsets.UTF_8));
 			Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 		} catch (IOException e) {
 			problem = "could not write " + file + ": " + e.getMessage();
@@ -452,7 +453,7 @@ public final class ScoutSettings {
 	}
 
 	private static double finiteClamp(double value, double min, double max, double fallback) {
-		return Double.isFinite(value) ? Math.clamp(value, min, max) : fallback;
+		return Double.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
 	}
 
 	/** Fills in whatever a hand-edited file left out and pulls every number back into range. */
@@ -461,43 +462,43 @@ public final class ScoutSettings {
 		accent = accent == null ? Accent.GOLD : accent;
 		threatBasis = threatBasis == null ? ThreatScale.Basis.TEAM : threatBasis;
 		threatFocus = threatFocus == null ? ThreatFocus.BOTH : threatFocus;
-		threatSensitivity = Math.clamp(threatSensitivity, MIN_SENSITIVITY, MAX_SENSITIVITY);
-		reportIntervalTicks = Math.clamp(reportIntervalTicks, ChatPacing.MIN_TICKS, ChatPacing.MAX_TICKS);
+		threatSensitivity = Math.max(MIN_SENSITIVITY, Math.min(MAX_SENSITIVITY, threatSensitivity));
+		reportIntervalTicks = Math.max(ChatPacing.MIN_TICKS, Math.min(ChatPacing.MAX_TICKS, reportIntervalTicks));
 		threatReportFrom = threatReportFrom == null || !threatReportFrom.isRated() ? Threat.MEDIUM : threatReportFrom;
-		cacheMinutes = Math.clamp(cacheMinutes, 1, MAX_CACHE_MINUTES);
+		cacheMinutes = Math.max(1, Math.min(MAX_CACHE_MINUTES, cacheMinutes));
 
 		table = table == null ? new Table() : table;
 		table.mode = table.mode == null ? HudMode.TOGGLE : table.mode;
 		table.sort = table.sort == null ? SortMode.STARS : table.sort;
 		table.placement = table.placement == null ? TablePlacement.DEFAULT : table.placement;
 		table.scale = Double.isFinite(table.scale)
-				? Math.clamp(table.scale, MIN_SCALE, MAX_SCALE) : 1.0;
-		table.opacity = Math.clamp(table.opacity, 0, 100);
-		table.maxRows = Math.clamp(table.maxRows, 1, MAX_ROWS);
+				? Math.max(MIN_SCALE, Math.min(MAX_SCALE, table.scale)) : 1.0;
+		table.opacity = Math.max(0, Math.min(100, table.opacity));
+		table.maxRows = Math.max(1, Math.min(MAX_ROWS, table.maxRows));
 
 		tab = tab == null ? new Tab() : tab;
 		nametag = nametag == null ? new Nametag() : nametag;
 
 		tooltip = tooltip == null ? new Tooltip() : tooltip;
 		tooltip.angle = Double.isFinite(tooltip.angle)
-				? Math.clamp(tooltip.angle, MIN_ANGLE, MAX_ANGLE) : 4.0;
-		tooltip.offsetY = Math.clamp(tooltip.offsetY, -200, 200);
+				? Math.max(MIN_ANGLE, Math.min(MAX_ANGLE, tooltip.angle)) : 4.0;
+		tooltip.offsetY = Math.max(-200, Math.min(200, tooltip.offsetY));
 
 		alerts = alerts == null ? new Alerts() : alerts;
-		alerts.streakThreshold = Math.clamp(alerts.streakThreshold, 1, 10_000);
+		alerts.streakThreshold = Math.max(1, Math.min(10_000, alerts.streakThreshold));
 
 		proximity = proximity == null ? new Proximity() : proximity;
-		proximity.radius = Math.clamp(proximity.radius, 2, MAX_RADIUS);
-		proximity.seconds = Math.clamp(proximity.seconds, 1, MAX_POPUP_SECONDS);
+		proximity.radius = Math.max(2, Math.min(MAX_RADIUS, proximity.radius));
+		proximity.seconds = Math.max(1, Math.min(MAX_POPUP_SECONDS, proximity.seconds));
 		proximity.from = proximity.from == null || !proximity.from.isRated() ? Threat.NONE : proximity.from;
 
 		requeue = requeue == null ? new Requeue() : requeue;
 		requeue.mode = requeue.mode == null ? RequeueMode.OFF : requeue.mode;
-		requeue.delaySeconds = Math.clamp(requeue.delaySeconds, 0, MAX_REQUEUE_DELAY);
+		requeue.delaySeconds = Math.max(0, Math.min(MAX_REQUEUE_DELAY, requeue.delaySeconds));
 
 		projectiles = projectiles == null ? new Projectiles() : projectiles;
 		awareness = awareness == null ? new Awareness() : awareness;
-		awareness.offscreenRange = Math.clamp(awareness.offscreenRange, 8, MAX_OFFSCREEN_RANGE);
+		awareness.offscreenRange = Math.max(8, Math.min(MAX_OFFSCREEN_RANGE, awareness.offscreenRange));
 
 		cards = cards == null ? new Cards() : cards;
 		cards.tooltip = cards.tooltip == null ? Card.of(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP) : cards.tooltip;
@@ -510,31 +511,31 @@ public final class ScoutSettings {
 		cards.peekScale = finiteClamp(cards.peekScale, MIN_SCALE, MAX_SCALE, 1.0);
 
 		cheats = cheats == null ? new Cheats() : cheats;
-		cheats.sensitivity = Math.clamp(cheats.sensitivity, MIN_CHEAT_SENSITIVITY, MAX_CHEAT_SENSITIVITY);
+		cheats.sensitivity = Math.max(MIN_CHEAT_SENSITIVITY, Math.min(MAX_CHEAT_SENSITIVITY, cheats.sensitivity));
 		// A check name this version does not know reads as null; a hand-edited list may repeat one.
 		cheats.checkSensitivity = cheats.checkSensitivity == null ? new LinkedHashMap<>() : new LinkedHashMap<>(cheats.checkSensitivity);
 		cheats.checkSensitivity.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null
 				|| java.util.Arrays.stream(de.raindancer118.hypixelscout.cheat.Check.values()).noneMatch(check -> check.name().equals(entry.getKey())));
-		cheats.checkSensitivity.replaceAll((check, percent) -> Math.clamp(percent, MIN_CHEAT_SENSITIVITY, MAX_CHEAT_SENSITIVITY));
+		cheats.checkSensitivity.replaceAll((check, percent) -> Math.max(MIN_CHEAT_SENSITIVITY, Math.min(MAX_CHEAT_SENSITIVITY, percent)));
 		cheats.reachStanding = finiteClamp(cheats.reachStanding, 3.0, 4.5, 3.2);
 		cheats.reachMoving = finiteClamp(cheats.reachMoving, 3.0, 5.0, 3.8);
 		cheats.speedPerSecond = finiteClamp(cheats.speedPerSecond, 8.0, 30.0, 12.4);
-		cheats.fastPlacePerSecond = Math.clamp(cheats.fastPlacePerSecond, 8, 30);
+		cheats.fastPlacePerSecond = Math.max(8, Math.min(30, cheats.fastPlacePerSecond));
 		cheats.bridgePerSecond = finiteClamp(cheats.bridgePerSecond, 3.0, 10.0, 5.0);
 		cheats.hud = cheats.hud == null ? new Hud() : cheats.hud;
-		cheats.hud.minPercent = Math.clamp(cheats.hud.minPercent, 1, 99);
-		cheats.hud.maxRows = Math.clamp(cheats.hud.maxRows, 1, 12);
+		cheats.hud.minPercent = Math.max(1, Math.min(99, cheats.hud.minPercent));
+		cheats.hud.maxRows = Math.max(1, Math.min(12, cheats.hud.maxRows));
 		cheats.hud.scale = finiteClamp(cheats.hud.scale, MIN_SCALE, MAX_SCALE, 1.0);
 		cheats.hud.placement = cheats.hud.placement == null ? DEFAULT_SUSPECTS_PLACEMENT : cheats.hud.placement;
 		cheats.off = cheats.off == null ? new ArrayList<>()
-				: new ArrayList<>(new java.util.LinkedHashSet<>(cheats.off.stream().filter(java.util.Objects::nonNull).toList()));
+				: new ArrayList<>(new java.util.LinkedHashSet<>(cheats.off.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toList())));
 
 		callouts = callouts == null ? new Callouts() : callouts;
 		String[] messages = callouts.messages == null ? new String[0] : callouts.messages;
 		callouts.messages = Arrays.copyOf(messages, CALLOUTS);
 		for (int i = 0; i < CALLOUTS; i++) {
 			String message = callouts.messages[i];
-			callouts.messages[i] = message == null ? "" : message.strip();
+			callouts.messages[i] = message == null ? "" : message.trim();
 		}
 
 		queue = queue == null ? new Queue() : queue;
@@ -545,9 +546,9 @@ public final class ScoutSettings {
 		}
 
 		recentLookups = recentLookups == null ? new ArrayList<>() : new ArrayList<>(recentLookups);
-		recentLookups.removeIf(name -> name == null || name.isBlank());
+		recentLookups.removeIf(name -> name == null || name.trim().isEmpty());
 		while (recentLookups.size() > MAX_LOOKUPS) {
-			recentLookups.removeLast();
+			recentLookups.remove(recentLookups.size() - 1);
 		}
 	}
 }

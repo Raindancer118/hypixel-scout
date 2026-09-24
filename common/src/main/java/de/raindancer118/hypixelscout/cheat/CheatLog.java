@@ -11,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.EnumMap;
 import java.util.List;
@@ -152,7 +151,7 @@ public final class CheatLog {
 
 	private void write(JsonObject line) {
 		String text = GSON.toJson(line) + "\n";
-		Path file = dir.resolve("cheats-" + LocalDate.ofInstant(Instant.ofEpochMilli(clock.millis()), zone) + ".jsonl");
+		Path file = dir.resolve("cheats-" + Instant.ofEpochMilli(clock.millis()).atZone(zone).toLocalDate() + ".jsonl");
 		executor.execute(() -> append(file, text));
 	}
 

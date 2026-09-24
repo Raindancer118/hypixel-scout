@@ -13,7 +13,7 @@ public enum Allegiance {
 	UNKNOWN;
 
 	public static Allegiance of(String ownTeam, String otherTeam) {
-		if (ownTeam == null || ownTeam.isBlank() || otherTeam == null || otherTeam.isBlank()) {
+		if (ownTeam == null || ownTeam.trim().isEmpty() || otherTeam == null || otherTeam.trim().isEmpty()) {
 			return UNKNOWN;
 		}
 

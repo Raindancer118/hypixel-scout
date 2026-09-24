@@ -1,6 +1,8 @@
 package de.raindancer118.hypixelscout.core;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Objects;
 import java.util.function.ToDoubleFunction;
 
 /**
@@ -25,7 +27,7 @@ import java.util.function.ToDoubleFunction;
  * @param sensitivity     how much more dangerous than their numbers every enemy is taken to be
  * @param focus           which danger the level is about
  */
-public record ThreatScale(double combatReference, double bedReference, double sensitivity, ThreatFocus focus) {
+public final class ThreatScale {
 	/** What the comparison is made with. */
 	public enum Basis {
 		/** The fixed community bands, the same for everybody. */
@@ -43,10 +45,50 @@ public record ThreatScale(double combatReference, double bedReference, double se
 	 * @param beds    the level at the beds
 	 * @param overall the level the focus reports
 	 */
-	public record Rating(Threat combat, Threat beds, Threat overall) {
+	public static final class Rating {
+		private final Threat combat;
+		private final Threat beds;
+		private final Threat overall;
+
+		public Rating(Threat combat, Threat beds, Threat overall) {
+			this.combat = combat;
+			this.beds = beds;
+			this.overall = overall;
+		}
+
+		public Threat combat() {
+			return combat;
+		}
+
+		public Threat beds() {
+			return beds;
+		}
+
+		public Threat overall() {
+			return overall;
+		}
+
 		/** Whether the beds are what makes this player dangerous, rather than their fights. */
 		public boolean worseAtBeds() {
 			return beds.isRated() && beds.compareTo(combat) > 0;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Rating)) return false;
+			Rating other = (Rating) obj;
+			return combat == other.combat && beds == other.beds && overall == other.overall;
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(combat, beds, overall);
+		}
+
+		@Override
+		public String toString() {
+			return "Rating[combat=" + combat + ", beds=" + beds + ", overall=" + overall + "]";
 		}
 	}
 
@@ -59,8 +101,32 @@ public record ThreatScale(double combatReference, double bedReference, double se
 	 */
 	public static final double MIN_REFERENCE = 100.0;
 
-	public ThreatScale {
-		focus = focus == null ? ThreatFocus.BOTH : focus;
+	private final double combatReference;
+	private final double bedReference;
+	private final double sensitivity;
+	private final ThreatFocus focus;
+
+	public ThreatScale(double combatReference, double bedReference, double sensitivity, ThreatFocus focus) {
+		this.combatReference = combatReference;
+		this.bedReference = bedReference;
+		this.sensitivity = sensitivity;
+		this.focus = focus == null ? ThreatFocus.BOTH : focus;
+	}
+
+	public double combatReference() {
+		return combatReference;
+	}
+
+	public double bedReference() {
+		return bedReference;
+	}
+
+	public double sensitivity() {
+		return sensitivity;
+	}
+
+	public ThreatFocus focus() {
+		return focus;
 	}
 
 	/**
@@ -72,7 +138,7 @@ public record ThreatScale(double combatReference, double bedReference, double se
 			return ABSOLUTE;
 		}
 
-		Collection<PlayerStats> mates = basis == Basis.TEAM ? teammates : java.util.List.of();
+		Collection<PlayerStats> mates = basis == Basis.TEAM ? teammates : Collections.<PlayerStats>emptyList();
 		double combat = reference(self, mates, Threat::combatIndex);
 		double beds = reference(self, mates, Threat::bedIndex);
 		return combat < 0 ? ABSOLUTE : new ThreatScale(combat, beds, 1.0, ThreatFocus.BOTH);
@@ -135,11 +201,20 @@ public record ThreatScale(double combatReference, double bedReference, double se
 
 		Threat combat = level(combatRatio(stats));
 		Threat beds = level(bedRatio(stats));
-		Threat overall = switch (focus) {
-			case COMBAT -> combat;
-			case BEDS -> beds;
-			case BOTH -> combat.compareTo(beds) >= 0 ? combat : beds;
-		};
+		Threat overall;
+		switch (focus) {
+			case COMBAT:
+				overall = combat;
+				break;
+			case BEDS:
+				overall = beds;
+				break;
+			case BOTH:
+				overall = combat.compareTo(beds) >= 0 ? combat : beds;
+				break;
+			default:
+				throw new IllegalStateException("Unexpected focus: " + focus);
+		}
 		return new Rating(combat, beds, overall);
 	}
 
@@ -152,11 +227,16 @@ public record ThreatScale(double combatReference, double bedReference, double se
 			return -1.0;
 		}
 
-		return switch (focus) {
-			case COMBAT -> combatRatio(stats);
-			case BEDS -> bedRatio(stats);
-			case BOTH -> Math.max(combatRatio(stats), bedRatio(stats));
-		};
+		switch (focus) {
+			case COMBAT:
+				return combatRatio(stats);
+			case BEDS:
+				return bedRatio(stats);
+			case BOTH:
+				return Math.max(combatRatio(stats), bedRatio(stats));
+			default:
+				throw new IllegalStateException("Unexpected focus: " + focus);
+		}
 	}
 
 	private double combatRatio(PlayerStats stats) {
@@ -171,5 +251,27 @@ public record ThreatScale(double combatReference, double bedReference, double se
 
 	private Threat level(double value) {
 		return isRelative() ? Threat.ofRatio(value) : Threat.ofIndex(value);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) return true;
+		if (!(obj instanceof ThreatScale)) return false;
+		ThreatScale other = (ThreatScale) obj;
+		return Double.doubleToLongBits(combatReference) == Double.doubleToLongBits(other.combatReference)
+				&& Double.doubleToLongBits(bedReference) == Double.doubleToLongBits(other.bedReference)
+				&& Double.doubleToLongBits(sensitivity) == Double.doubleToLongBits(other.sensitivity)
+				&& focus == other.focus;
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(combatReference, bedReference, sensitivity, focus);
+	}
+
+	@Override
+	public String toString() {
+		return "ThreatScale[combatReference=" + combatReference + ", bedReference=" + bedReference
+				+ ", sensitivity=" + sensitivity + ", focus=" + focus + "]";
 	}
 }

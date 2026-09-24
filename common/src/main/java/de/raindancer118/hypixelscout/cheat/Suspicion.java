@@ -1,10 +1,12 @@
 package de.raindancer118.hypixelscout.cheat;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -32,9 +34,64 @@ public final class Suspicion {
 	 * A flagged check: how often it was seen, the latest evidence, and how sure this check alone
 	 * makes the mod (0 to 1).
 	 */
-	public record Flag(String player, Check check, int count, String detail, double confidence) {
+	public static final class Flag {
+		private final String player;
+		private final Check check;
+		private final int count;
+		private final String detail;
+		private final double confidence;
+
+		public Flag(String player, Check check, int count, String detail, double confidence) {
+			this.player = player;
+			this.check = check;
+			this.count = count;
+			this.detail = detail;
+			this.confidence = confidence;
+		}
+
+		public String player() {
+			return player;
+		}
+
+		public Check check() {
+			return check;
+		}
+
+		public int count() {
+			return count;
+		}
+
+		public String detail() {
+			return detail;
+		}
+
+		public double confidence() {
+			return confidence;
+		}
+
 		public int percent() {
 			return (int) Math.round(confidence * 100);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Flag)) return false;
+			Flag other = (Flag) obj;
+			return count == other.count && check == other.check
+					&& Double.doubleToLongBits(confidence) == Double.doubleToLongBits(other.confidence)
+					&& Objects.equals(player, other.player) && Objects.equals(detail, other.detail);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(player, check, count, detail, confidence);
+		}
+
+		@Override
+		public String toString() {
+			return "Flag[player=" + player + ", check=" + check + ", count=" + count + ", detail=" + detail
+					+ ", confidence=" + confidence + "]";
 		}
 	}
 
@@ -55,7 +112,67 @@ public final class Suspicion {
 	}
 
 	/** One check on one player, for the screens: how often, how sure, flagged or not, the latest evidence. */
-	public record Seen(Check check, int count, double confidence, boolean flagged, String detail, long tick) {
+	public static final class Seen {
+		private final Check check;
+		private final int count;
+		private final double confidence;
+		private final boolean flagged;
+		private final String detail;
+		private final long tick;
+
+		public Seen(Check check, int count, double confidence, boolean flagged, String detail, long tick) {
+			this.check = check;
+			this.count = count;
+			this.confidence = confidence;
+			this.flagged = flagged;
+			this.detail = detail;
+			this.tick = tick;
+		}
+
+		public Check check() {
+			return check;
+		}
+
+		public int count() {
+			return count;
+		}
+
+		public double confidence() {
+			return confidence;
+		}
+
+		public boolean flagged() {
+			return flagged;
+		}
+
+		public String detail() {
+			return detail;
+		}
+
+		public long tick() {
+			return tick;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Seen)) return false;
+			Seen other = (Seen) obj;
+			return count == other.count && flagged == other.flagged && tick == other.tick && check == other.check
+					&& Double.doubleToLongBits(confidence) == Double.doubleToLongBits(other.confidence)
+					&& Objects.equals(detail, other.detail);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(check, count, confidence, flagged, detail, tick);
+		}
+
+		@Override
+		public String toString() {
+			return "Seen[check=" + check + ", count=" + count + ", confidence=" + confidence + ", flagged="
+					+ flagged + ", detail=" + detail + ", tick=" + tick + "]";
+		}
 	}
 
 	/**
@@ -64,7 +181,61 @@ public final class Suspicion {
 	 * @param lastTick when any of their checks last saw something
 	 * @param checks   the checks that did, the surest first
 	 */
-	public record Suspect(String player, double confidence, boolean flagged, long lastTick, List<Seen> checks) {
+	public static final class Suspect {
+		private final String player;
+		private final double confidence;
+		private final boolean flagged;
+		private final long lastTick;
+		private final List<Seen> checks;
+
+		public Suspect(String player, double confidence, boolean flagged, long lastTick, List<Seen> checks) {
+			this.player = player;
+			this.confidence = confidence;
+			this.flagged = flagged;
+			this.lastTick = lastTick;
+			this.checks = checks;
+		}
+
+		public String player() {
+			return player;
+		}
+
+		public double confidence() {
+			return confidence;
+		}
+
+		public boolean flagged() {
+			return flagged;
+		}
+
+		public long lastTick() {
+			return lastTick;
+		}
+
+		public List<Seen> checks() {
+			return checks;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Suspect)) return false;
+			Suspect other = (Suspect) obj;
+			return flagged == other.flagged && lastTick == other.lastTick
+					&& Double.doubleToLongBits(confidence) == Double.doubleToLongBits(other.confidence)
+					&& Objects.equals(player, other.player) && Objects.equals(checks, other.checks);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(player, confidence, flagged, lastTick, checks);
+		}
+
+		@Override
+		public String toString() {
+			return "Suspect[player=" + player + ", confidence=" + confidence + ", flagged=" + flagged
+					+ ", lastTick=" + lastTick + ", checks=" + checks + "]";
+		}
 	}
 
 	private final Map<String, Map<Check, Score>> scores = new LinkedHashMap<>();
@@ -103,7 +274,7 @@ public final class Suspicion {
 	 * score and from the confidence. Never below nothing; a flag already raised stays.
 	 */
 	private void relieve(Violation relief) {
-		Score score = scores.getOrDefault(relief.player(), Map.of()).get(relief.check());
+		Score score = scores.getOrDefault(relief.player(), Collections.emptyMap()).get(relief.check());
 		if (score == null) {
 			return;
 		}
@@ -117,7 +288,7 @@ public final class Suspicion {
 	/** This player's flags, the surest first. */
 	public synchronized List<Flag> flags(String player) {
 		List<Flag> flags = new ArrayList<>();
-		scores.getOrDefault(player, Map.of()).forEach((check, score) -> {
+		scores.getOrDefault(player, Collections.emptyMap()).forEach((check, score) -> {
 			if (score.flagged) {
 				flags.add(flag(player, check, score));
 			}
@@ -141,7 +312,7 @@ public final class Suspicion {
 	 */
 	public synchronized double confidence(String player) {
 		double innocent = 1;
-		for (Map.Entry<Check, Score> entry : scores.getOrDefault(player, Map.of()).entrySet()) {
+		for (Map.Entry<Check, Score> entry : scores.getOrDefault(player, Collections.emptyMap()).entrySet()) {
 			innocent *= 1 - entry.getValue().confidence(entry.getKey());
 		}
 		return 1 - innocent;
@@ -166,7 +337,7 @@ public final class Suspicion {
 			}
 			if (!seen.isEmpty()) {
 				seen.sort(Comparator.comparingDouble(Seen::confidence).reversed().thenComparing(Seen::check));
-				suspects.add(new Suspect(player, confidence(player), flagged, last, List.copyOf(seen)));
+				suspects.add(new Suspect(player, confidence(player), flagged, last, Collections.unmodifiableList(new ArrayList<>(seen))));
 			}
 		});
 		suspects.sort(Comparator.comparingDouble(Suspect::confidence).reversed().thenComparing(Suspect::player));
@@ -175,7 +346,7 @@ public final class Suspicion {
 
 	/** How often a check was seen on a player, flagged or not. */
 	public synchronized int count(String player, Check check) {
-		Score score = scores.getOrDefault(player, Map.of()).get(check);
+		Score score = scores.getOrDefault(player, Collections.emptyMap()).get(check);
 		return score == null ? 0 : score.count;
 	}
 

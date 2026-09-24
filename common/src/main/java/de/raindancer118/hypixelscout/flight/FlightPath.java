@@ -1,18 +1,17 @@
 package de.raindancer118.hypixelscout.flight;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Where a projectile will be, tick by tick, until it hits a block or flies out of reach.
  *
  * <p>The first point is where it is now, each following one a tick later. Water, which slows both
  * kinds, is not modelled: nobody fights under water in Bedwars.
- *
- * @param points  the positions, now first
- * @param blocked whether the path ends because it runs into a block
  */
-public record FlightPath(List<Vec> points, boolean blocked) {
+public final class FlightPath {
 	/** Further than this nobody aims, and further than render distance nobody sees. */
 	public static final double MAX_REACH = 96.0;
 
@@ -23,8 +22,28 @@ public record FlightPath(List<Vec> points, boolean blocked) {
 		Vec clip(Vec from, Vec to);
 	}
 
-	public FlightPath {
-		points = List.copyOf(points);
+	private final List<Vec> points;
+	private final boolean blocked;
+
+	/**
+	 * @param points  the positions, now first
+	 * @param blocked whether the path ends because it runs into a block
+	 */
+	public FlightPath(List<Vec> points, boolean blocked) {
+		List<Vec> copy = new ArrayList<>(points.size());
+		for (Vec point : points) {
+			copy.add(Objects.requireNonNull(point));
+		}
+		this.points = Collections.unmodifiableList(copy);
+		this.blocked = blocked;
+	}
+
+	public List<Vec> points() {
+		return points;
+	}
+
+	public boolean blocked() {
+		return blocked;
 	}
 
 	/**
@@ -72,7 +91,7 @@ public record FlightPath(List<Vec> points, boolean blocked) {
 	 * 0} when it starts inside, negative when it never gets there.
 	 */
 	public double ticksUntil(Box box) {
-		if (box.contains(points.getFirst())) {
+		if (box.contains(points.get(0))) {
 			return 0.0;
 		}
 
@@ -91,7 +110,7 @@ public record FlightPath(List<Vec> points, boolean blocked) {
 	 */
 	public Vec at(double ticks) {
 		if (ticks <= 0) {
-			return points.getFirst();
+			return points.get(0);
 		}
 		if (ticks >= ticks()) {
 			return end();
@@ -103,11 +122,29 @@ public record FlightPath(List<Vec> points, boolean blocked) {
 
 	/** Where the path ends: the block it hits, or the last point looked at. */
 	public Vec end() {
-		return points.getLast();
+		return points.get(points.size() - 1);
 	}
 
 	/** Ticks from now until the end. */
 	public int ticks() {
 		return points.size() - 1;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) return true;
+		if (!(obj instanceof FlightPath)) return false;
+		FlightPath other = (FlightPath) obj;
+		return blocked == other.blocked && points.equals(other.points);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(points, blocked);
+	}
+
+	@Override
+	public String toString() {
+		return "FlightPath[points=" + points + ", blocked=" + blocked + "]";
 	}
 }

@@ -1,7 +1,9 @@
 package de.raindancer118.hypixelscout.core;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * How dangerous a player is, in one word.
@@ -40,7 +42,8 @@ public enum Threat {
 	EXTREME("§4", "EXTREME", 30_000, 4.0),
 	INSANE("§5", "INSANE", 150_000, 10.0);
 
-	private static final List<Threat> RATED = Arrays.stream(values()).filter(Threat::isRated).toList();
+	private static final List<Threat> RATED = Collections.unmodifiableList(
+			Arrays.stream(values()).filter(Threat::isRated).collect(Collectors.toList()));
 
 	private final String colour;
 	private final String label;
@@ -96,11 +99,17 @@ public enum Threat {
 
 	/** The index the focus rates by; for both, the greater of the two. */
 	public static double index(PlayerStats stats, ThreatFocus focus) {
-		return switch (focus == null ? ThreatFocus.BOTH : focus) {
-			case COMBAT -> combatIndex(stats);
-			case BEDS -> bedIndex(stats);
-			case BOTH -> Math.max(combatIndex(stats), bedIndex(stats));
-		};
+		ThreatFocus resolved = focus == null ? ThreatFocus.BOTH : focus;
+		switch (resolved) {
+			case COMBAT:
+				return combatIndex(stats);
+			case BEDS:
+				return bedIndex(stats);
+			case BOTH:
+				return Math.max(combatIndex(stats), bedIndex(stats));
+			default:
+				throw new IllegalStateException("Unexpected focus: " + resolved);
+		}
 	}
 
 	/** A per-game figure against the typical one, softened and held within bounds; 1 without games. */
@@ -110,7 +119,7 @@ public enum Threat {
 		}
 
 		double factor = Math.pow(value / typical, 0.25);
-		return Math.clamp(factor, 1.0 / MAX_PER_GAME_FACTOR, MAX_PER_GAME_FACTOR);
+		return Math.max(1.0 / MAX_PER_GAME_FACTOR, Math.min(MAX_PER_GAME_FACTOR, factor));
 	}
 
 	/** One percent more per win in a row, up to double; a hidden streak counts as none. */

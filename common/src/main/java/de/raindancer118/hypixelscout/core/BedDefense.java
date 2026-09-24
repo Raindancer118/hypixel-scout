@@ -1,12 +1,16 @@
 package de.raindancer118.hypixelscout.core;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * A bed's loaded defence: all blocks within {@link #RADIUS} axial steps, from bed height up.
@@ -19,7 +23,29 @@ public final class BedDefense {
 
 	private static final int[][] FACES = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
 
-	public record Cell(int x, int y, int z) {
+	public static final class Cell {
+		private final int x;
+		private final int y;
+		private final int z;
+
+		public Cell(int x, int y, int z) {
+			this.x = x;
+			this.y = y;
+			this.z = z;
+		}
+
+		public int x() {
+			return x;
+		}
+
+		public int y() {
+			return y;
+		}
+
+		public int z() {
+			return z;
+		}
+
 		Cell offset(int[] by) {
 			return new Cell(x + by[0], y + by[1], z + by[2]);
 		}
@@ -27,14 +53,107 @@ public final class BedDefense {
 		int distanceTo(Cell other) {
 			return Math.abs(x - other.x) + Math.abs(y - other.y) + Math.abs(z - other.z);
 		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Cell)) return false;
+			Cell other = (Cell) obj;
+			return x == other.x && y == other.y && z == other.z;
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(x, y, z);
+		}
+
+		@Override
+		public String toString() {
+			return "Cell[x=" + x + ", y=" + y + ", z=" + z + "]";
+		}
 	}
 
 	/** A solid block: its name and how long it takes to break (vanilla's hardness). */
-	public record Block(String name, double hardness) {
+	public static final class Block {
+		private final String name;
+		private final double hardness;
+
+		public Block(String name, double hardness) {
+			this.name = name;
+			this.hardness = hardness;
+		}
+
+		public String name() {
+			return name;
+		}
+
+		public double hardness() {
+			return hardness;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Block)) return false;
+			Block other = (Block) obj;
+			return Double.doubleToLongBits(hardness) == Double.doubleToLongBits(other.hardness)
+					&& Objects.equals(name, other.name);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(name, hardness);
+		}
+
+		@Override
+		public String toString() {
+			return "Block[name=" + name + ", hardness=" + hardness + "]";
+		}
 	}
 
 	/** One exposed material: how many of its blocks face the air. */
-	public record Material(String name, double hardness, int exposed) {
+	public static final class Material {
+		private final String name;
+		private final double hardness;
+		private final int exposed;
+
+		public Material(String name, double hardness, int exposed) {
+			this.name = name;
+			this.hardness = hardness;
+			this.exposed = exposed;
+		}
+
+		public String name() {
+			return name;
+		}
+
+		public double hardness() {
+			return hardness;
+		}
+
+		public int exposed() {
+			return exposed;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Material)) return false;
+			Material other = (Material) obj;
+			return exposed == other.exposed
+					&& Double.doubleToLongBits(hardness) == Double.doubleToLongBits(other.hardness)
+					&& Objects.equals(name, other.name);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(name, hardness, exposed);
+		}
+
+		@Override
+		public String toString() {
+			return "Material[name=" + name + ", hardness=" + hardness + ", exposed=" + exposed + "]";
+		}
 	}
 
 	/**
@@ -43,13 +162,60 @@ public final class BedDefense {
 	 * @param weakest the exposed block of the softest material closest to the bed; {@code null} if none
 	 * @param seen    every loaded defence block, including fully covered inner layers
 	 */
-	public record Report(boolean open, List<Material> outside, Cell weakest, Map<Cell, Block> seen) {
-		public Report {
-			seen = Map.copyOf(seen);
+	public static final class Report {
+		private final boolean open;
+		private final List<Material> outside;
+		private final Cell weakest;
+		private final Map<Cell, Block> seen;
+
+		public Report(boolean open, List<Material> outside, Cell weakest, Map<Cell, Block> seen) {
+			this.open = open;
+			this.outside = outside;
+			this.weakest = weakest;
+			Map<Cell, Block> copy = new LinkedHashMap<>();
+			for (Map.Entry<Cell, Block> entry : seen.entrySet()) {
+				copy.put(Objects.requireNonNull(entry.getKey()), Objects.requireNonNull(entry.getValue()));
+			}
+			this.seen = Collections.unmodifiableMap(copy);
 		}
 
 		public Report(boolean open, List<Material> outside, Cell weakest) {
-			this(open, outside, weakest, Map.of());
+			this(open, outside, weakest, Collections.emptyMap());
+		}
+
+		public boolean open() {
+			return open;
+		}
+
+		public List<Material> outside() {
+			return outside;
+		}
+
+		public Cell weakest() {
+			return weakest;
+		}
+
+		public Map<Cell, Block> seen() {
+			return seen;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Report)) return false;
+			Report other = (Report) obj;
+			return open == other.open && Objects.equals(outside, other.outside)
+					&& Objects.equals(weakest, other.weakest) && Objects.equals(seen, other.seen);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(open, outside, weakest, seen);
+		}
+
+		@Override
+		public String toString() {
+			return "Report[open=" + open + ", outside=" + outside + ", weakest=" + weakest + ", seen=" + seen + "]";
 		}
 	}
 
@@ -58,7 +224,54 @@ public final class BedDefense {
 	 * are. {@code depth} is how far out its inner side is — 1 is right against the bed — and
 	 * {@code thickness} how many blocks deep it goes outwards from there.
 	 */
-	public record Layer(int depth, String material, int count, int thickness) {
+	public static final class Layer {
+		private final int depth;
+		private final String material;
+		private final int count;
+		private final int thickness;
+
+		public Layer(int depth, String material, int count, int thickness) {
+			this.depth = depth;
+			this.material = material;
+			this.count = count;
+			this.thickness = thickness;
+		}
+
+		public int depth() {
+			return depth;
+		}
+
+		public String material() {
+			return material;
+		}
+
+		public int count() {
+			return count;
+		}
+
+		public int thickness() {
+			return thickness;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Layer)) return false;
+			Layer other = (Layer) obj;
+			return depth == other.depth && count == other.count && thickness == other.thickness
+					&& Objects.equals(material, other.material);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(depth, material, count, thickness);
+		}
+
+		@Override
+		public String toString() {
+			return "Layer[depth=" + depth + ", material=" + material + ", count=" + count
+					+ ", thickness=" + thickness + "]";
+		}
 	}
 
 	/** The world, as far as this is concerned: the solid block in a cell, {@code null} for air. */
@@ -88,7 +301,7 @@ public final class BedDefense {
 		Map<String, int[]> counts = new LinkedHashMap<>();
 		Map<String, Double> hardness = new LinkedHashMap<>();
 		List<Cell> exposed = new ArrayList<>();
-		Cell origin = bed.getFirst();
+		Cell origin = bed.get(0);
 		for (int x = origin.x() - RADIUS - 1; x <= origin.x() + RADIUS + 1; x++) {
 			for (int y = bottom; y <= bottom + RADIUS; y++) {
 				for (int z = origin.z() - RADIUS - 1; z <= origin.z() + RADIUS + 1; z++) {
@@ -114,21 +327,21 @@ public final class BedDefense {
 
 		Cell weakest = null;
 		if (!outside.isEmpty()) {
-			String softest = outside.getFirst().name();
+			String softest = outside.get(0).name();
 			weakest = exposed.stream()
 					.filter(cell -> world.at(cell).name().equals(softest))
 					.min(Comparator.comparingInt((Cell cell) -> distance(cell, bed)))
 					.orElse(null);
 		}
-		return new Report(open, List.copyOf(outside), weakest, seen);
+		return new Report(open, Collections.unmodifiableList(new ArrayList<>(outside)), weakest, seen);
 	}
 
 	/**
 	 * The layers of a defence snapshot, outermost first, including covered blocks.
 	 */
 	public static List<Layer> layers(List<Cell> bed, Map<Cell, Block> seen) {
-		Map<Integer, Map<String, int[]>> byDepth = new java.util.TreeMap<>(Comparator.reverseOrder());
-		Map<String, Double> hardness = new java.util.HashMap<>();
+		Map<Integer, Map<String, int[]>> byDepth = new TreeMap<>(Comparator.reverseOrder());
+		Map<String, Double> hardness = new HashMap<>();
 		seen.forEach((cell, block) -> {
 			int depth = distance(cell, bed);
 			if (depth >= 1 && depth <= RADIUS) {
@@ -141,8 +354,8 @@ public final class BedDefense {
 			Map.Entry<String, int[]> most = counts.entrySet().stream()
 					.max(Comparator.comparingInt((Map.Entry<String, int[]> e) -> e.getValue()[0])
 							.thenComparingDouble(e -> hardness.get(e.getKey())))
-					.orElseThrow();
-			Layer outer = layers.isEmpty() ? null : layers.getLast();
+					.get();
+			Layer outer = layers.isEmpty() ? null : layers.get(layers.size() - 1);
 			// One material several blocks deep is one thick layer, not several — even across a depth
 			// nobody saw a block of.
 			if (outer != null && outer.material().equals(most.getKey())) {
@@ -153,7 +366,7 @@ public final class BedDefense {
 				layers.add(new Layer(depth, most.getKey(), most.getValue()[0], 1));
 			}
 		});
-		return List.copyOf(layers);
+		return Collections.unmodifiableList(new ArrayList<>(layers));
 	}
 
 	/** Whether a block in this cell would be part of the bed's defence: from its height up, close enough. */
@@ -164,7 +377,7 @@ public final class BedDefense {
 
 	/** Whether there is more inside than has been seen: no layer seen right against the bed. */
 	public static boolean unknownInside(List<Layer> layers) {
-		return layers.isEmpty() || layers.getLast().depth() > 1;
+		return layers.isEmpty() || layers.get(layers.size() - 1).depth() > 1;
 	}
 
 	private static boolean facesAir(Cell cell, Set<Cell> bed, World world) {

@@ -1,7 +1,9 @@
 package de.raindancer118.hypixelscout.flight;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Where the player comes down, if anywhere: vanilla's air movement (LivingEntity.travel with nobody
@@ -12,18 +14,47 @@ import java.util.List;
  * corner of the feet or their middle; a wall only stops the sideways motion. The keys the player
  * presses on the way down are not known ahead, so this is where they land if they let go — which is
  * exactly the question when knocked off a bridge.
- *
- * @param points     the feet, tick by tick, now first
- * @param landing    where the feet come down; {@code null} for nowhere
- * @param intoTheVoid whether the fall goes below the world's bottom
  */
-public record Fall(List<Vec> points, Vec landing, boolean intoTheVoid, int ticks) {
+public final class Fall {
 	private static final double GRAVITY = 0.08;
 	private static final double VERTICAL_DRAG = 0.98;
 	private static final double AIR_FRICTION = 0.91;
 
-	public Fall {
-		points = List.copyOf(points);
+	private final List<Vec> points;
+	private final Vec landing;
+	private final boolean intoTheVoid;
+	private final int ticks;
+
+	/**
+	 * @param points     the feet, tick by tick, now first
+	 * @param landing    where the feet come down; {@code null} for nowhere
+	 * @param intoTheVoid whether the fall goes below the world's bottom
+	 */
+	public Fall(List<Vec> points, Vec landing, boolean intoTheVoid, int ticks) {
+		List<Vec> copy = new ArrayList<>(points.size());
+		for (Vec point : points) {
+			copy.add(Objects.requireNonNull(point));
+		}
+		this.points = Collections.unmodifiableList(copy);
+		this.landing = landing;
+		this.intoTheVoid = intoTheVoid;
+		this.ticks = ticks;
+	}
+
+	public List<Vec> points() {
+		return points;
+	}
+
+	public Vec landing() {
+		return landing;
+	}
+
+	public boolean intoTheVoid() {
+		return intoTheVoid;
+	}
+
+	public int ticks() {
+		return ticks;
 	}
 
 	/**
@@ -94,5 +125,25 @@ public record Fall(List<Vec> points, Vec landing, boolean intoTheVoid, int ticks
 			}
 		}
 		return best;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) return true;
+		if (!(obj instanceof Fall)) return false;
+		Fall other = (Fall) obj;
+		return intoTheVoid == other.intoTheVoid && ticks == other.ticks
+				&& points.equals(other.points) && Objects.equals(landing, other.landing);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(points, landing, intoTheVoid, ticks);
+	}
+
+	@Override
+	public String toString() {
+		return "Fall[points=" + points + ", landing=" + landing + ", intoTheVoid=" + intoTheVoid
+				+ ", ticks=" + ticks + "]";
 	}
 }

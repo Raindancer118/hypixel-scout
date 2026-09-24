@@ -13,6 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -63,9 +64,66 @@ public final class CheatWatch {
 	 * The limits the player may move: reach standing and moving (blocks), speed (blocks a tick over a
 	 * second), FastPlace (blocks a second) and backwards bridging (blocks a tick).
 	 */
-	public record Tuning(double reachStanding, double reachMoving, double speedLimit, int fastPlaceLimit,
-			double bridgeSpeed) {
+	public static final class Tuning {
 		public static final Tuning DEFAULT = new Tuning(3.2, 3.8, 12.4 / 20, 13, 5.0 / 20);
+
+		private final double reachStanding;
+		private final double reachMoving;
+		private final double speedLimit;
+		private final int fastPlaceLimit;
+		private final double bridgeSpeed;
+
+		public Tuning(double reachStanding, double reachMoving, double speedLimit, int fastPlaceLimit,
+				double bridgeSpeed) {
+			this.reachStanding = reachStanding;
+			this.reachMoving = reachMoving;
+			this.speedLimit = speedLimit;
+			this.fastPlaceLimit = fastPlaceLimit;
+			this.bridgeSpeed = bridgeSpeed;
+		}
+
+		public double reachStanding() {
+			return reachStanding;
+		}
+
+		public double reachMoving() {
+			return reachMoving;
+		}
+
+		public double speedLimit() {
+			return speedLimit;
+		}
+
+		public int fastPlaceLimit() {
+			return fastPlaceLimit;
+		}
+
+		public double bridgeSpeed() {
+			return bridgeSpeed;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Tuning)) return false;
+			Tuning other = (Tuning) obj;
+			return fastPlaceLimit == other.fastPlaceLimit
+					&& Double.doubleToLongBits(reachStanding) == Double.doubleToLongBits(other.reachStanding)
+					&& Double.doubleToLongBits(reachMoving) == Double.doubleToLongBits(other.reachMoving)
+					&& Double.doubleToLongBits(speedLimit) == Double.doubleToLongBits(other.speedLimit)
+					&& Double.doubleToLongBits(bridgeSpeed) == Double.doubleToLongBits(other.bridgeSpeed);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(reachStanding, reachMoving, speedLimit, fastPlaceLimit, bridgeSpeed);
+		}
+
+		@Override
+		public String toString() {
+			return "Tuning[reachStanding=" + reachStanding + ", reachMoving=" + reachMoving + ", speedLimit="
+					+ speedLimit + ", fastPlaceLimit=" + fastPlaceLimit + ", bridgeSpeed=" + bridgeSpeed + "]";
+		}
 	}
 
 	/** Frames kept per player: three seconds. */
@@ -163,28 +221,306 @@ public final class CheatWatch {
 		}
 	}
 
-	private record Swing(String player, long tick) {
+	private static final class Swing {
+		private final String player;
+		private final long tick;
+
+		Swing(String player, long tick) {
+			this.player = player;
+			this.tick = tick;
+		}
+
+		String player() {
+			return player;
+		}
+
+		long tick() {
+			return tick;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Swing)) return false;
+			Swing other = (Swing) obj;
+			return tick == other.tick && Objects.equals(player, other.player);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(player, tick);
+		}
+
+		@Override
+		public String toString() {
+			return "Swing[player=" + player + ", tick=" + tick + "]";
+		}
 	}
 
 	/**
 	 * @param prevHurt when the victim was hurt before this, for the invulnerability gap
 	 */
-	private record Hurt(String victim, long tick, Hit hit, String cause, long prevHurt) {
+	private static final class Hurt {
+		private final String victim;
+		private final long tick;
+		private final Hit hit;
+		private final String cause;
+		private final long prevHurt;
+
+		Hurt(String victim, long tick, Hit hit, String cause, long prevHurt) {
+			this.victim = victim;
+			this.tick = tick;
+			this.hit = hit;
+			this.cause = cause;
+			this.prevHurt = prevHurt;
+		}
+
+		String victim() {
+			return victim;
+		}
+
+		long tick() {
+			return tick;
+		}
+
+		Hit hit() {
+			return hit;
+		}
+
+		String cause() {
+			return cause;
+		}
+
+		long prevHurt() {
+			return prevHurt;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Hurt)) return false;
+			Hurt other = (Hurt) obj;
+			return tick == other.tick && prevHurt == other.prevHurt && hit == other.hit
+					&& Objects.equals(victim, other.victim) && Objects.equals(cause, other.cause);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(victim, tick, hit, cause, prevHurt);
+		}
+
+		@Override
+		public String toString() {
+			return "Hurt[victim=" + victim + ", tick=" + tick + ", hit=" + hit + ", cause=" + cause
+					+ ", prevHurt=" + prevHurt + "]";
+		}
 	}
 
-	private record Attack(String attacker, String victim, long tick) {
+	private static final class Attack {
+		private final String attacker;
+		private final String victim;
+		private final long tick;
+
+		Attack(String attacker, String victim, long tick) {
+			this.attacker = attacker;
+			this.victim = victim;
+			this.tick = tick;
+		}
+
+		String attacker() {
+			return attacker;
+		}
+
+		String victim() {
+			return victim;
+		}
+
+		long tick() {
+			return tick;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Attack)) return false;
+			Attack other = (Attack) obj;
+			return tick == other.tick && Objects.equals(attacker, other.attacker)
+					&& Objects.equals(victim, other.victim);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(attacker, victim, tick);
+		}
+
+		@Override
+		public String toString() {
+			return "Attack[attacker=" + attacker + ", victim=" + victim + ", tick=" + tick + "]";
+		}
 	}
 
-	private record Knockback(String victim, String attacker, long tick, long prevHurt) {
+	private static final class Knockback {
+		private final String victim;
+		private final String attacker;
+		private final long tick;
+		private final long prevHurt;
+
+		Knockback(String victim, String attacker, long tick, long prevHurt) {
+			this.victim = victim;
+			this.attacker = attacker;
+			this.tick = tick;
+			this.prevHurt = prevHurt;
+		}
+
+		String victim() {
+			return victim;
+		}
+
+		String attacker() {
+			return attacker;
+		}
+
+		long tick() {
+			return tick;
+		}
+
+		long prevHurt() {
+			return prevHurt;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Knockback)) return false;
+			Knockback other = (Knockback) obj;
+			return tick == other.tick && prevHurt == other.prevHurt && Objects.equals(victim, other.victim)
+					&& Objects.equals(attacker, other.attacker);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(victim, attacker, tick, prevHurt);
+		}
+
+		@Override
+		public String toString() {
+			return "Knockback[victim=" + victim + ", attacker=" + attacker + ", tick=" + tick
+					+ ", prevHurt=" + prevHurt + "]";
+		}
 	}
 
-	private record SprintHit(String attacker, long tick) {
+	private static final class SprintHit {
+		private final String attacker;
+		private final long tick;
+
+		SprintHit(String attacker, long tick) {
+			this.attacker = attacker;
+			this.tick = tick;
+		}
+
+		String attacker() {
+			return attacker;
+		}
+
+		long tick() {
+			return tick;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof SprintHit)) return false;
+			SprintHit other = (SprintHit) obj;
+			return tick == other.tick && Objects.equals(attacker, other.attacker);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(attacker, tick);
+		}
+
+		@Override
+		public String toString() {
+			return "SprintHit[attacker=" + attacker + ", tick=" + tick + "]";
+		}
 	}
 
-	private record Placement(BedDefense.Cell cell, long tick, boolean thrown) {
+	private static final class Placement {
+		private final BedDefense.Cell cell;
+		private final long tick;
+		private final boolean thrown;
+
+		Placement(BedDefense.Cell cell, long tick, boolean thrown) {
+			this.cell = cell;
+			this.tick = tick;
+			this.thrown = thrown;
+		}
+
+		BedDefense.Cell cell() {
+			return cell;
+		}
+
+		long tick() {
+			return tick;
+		}
+
+		boolean thrown() {
+			return thrown;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Placement)) return false;
+			Placement other = (Placement) obj;
+			return tick == other.tick && thrown == other.thrown && Objects.equals(cell, other.cell);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(cell, tick, thrown);
+		}
+
+		@Override
+		public String toString() {
+			return "Placement[cell=" + cell + ", tick=" + tick + ", thrown=" + thrown + "]";
+		}
 	}
 
-	private record Blast(Vec centre, long tick) {
+	private static final class Blast {
+		private final Vec centre;
+		private final long tick;
+
+		Blast(Vec centre, long tick) {
+			this.centre = centre;
+			this.tick = tick;
+		}
+
+		Vec centre() {
+			return centre;
+		}
+
+		long tick() {
+			return tick;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Blast)) return false;
+			Blast other = (Blast) obj;
+			return tick == other.tick && Objects.equals(centre, other.centre);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(centre, tick);
+		}
+
+		@Override
+		public String toString() {
+			return "Blast[centre=" + centre + ", tick=" + tick + "]";
+		}
 	}
 
 	private final Map<String, Track> tracks = new HashMap<>();
@@ -477,7 +813,7 @@ public final class CheatWatch {
 			if (candidates.size() != 1) {
 				return;
 			}
-			attacker = candidates.getFirst();
+			attacker = candidates.get(0);
 		}
 		if (attacker.equals(self)) {
 			knockbacks.add(new Knockback(hurt.victim(), self, hurt.tick(), hurt.prevHurt()));
@@ -557,7 +893,7 @@ public final class CheatWatch {
 			if (distance < 1e-6) {
 				return 0;
 			}
-			double angle = Math.toDegrees(Math.acos(Math.clamp(towards.scale(1 / distance).dot(a.look()), -1, 1)));
+			double angle = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, towards.scale(1 / distance).dot(a.look())))));
 			double edge = Math.toDegrees(Math.atan2(0.5, distance));
 			double off = Math.max(0, angle - edge);
 			best = any ? Math.min(best, off) : off;
@@ -688,7 +1024,7 @@ public final class CheatWatch {
 		if (after == null || from == null) {
 			return null;
 		}
-		Frame before = after.getFirst();
+		Frame before = after.get(0);
 		if (!before.supported() || before.assisted() || before.riding()
 				|| victim.lastHurt > hit.tick() || shovedBetween(victim, hit)) {
 			return null;
@@ -715,7 +1051,7 @@ public final class CheatWatch {
 			return null;
 		}
 
-		double along = after.getLast().feet().subtract(before.feet()).dot(away);
+		double along = after.get(after.size() - 1).feet().subtract(before.feet()).dot(away);
 		double rise = after.stream().mapToDouble(f -> f.feet().y() - before.feet().y()).max().orElse(0);
 		// A 1.8 hit carries a victim about 4.8 times the push over six ticks; a quarter of that, at
 		// most half a block, is what walking into the hit and jumping it can take off.
@@ -848,11 +1184,11 @@ public final class CheatWatch {
 	private void judgeBeds(long tick, Terrain terrain, List<Violation> found) {
 		while (!brokenBeds.isEmpty()) {
 			List<BedDefense.Cell> bed = new ArrayList<>();
-			bed.add(brokenBeds.removeFirst());
+			bed.add(brokenBeds.remove(0));
 			brokenBeds.removeIf(cell -> {
-				boolean half = cell.x() == bed.getFirst().x() && cell.y() == bed.getFirst().y()
-						? Math.abs(cell.z() - bed.getFirst().z()) == 1
-						: cell.z() == bed.getFirst().z() && cell.y() == bed.getFirst().y() && Math.abs(cell.x() - bed.getFirst().x()) == 1;
+				boolean half = cell.x() == bed.get(0).x() && cell.y() == bed.get(0).y()
+						? Math.abs(cell.z() - bed.get(0).z()) == 1
+						: cell.z() == bed.get(0).z() && cell.y() == bed.get(0).y() && Math.abs(cell.x() - bed.get(0).x()) == 1;
 				if (half) {
 					bed.add(cell);
 				}
@@ -863,7 +1199,7 @@ public final class CheatWatch {
 	}
 
 	private void judgeBed(List<BedDefense.Cell> bed, long tick, Terrain terrain, List<Violation> found) {
-		Vec centre = centre(bed.getFirst());
+		Vec centre = centre(bed.get(0));
 		for (Blast blast : blasts) {
 			if (blast.tick() >= tick - 60 && blast.centre().distanceTo(centre) <= BLAST_RADIUS) {
 				return;
@@ -905,7 +1241,7 @@ public final class CheatWatch {
 		List<Frame> using = track.run(tick - 9, tick);
 		if (using != null && track.lastShove < tick - 20 && using.stream().allMatch(Frame::usingItem)
 				&& using.stream().noneMatch(f -> f.assisted() || f.riding())) {
-			double speed = using.getLast().horizontalFrom(using.get(using.size() - 6)) / 5;
+			double speed = using.get(using.size() - 1).horizontalFrom(using.get(using.size() - 6)) / 5;
 			List<Frame> meal = track.run(tick - SPRINT_USE_TICKS + 1, tick);
 			if (speed > 0.18) {
 				add(found, player, Check.NOSLOW,
@@ -962,8 +1298,8 @@ public final class CheatWatch {
 	 * — or rising a tower while going sideways — it is a scaffold, whatever the rotation says.
 	 */
 	private static String backwardsBridge(List<Frame> frames, double limit) {
-		Frame first = frames.getFirst();
-		Frame last = frames.getLast();
+		Frame first = frames.get(0);
+		Frame last = frames.get(frames.size() - 1);
 		if (frames.stream().anyMatch(f -> f.held() != Frame.Held.BLOCK || f.assisted() || f.riding()) || last.pitch() < 50) {
 			return null;
 		}

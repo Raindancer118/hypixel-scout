@@ -1,5 +1,8 @@
 package de.raindancer118.hypixelscout.core;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -15,7 +18,7 @@ public final class BedwarsModes {
 	 * What a quick-queue slot can be set to, in the order the settings cycle through them. The
 	 * first entry is the empty slot, whose key then does nothing.
 	 */
-	public static final List<String> QUEUEABLE = List.of(
+	public static final List<String> QUEUEABLE = Collections.unmodifiableList(Arrays.asList(
 			"",
 			"bedwars_eight_one",
 			"bedwars_eight_two",
@@ -30,10 +33,10 @@ public final class BedwarsModes {
 			"bedwars_four_four_lucky",
 			"bedwars_eight_two_voidless",
 			"bedwars_four_four_voidless",
-			"bedwars_castle");
+			"bedwars_castle"));
 
 	/** The team layouts; anything after them in an id is a variant and is appended as words. */
-	private static final Map<String, String> LAYOUTS = Map.of(
+	private static final Map<String, String> LAYOUTS = unmodifiableMap(
 			"EIGHT_ONE", "Solo",
 			"EIGHT_TWO", "Doubles",
 			"FOUR_THREE", "3v3v3v3",
@@ -44,7 +47,7 @@ public final class BedwarsModes {
 	}
 
 	public static String shortName(String mode) {
-		if (mode == null || mode.isBlank()) {
+		if (mode == null || mode.trim().isEmpty()) {
 			return "";
 		}
 
@@ -68,7 +71,7 @@ public final class BedwarsModes {
 	 * would be team chat anywhere else goes to the whole lobby.
 	 */
 	public static boolean hasTeammates(String mode) {
-		if (mode == null || mode.isBlank()) {
+		if (mode == null || mode.trim().isEmpty()) {
 			return false;
 		}
 
@@ -92,7 +95,7 @@ public final class BedwarsModes {
 		return Integer.MAX_VALUE;
 	}
 
-	private static final Map<String, Integer> SIZES = Map.of(
+	private static final Map<String, Integer> SIZES = unmodifiableMap(
 			"EIGHT_ONE", 1, "EIGHT_TWO", 2, "FOUR_THREE", 3, "FOUR_FOUR", 4, "TWO_FOUR", 4);
 
 	/** {@code CASTLE} → {@code Castle}, {@code LUCKY_V2} → {@code Lucky V2}. */
@@ -104,7 +107,7 @@ public final class BedwarsModes {
 				continue;
 			}
 
-			if (!out.isEmpty()) {
+			if (out.length() != 0) {
 				out.append(' ');
 			}
 
@@ -112,5 +115,27 @@ public final class BedwarsModes {
 		}
 
 		return out.toString();
+	}
+
+	private static Map<String, String> unmodifiableMap(String k1, String v1, String k2, String v2,
+			String k3, String v3, String k4, String v4, String k5, String v5) {
+		Map<String, String> map = new LinkedHashMap<>();
+		map.put(k1, v1);
+		map.put(k2, v2);
+		map.put(k3, v3);
+		map.put(k4, v4);
+		map.put(k5, v5);
+		return Collections.unmodifiableMap(map);
+	}
+
+	private static Map<String, Integer> unmodifiableMap(String k1, int v1, String k2, int v2,
+			String k3, int v3, String k4, int v4, String k5, int v5) {
+		Map<String, Integer> map = new LinkedHashMap<>();
+		map.put(k1, v1);
+		map.put(k2, v2);
+		map.put(k3, v3);
+		map.put(k4, v4);
+		map.put(k5, v5);
+		return Collections.unmodifiableMap(map);
 	}
 }
