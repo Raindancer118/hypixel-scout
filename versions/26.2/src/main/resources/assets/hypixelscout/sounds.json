@@ -4,5 +4,11 @@
 		"sounds": [
 			{ "name": "hypixelscout:missile_inbound", "stream": false }
 		]
+	},
+	"missile_lock": {
+		"subtitle": "subtitles.hypixelscout.missile_lock",
+		"sounds": [
+			{ "name": "hypixelscout:missile_lock", "stream": false }
+		]
 	}
 }

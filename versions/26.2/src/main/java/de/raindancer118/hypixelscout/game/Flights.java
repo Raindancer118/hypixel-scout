@@ -5,6 +5,7 @@ import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.flight.Box;
 import de.raindancer118.hypixelscout.flight.FlightPath;
 import de.raindancer118.hypixelscout.flight.IncomingWatch;
+import de.raindancer118.hypixelscout.flight.LockWatch;
 import de.raindancer118.hypixelscout.flight.MissileAlarm;
 import de.raindancer118.hypixelscout.flight.ProjectileKind;
 import de.raindancer118.hypixelscout.flight.Vec;
@@ -14,6 +15,8 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.projectile.hurtingprojectile.Fireball;
 import net.minecraft.world.item.Items;
@@ -29,7 +32,7 @@ import java.util.function.Supplier;
 
 /**
  * Arrows and fireballs in the air: where each will fly, and whether one of them is about to hit the
- * player.
+ * player — or whether somebody is aiming a fire charge at the player, before anything is thrown.
  *
  * <p>Everything here is read from what the client already has — the entities it was sent and the
  * blocks around them — and fed through the vanilla flight rules in {@link FlightPath}. The warning is
@@ -49,7 +52,9 @@ public final class Flights {
 	private final Roster roster;
 	private final Supplier<ScoutSettings> settings;
 	private final IncomingWatch watch = new IncomingWatch();
+	private final LockWatch lockWatch = new LockWatch();
 	private IncomingWatch.Warning warning;
+	private LockWatch.Lock lock;
 	private MissileTone tone;
 
 	public Flights(Roster roster, Supplier<ScoutSettings> settings) {
@@ -77,24 +82,51 @@ public final class Flights {
 					flying.path(), flying.mine()));
 		}
 
-		warning = watch.update(seen, box(player.getBoundingBox()), vec(player.getEyePosition()),
-				vec(player.getViewVector(1.0f)), Math.cos(halfViewAngle(client))).orElse(null);
+		Box self = box(player.getBoundingBox());
+		Vec eye = vec(player.getEyePosition());
+		Vec look = vec(player.getViewVector(1.0f));
+		double viewCos = Math.cos(halfViewAngle(client));
+		warning = watch.update(seen, self, eye, look, viewCos).orElse(null);
+		lock = options.lock && options.fireballs
+				? lockWatch.update(aimers(client.level, player), self, eye, look, viewCos).orElse(null)
+				: null;
 
-		if (options.sound && MissileAlarm.sounds(warning)) {
-			// Missile inbound: looped until the fireball is no longer a danger, see MissileTone.
-			if (!isToneOn()) {
-				tone = new MissileTone(this::warning, () -> settings.get().projectiles.sound);
-				client.getSoundManager().play(tone);
-			}
-		} else {
+		MissileAlarm.Tone wanted = wantedTone();
+		if (isToneOn() && tone.kind() != wanted) {
 			// The tone stops itself too, but only while the sound engine ticks it.
-			if (isToneOn()) {
-				tone.end();
-			}
-			if (warning != null && warning.fresh() && options.sound) {
-				client.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_PLING.value(), 2.0f, 0.9f));
-			}
+			tone.end();
 		}
+		if (wanted != MissileAlarm.Tone.NONE && !isToneOn()) {
+			// Looped until its warning is over or the other one takes over, see MissileTone.
+			tone = new MissileTone(wanted, this::wantedTone);
+			client.getSoundManager().play(tone);
+		}
+		if (warning != null && warning.fresh() && warning.kind() == ProjectileKind.ARROW && options.sound) {
+			client.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_PLING.value(), 2.0f, 0.9f));
+		}
+	}
+
+	/** The looping tone the current warning and lock call for, with the sound setting applied. */
+	private MissileAlarm.Tone wantedTone() {
+		ScoutSettings.Projectiles options = settings.get().projectiles;
+		return options.sound && options.alarm ? MissileAlarm.tone(warning, lock) : MissileAlarm.Tone.NONE;
+	}
+
+	/**
+	 * Everybody who could have the player locked: another player, not on the player's team, holding
+	 * a fire charge — with where a fireball of theirs would fly.
+	 */
+	private List<LockWatch.Aimer> aimers(ClientLevel level, LocalPlayer self) {
+		List<LockWatch.Aimer> aimers = new ArrayList<>();
+		for (Player other : level.players()) {
+			if (other == self || other.isSpectator() || !other.isAlive() || !holdsFireCharge(other)
+					|| Teams.isOwnTeam(other.getScoreboardName())) {
+				continue;
+			}
+			aimers.add(new LockWatch.Aimer(other.getId(), other.getScoreboardName(), vec(other.getEyePosition()),
+					fireballFrom(level, other, 1.0f)));
+		}
+		return aimers;
 	}
 
 	/** The projectile about to hit the player, or {@code null}. */
@@ -102,8 +134,14 @@ public final class Flights {
 		return warning;
 	}
 
+	/** Who is aiming a fire charge at the player, and at which spot; {@code null} for nobody. */
+	public LockWatch.Lock lock() {
+		return lock;
+	}
+
 	public void reset() {
 		warning = null;
+		lock = null;
 		watch.reset();
 		if (tone != null) {
 			tone.end();
@@ -111,14 +149,19 @@ public final class Flights {
 		}
 	}
 
-	/** Whether the missile-inbound tone is sounding, for the client game test. */
+	/** Whether a looping warning tone is sounding, for the client game test. */
 	public boolean isToneOn() {
 		return tone != null && !tone.isStopped();
 	}
 
-	/** The tone's sound, for the client game test to check it resolves. */
-	public static net.minecraft.resources.Identifier toneId() {
-		return MissileTone.ID;
+	/** Which looping tone is sounding, for the client game test. */
+	public MissileAlarm.Tone toneOn() {
+		return isToneOn() ? tone.kind() : MissileAlarm.Tone.NONE;
+	}
+
+	/** A tone's sound, for the client game test to check it resolves. */
+	public static net.minecraft.resources.Identifier toneId(MissileAlarm.Tone kind) {
+		return MissileTone.id(kind);
 	}
 
 	/**
@@ -162,12 +205,17 @@ public final class Flights {
 			return null;
 		}
 
-		Vec3 look = player.getViewVector(partialTick);
-		return FlightPath.predict(ProjectileKind.FIREBALL, vec(player.getEyePosition(partialTick)), vec(look), 0.1,
-				PATH_TICKS, obstacle(level, player));
+		return fireballFrom(level, player, partialTick);
 	}
 
-	public static boolean holdsFireCharge(LocalPlayer player) {
+	/** A fireball thrown by {@code thrower} right now: straight along their view, from their eyes. */
+	private static FlightPath fireballFrom(ClientLevel level, LivingEntity thrower, float partialTick) {
+		Vec3 look = thrower.getViewVector(partialTick);
+		return FlightPath.predict(ProjectileKind.FIREBALL, vec(thrower.getEyePosition(partialTick)), vec(look), 0.1,
+				PATH_TICKS, obstacle(level, thrower));
+	}
+
+	public static boolean holdsFireCharge(LivingEntity player) {
 		return player.getMainHandItem().is(Items.FIRE_CHARGE) || player.getOffhandItem().is(Items.FIRE_CHARGE);
 	}
 

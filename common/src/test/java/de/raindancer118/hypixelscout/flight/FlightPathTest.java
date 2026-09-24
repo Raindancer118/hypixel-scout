@@ -88,4 +88,16 @@ class FlightPathTest {
 
 		assertThat(path.ticksUntil(new Box(0, 0, 0, 1, 1, 1))).isZero();
 	}
+
+	@Test
+	void wherePathIsPartWayThroughATick() {
+		FlightPath path = FlightPath.predict(ProjectileKind.FIREBALL, Vec.ZERO, new Vec(1, 0, 0), 0, 30, OPEN_AIR);
+		Box box = new Box(2, -1, -1, 3, 1, 1);
+
+		// Exactly where it enters the box: on its near face.
+		assertThat(path.at(path.ticksUntil(box)).x()).isCloseTo(2.0, org.assertj.core.api.Assertions.within(1e-9));
+		assertThat(path.at(0)).isEqualTo(Vec.ZERO);
+		// Past the end it stays at the end.
+		assertThat(path.at(1000)).isEqualTo(path.end());
+	}
 }

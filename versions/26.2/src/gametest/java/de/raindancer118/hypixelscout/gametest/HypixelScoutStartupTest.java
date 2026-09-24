@@ -545,10 +545,11 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			if (mod.flights().flying(client.level, client.player, 1.0f).isEmpty()) {
 				throw new AssertionError("The fireball has no flight path");
 			}
-			if (!mod.flights().isToneOn()) {
+			if (mod.flights().toneOn() != de.raindancer118.hypixelscout.flight.MissileAlarm.Tone.LAUNCH) {
 				throw new AssertionError("No missile-inbound tone for a fireball flying at the player");
 			}
-			if (client.getSoundManager().getSoundEvent(de.raindancer118.hypixelscout.game.Flights.toneId()) == null) {
+			if (client.getSoundManager().getSoundEvent(de.raindancer118.hypixelscout.game.Flights.toneId(
+					de.raindancer118.hypixelscout.flight.MissileAlarm.Tone.LAUNCH)) == null) {
 				throw new AssertionError("The missile-inbound sound is not in sounds.json");
 			}
 		});
@@ -600,6 +601,8 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		context.takeScreenshot("scout_arrow_path");
 		context.runOnClient(client -> client.level.getEntity(525_003).discard());
 
+		assertTargetLock(context, mod);
+
 		// A fire charge in hand, looking down at the floor ahead: the aim line ends on the ground.
 		singleplayer.getServer().runCommand("item replace entity @a weapon.mainhand with fire_charge");
 		context.waitTicks(3);
@@ -623,6 +626,103 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
 		});
+	}
+
+	/**
+	 * Target lock: Sundial, an enemy twelve blocks ahead, aims a fire charge at the player — a lock
+	 * with its own tone and the spot marked on the player; turned away, or without the fire charge,
+	 * none. A teammate aiming one is never a lock. Sundial goes back where the callouts expect him.
+	 */
+	private static void assertTargetLock(ClientGameTestContext context, HypixelScout mod) {
+		java.util.function.BiConsumer<net.minecraft.world.entity.Entity, float[]> face = (entity, rotation) -> {
+			entity.snapTo(entity.getX(), entity.getY(), entity.getZ(), rotation[0], rotation[1]);
+			entity.setYHeadRot(rotation[0]);
+			entity.setOldPosAndRot();
+		};
+
+		context.runOnClient(client -> {
+			var self = client.player;
+			var sundial = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_242);
+			sundial.snapTo(self.getX(), self.getY(), self.getZ() + 12, 180.0f, 0.0f);
+			// From his eyes down to the player's chest.
+			float pitch = (float) Math.toDegrees(Math.atan2(sundial.getEyeY() - (self.getY() + 1.0), 12));
+			face.accept(sundial, new float[] {180.0f, pitch});
+			sundial.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND,
+					new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.FIRE_CHARGE));
+		});
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			var lock = mod.flights().lock();
+			if (lock == null || !lock.name().equals("Sundial")) {
+				throw new AssertionError("No target lock for Sundial aiming a fire charge at the player: " + lock);
+			}
+			if (!de.raindancer118.hypixelscout.game.Flights.hitbox(client.player).inflate(1.0).contains(lock.point())) {
+				throw new AssertionError("The lock does not mark a spot on the player: " + lock.point());
+			}
+			if (mod.flights().toneOn() != de.raindancer118.hypixelscout.flight.MissileAlarm.Tone.LOCK) {
+				throw new AssertionError("No lock tone while locked: " + mod.flights().toneOn());
+			}
+			if (client.getSoundManager().getSoundEvent(de.raindancer118.hypixelscout.game.Flights.toneId(
+					de.raindancer118.hypixelscout.flight.MissileAlarm.Tone.LOCK)) == null) {
+				throw new AssertionError("The lock sound is not in sounds.json");
+			}
+			if (mod.flights().warning() != null) {
+				throw new AssertionError("A missile-inbound warning with nothing thrown");
+			}
+		});
+		context.takeScreenshot("scout_target_lock");
+
+		// He turns aside: the lock and its tone are gone.
+		context.runOnClient(client -> face.accept(client.level.getEntity(424_242), new float[] {120.0f, 0.0f}));
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			if (mod.flights().lock() != null) {
+				throw new AssertionError("A lock with Sundial looking away: " + mod.flights().lock());
+			}
+			if (mod.flights().isToneOn()) {
+				throw new AssertionError("The lock tone outlived the lock");
+			}
+		});
+
+		// Aimed again, but empty-handed: nothing to throw, no lock.
+		context.runOnClient(client -> {
+			var sundial = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_242);
+			float pitch = (float) Math.toDegrees(Math.atan2(sundial.getEyeY() - (client.player.getY() + 1.0), 12));
+			face.accept(sundial, new float[] {180.0f, pitch});
+			sundial.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, net.minecraft.world.item.ItemStack.EMPTY);
+		});
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			if (mod.flights().lock() != null) {
+				throw new AssertionError("A lock without a fire charge");
+			}
+		});
+
+		// The teammate beside the player, fire charge aimed at the player: a friend, never a lock.
+		context.runOnClient(client -> {
+			var self = client.player;
+			var mate = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_243);
+			mate.snapTo(self.getX(), self.getY(), self.getZ() - 10, 0.0f, 0.0f);
+			float pitch = (float) Math.toDegrees(Math.atan2(mate.getEyeY() - (self.getY() + 1.0), 10));
+			face.accept(mate, new float[] {0.0f, pitch});
+			mate.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND,
+					new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.FIRE_CHARGE));
+		});
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			if (mod.flights().lock() != null) {
+				throw new AssertionError("A teammate's fire charge counted as a lock: " + mod.flights().lock());
+			}
+			var self = client.player;
+			var mate = client.level.getEntity(424_243);
+			((net.minecraft.world.entity.player.Player) mate).setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND,
+					net.minecraft.world.item.ItemStack.EMPTY);
+			mate.snapTo(self.getX() + 2.0, self.getY(), self.getZ() - 2.0, 0.0f, 0.0f);
+			var sundial = client.level.getEntity(424_242);
+			sundial.snapTo(self.getX(), self.getY(), self.getZ() + 3.5, 180.0f, 0.0f);
+			((net.minecraft.world.entity.player.Player) sundial).setYHeadRot(180.0f);
+		});
+		context.waitTick();
 	}
 
 	/**

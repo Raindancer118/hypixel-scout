@@ -3,6 +3,7 @@ package de.raindancer118.hypixelscout.ui.world;
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.flight.Box;
 import de.raindancer118.hypixelscout.flight.FlightPath;
+import de.raindancer118.hypixelscout.flight.LockWatch;
 import de.raindancer118.hypixelscout.flight.ProjectileKind;
 import de.raindancer118.hypixelscout.flight.Vec;
 import de.raindancer118.hypixelscout.game.Flights;
@@ -30,6 +31,7 @@ public final class FlightLines {
 	private static final int ARROW = 0xC8FFFFFF;
 	private static final int FIREBALL = 0xD0FF8C1A;
 	private static final int AT_ME = 0xF0FF3B3B;
+	private static final int LOCK = 0xF0FFB020;
 	private static final float WIDTH = 2.5f;
 
 	private final Flights flights;
@@ -47,7 +49,8 @@ public final class FlightLines {
 	private void extract(LevelExtractionContext context) {
 		Minecraft client = Minecraft.getInstance();
 		ScoutSettings.Projectiles options = settings.get().projectiles;
-		if ((!options.paths && !options.aim) || !flights.active(client)) {
+		LockWatch.Lock lock = flights.lock();
+		if ((!options.paths && !options.aim && lock == null) || !flights.active(client)) {
 			return;
 		}
 
@@ -62,6 +65,10 @@ public final class FlightLines {
 					int colour = atMe ? AT_ME : flying.kind() == ProjectileKind.FIREBALL ? FIREBALL : ARROW;
 					drawPath(flying.path(), colour);
 				}
+			}
+
+			if (lock != null) {
+				drawLock(lock);
 			}
 
 			FlightPath aim = flights.aim(context.level(), player, partialTick);
@@ -93,6 +100,18 @@ public final class FlightLines {
 		if (path.blocked()) {
 			marker(end, colour);
 		}
+	}
+
+	/**
+	 * The lock: a line from the one aiming to the spot their fireball would reach — on the player's
+	 * body, or the block it would blow up on — and that spot marked, larger than a path's end.
+	 */
+	private static void drawLock(LockWatch.Lock lock) {
+		Vec3 from = Flights.vec3(lock.from());
+		Vec3 point = Flights.vec3(lock.point());
+		Vec3 start = from.add(point.subtract(from).normalize().scale(0.6)).add(0, -0.12, 0);
+		Gizmos.line(start, point, LOCK, WIDTH);
+		Gizmos.cuboid(new AABB(point, point).inflate(0.35), GizmoStyle.strokeAndFill(LOCK, WIDTH, 0x50FFB020));
 	}
 
 	private static void marker(Vec3 at, int colour) {

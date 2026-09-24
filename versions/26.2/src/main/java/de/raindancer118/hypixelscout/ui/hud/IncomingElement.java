@@ -2,6 +2,7 @@ package de.raindancer118.hypixelscout.ui.hud;
 
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.flight.IncomingWatch;
+import de.raindancer118.hypixelscout.flight.LockWatch;
 import de.raindancer118.hypixelscout.flight.ProjectileKind;
 import de.raindancer118.hypixelscout.game.Flights;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
@@ -20,6 +21,9 @@ import java.util.function.Supplier;
  *
  * <p>Pulses red, and points the way the thing comes from — straight ahead is up, behind is down —
  * so the player knows where to look before they turn.
+ *
+ * <p>Before anything is thrown, the same place shows the lock: amber instead of red, who is aiming
+ * and from which side. Where they aim is marked in the world by {@code FlightLines}.
  */
 public final class IncomingElement implements HudElement {
 	/** Eight arrows around the compass, starting straight ahead and going clockwise. */
@@ -38,14 +42,17 @@ public final class IncomingElement implements HudElement {
 	public void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker delta) {
 		Minecraft client = Minecraft.getInstance();
 		IncomingWatch.Warning warning = flights.warning();
-		if (warning == null || !settings.get().projectiles.alarm || client.player == null
+		LockWatch.Lock lock = flights.lock();
+		if ((warning == null && lock == null) || !settings.get().projectiles.alarm || client.player == null
 				|| client.gui.screen() != null) {
 			return;
 		}
 
-		double bearing = warning.bearing(Flights.vec(client.player.getEyePosition()),
-				Flights.vec(client.player.getViewVector(1.0f)));
-		String text = text(warning, bearing);
+		var eye = Flights.vec(client.player.getEyePosition());
+		var look = Flights.vec(client.player.getViewVector(1.0f));
+		String text = warning != null ? text(warning, warning.bearing(eye, look)) : text(lock, lock.bearing(eye, look));
+		int colour = warning != null ? 0x8A1010 : 0x8A5A00;
+		int rule = warning != null ? ScoutTheme.BAD : 0xFFFFB020;
 
 		int width = ScoutTheme.width(text) + 16;
 		int height = 18;
@@ -55,8 +62,8 @@ public final class IncomingElement implements HudElement {
 		// A slow pulse: bright enough to catch the eye, not a strobe.
 		double phase = (System.currentTimeMillis() % 600) / 600.0;
 		int alpha = (int) (0xA0 + 0x50 * Math.sin(phase * 2 * Math.PI));
-		ScoutTheme.rounded(graphics, x, y, width, height, (alpha << 24) | 0x8A1010);
-		graphics.fill(x + 1, y + height - 2, x + width - 1, y + height - 1, ScoutTheme.BAD);
+		ScoutTheme.rounded(graphics, x, y, width, height, (alpha << 24) | colour);
+		graphics.fill(x + 1, y + height - 2, x + width - 1, y + height - 1, rule);
 		ScoutTheme.textCentred(graphics, text, x + width / 2, y + 5, ScoutTheme.TEXT);
 	}
 
@@ -65,6 +72,11 @@ public final class IncomingElement implements HudElement {
 		String what = I18n.get(warning.kind() == ProjectileKind.FIREBALL
 				? "message.hypixelscout.incoming.fireball" : "message.hypixelscout.incoming.arrow");
 		return "§e⚠ §f§l" + what + " §e" + arrow(bearing) + " §f" + String.format(Locale.ROOT, "%.1f s", warning.seconds());
+	}
+
+	/** {@code ⌖ TARGET LOCK ↗ Sundial}, in the player's language. */
+	public static String text(LockWatch.Lock lock, double bearing) {
+		return "§6⌖ §f§l" + I18n.get("message.hypixelscout.incoming.lock") + " §e" + arrow(bearing) + " §f" + lock.name();
 	}
 
 	/** The arrow for a bearing: 0 ahead, negative to the left, positive to the right. */

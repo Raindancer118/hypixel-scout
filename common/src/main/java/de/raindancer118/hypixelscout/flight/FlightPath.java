@@ -85,6 +85,22 @@ public record FlightPath(List<Vec> points, boolean blocked) {
 		return -1.0;
 	}
 
+	/**
+	 * Where it is after {@code ticks}, fractions included, straight between the tick's two points —
+	 * as {@link #ticksUntil} counts them. Clamped to the path's start and end.
+	 */
+	public Vec at(double ticks) {
+		if (ticks <= 0) {
+			return points.getFirst();
+		}
+		if (ticks >= ticks()) {
+			return end();
+		}
+		int whole = (int) Math.floor(ticks);
+		Vec from = points.get(whole);
+		return from.add(points.get(whole + 1).subtract(from).scale(ticks - whole));
+	}
+
 	/** Where the path ends: the block it hits, or the last point looked at. */
 	public Vec end() {
 		return points.getLast();

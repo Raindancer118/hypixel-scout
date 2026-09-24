@@ -9,11 +9,26 @@ class MissileAlarmTest {
 		return new IncomingWatch.Warning(1, kind, ticks, Vec.ZERO, true);
 	}
 
+	private static final LockWatch.Lock LOCK = new LockWatch.Lock(2, "Enemy", new Vec(0, 1.62, 20), Vec.ZERO, 18, false);
+
 	@Test
 	void onlyAFireballSoundsTheMissileAlarm() {
-		assertThat(MissileAlarm.sounds(warning(ProjectileKind.FIREBALL, 20))).isTrue();
-		assertThat(MissileAlarm.sounds(warning(ProjectileKind.ARROW, 20))).isFalse();
-		assertThat(MissileAlarm.sounds(null)).isFalse();
+		assertThat(MissileAlarm.tone(warning(ProjectileKind.FIREBALL, 20), null)).isEqualTo(MissileAlarm.Tone.LAUNCH);
+		assertThat(MissileAlarm.tone(warning(ProjectileKind.ARROW, 20), null)).isEqualTo(MissileAlarm.Tone.NONE);
+		assertThat(MissileAlarm.tone(null, null)).isEqualTo(MissileAlarm.Tone.NONE);
+	}
+
+	@Test
+	void aFireChargeAimedAtMeSoundsTheLockTone() {
+		assertThat(MissileAlarm.tone(null, LOCK)).isEqualTo(MissileAlarm.Tone.LOCK);
+		// An arrow on its way does not drown the lock: it only pings.
+		assertThat(MissileAlarm.tone(warning(ProjectileKind.ARROW, 20), LOCK)).isEqualTo(MissileAlarm.Tone.LOCK);
+	}
+
+	@Test
+	void aFireballInTheAirOutranksALock() {
+		// Once it is thrown, what matters is the one coming, not the next one being aimed.
+		assertThat(MissileAlarm.tone(warning(ProjectileKind.FIREBALL, 20), LOCK)).isEqualTo(MissileAlarm.Tone.LAUNCH);
 	}
 
 	@Test

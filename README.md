@@ -58,6 +58,16 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   ping. (Synthesised from those numbers by `tools/missile_tone.py`, no third-party audio.) Not for your own, and
   not for one first seen within 3 blocks of your eyes inside your view: thrown in your face, you see
   it anyway. That is judged once, when it appears; one that flew in from afar still counts up close.
+- **Target lock**: before anything is thrown — an enemy holds a fire charge and looks so that a
+  fireball thrown this instant would hit you or blow up within 2.5 blocks of you (their fireball is
+  followed from their eyes along their head's direction, through the blocks, the same way as a real
+  one). The same spot above the crosshair shows an amber **⌖ TARGET LOCK** with the side they stand
+  on and their name; in the world an amber line runs from them to the spot they are aiming at, on
+  you or the block beside you, marked. Its own tone: a steady 1 kHz beep, so beeping means
+  "aiming", warbling means "thrown" — the launch warble takes over once a fireball is on its way.
+  Teammates never lock you; nor does somebody in view within 3 blocks. Head angles reach the client
+  in 1.4° steps, so aiming within half a block of you still counts. Settings → Missiles → Target
+  lock warning.
 - **Fireball aim line**: while you hold a fire charge, the line your fireball would fly if you
   threw it now, and the spot it would hit. Just a line — nothing aims for you.
 - **Callouts** (Settings → Callouts): six messages on keys of your choice, about whoever is under

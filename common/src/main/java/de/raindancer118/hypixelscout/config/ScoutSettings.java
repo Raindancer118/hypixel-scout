@@ -195,6 +195,11 @@ public final class ScoutSettings {
 		public boolean alarm = true;
 		/** A short sound when the warning comes up. */
 		public boolean sound = true;
+		/**
+		 * Target lock: a warning, with a tone of its own, while somebody aims a fire charge at you —
+		 * before they throw it. Part of the alarm; off with it.
+		 */
+		public boolean lock = true;
 		/** While holding a fire charge: the line the fireball would fly if thrown now. */
 		public boolean aim = true;
 		public boolean arrows = true;

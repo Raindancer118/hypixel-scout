@@ -48,10 +48,7 @@ public final class IncomingWatch {
 		 * left, positive to the right, ±180 behind. Height is left out.
 		 */
 		public double bearing(Vec eye, Vec look) {
-			Vec towards = position.subtract(eye);
-			double cross = look.x() * towards.z() - look.z() * towards.x();
-			double dot = look.x() * towards.x() + look.z() * towards.z();
-			return Math.toDegrees(Math.atan2(cross, dot));
+			return IncomingWatch.bearing(position, eye, look);
 		}
 
 		public double seconds() {
@@ -106,19 +103,36 @@ public final class IncomingWatch {
 		warned.clear();
 	}
 
+	/**
+	 * Where {@code position} is as seen from {@code eye} looking along {@code look}, in degrees: 0
+	 * straight ahead, negative to the left, positive to the right, ±180 behind. Height is left out.
+	 */
+	static double bearing(Vec position, Vec eye, Vec look) {
+		Vec towards = position.subtract(eye);
+		double cross = look.x() * towards.z() - look.z() * towards.x();
+		double dot = look.x() * towards.x() + look.z() * towards.z();
+		return Math.toDegrees(Math.atan2(cross, dot));
+	}
+
 	private static double ticksToHit(Seen projectile, Box self) {
-		FlightPath path = projectile.path();
-		double direct = path.ticksUntil(self.inflate(projectile.kind().reach()));
+		return ticksToHit(projectile.kind(), projectile.path(), self);
+	}
+
+	/** Ticks until the path hits the box or blows up close enough to it; negative for neither. */
+	static double ticksToHit(ProjectileKind kind, FlightPath path, Box self) {
+		double direct = path.ticksUntil(self.inflate(kind.reach()));
 		if (direct >= 0) {
 			return direct;
 		}
-
-		boolean blast = path.blocked() && projectile.kind().blast() > 0
-				&& self.distanceTo(path.end()) <= projectile.kind().blast();
-		return blast ? path.ticks() : -1.0;
+		return blastHits(kind, path, self) ? path.ticks() : -1.0;
 	}
 
-	private static boolean inTheFace(Vec position, Vec eye, Vec look, double viewCos) {
+	/** Whether the path ends on a block close enough to the box for the blast to reach it. */
+	static boolean blastHits(ProjectileKind kind, FlightPath path, Box self) {
+		return path.blocked() && kind.blast() > 0 && self.distanceTo(path.end()) <= kind.blast();
+	}
+
+	static boolean inTheFace(Vec position, Vec eye, Vec look, double viewCos) {
 		Vec towards = position.subtract(eye);
 		double distance = towards.length();
 		if (distance > POINT_BLANK) {

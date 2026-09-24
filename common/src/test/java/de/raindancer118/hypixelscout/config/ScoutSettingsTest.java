@@ -57,6 +57,7 @@ class ScoutSettingsTest {
 		assertThat(settings.projectiles.paths).isTrue();
 		assertThat(settings.projectiles.alarm).isTrue();
 		assertThat(settings.projectiles.sound).isTrue();
+		assertThat(settings.projectiles.lock).isTrue();
 		assertThat(settings.projectiles.aim).isTrue();
 		assertThat(settings.projectiles.arrows).isTrue();
 		assertThat(settings.projectiles.fireballs).isTrue();

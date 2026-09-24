@@ -317,6 +317,7 @@ public final class SettingsScreen extends Screen {
 			rows.addChild(toggle("paths", projectiles.paths, value -> projectiles.paths = value));
 			rows.addChild(toggle("incoming", projectiles.alarm, value -> projectiles.alarm = value));
 			rows.addChild(toggle("incoming_sound", projectiles.sound, value -> projectiles.sound = value));
+			rows.addChild(toggle("target_lock", projectiles.lock, value -> projectiles.lock = value));
 			rows.addChild(toggle("fireball_aim", projectiles.aim, value -> projectiles.aim = value));
 			rows.addChild(toggle("arrows", projectiles.arrows, value -> projectiles.arrows = value));
 			rows.addChild(toggle("fireballs", projectiles.fireballs, value -> projectiles.fireballs = value));
