@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, forge-1.8.9 ]
   pull_request:
 
 jobs:
