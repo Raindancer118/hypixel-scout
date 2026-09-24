@@ -59,15 +59,17 @@ public final class CheatWatch {
 		UNKNOWN
 	}
 
+	/**
+	 * The limits the player may move: reach standing and moving (blocks), speed (blocks a tick over a
+	 * second), FastPlace (blocks a second) and backwards bridging (blocks a tick).
+	 */
+	public record Tuning(double reachStanding, double reachMoving, double speedLimit, int fastPlaceLimit,
+			double bridgeSpeed) {
+		public static final Tuning DEFAULT = new Tuning(3.2, 3.8, 12.4 / 20, 13, 5.0 / 20);
+	}
+
 	/** Frames kept per player: three seconds. */
 	private static final int HISTORY = 60;
-	/**
-	 * Eyes to the hitbox grown by 0.1, for a pair that stood still: the client's positions are the
-	 * server's then, so only the margin is allowed on top of three blocks.
-	 */
-	static final double REACH_STANDING = 3.2;
-	/** For a pair on the move, whose positions the client sees up to about 0.7 late. */
-	static final double REACH_MOVING = 3.8;
 	/** A hit this close is plainly within reach, and speaks for the attacker. */
 	private static final double REACH_FAIR = 3.0;
 	private static final double HITBOX_BORDER = 0.1;
@@ -94,12 +96,8 @@ public final class CheatWatch {
 	private static final double BLAST_RADIUS = 8.0;
 	private static final double PLACE_REACH = 5.5;
 	private static final double BED_REACH = 6.5;
-	/** Blocks in a second from one player past which nobody is clicking. */
-	private static final int FASTPLACE_LIMIT = 13;
 	/** Blocks in one tick, close together: a pop-up tower or some other placed structure. */
 	private static final int STRUCTURE_BLOCKS = 4;
-	/** Blocks a tick, over a second: a Speed II sprint-jump is about 0.45. */
-	private static final double SPEED_LIMIT = 0.62;
 	/** A move this long in one tick is a teleport — a pearl, a respawn — not running. */
 	private static final double TELEPORT = 4.0;
 	/** Ticks after a server lag in which nothing is judged: its catch-up is not anybody's movement. */
@@ -202,10 +200,15 @@ public final class CheatWatch {
 	private String self = "";
 	private long lastLag = Long.MIN_VALUE / 2;
 	private Predicate<Check> enabled = check -> true;
+	private Tuning tuning = Tuning.DEFAULT;
 
 	/** The player running the client: a witness, never a suspect. */
 	public void setSelf(String name) {
 		self = name == null ? "" : name;
+	}
+
+	public void setTuning(Tuning limits) {
+		tuning = limits == null ? Tuning.DEFAULT : limits;
 	}
 
 	/** Which checks may report; the others are skipped, sightings and reliefs alike. */
@@ -462,7 +465,7 @@ public final class CheatWatch {
 				if (unsure && !name.equals(self) && offAngle(entry.getValue(), victim, hurt.tick()) > UNSURE_ANGLE) {
 					continue;
 				}
-				if (name.equals(self) && distance <= REACH_MOVING + 0.7) {
+				if (name.equals(self) && distance <= tuning.reachMoving() + 0.7) {
 					// The player's own hit explains it; their knockback on the victim is still worth watching.
 					knockbacks.add(new Knockback(hurt.victim(), self, hurt.tick(), hurt.prevHurt()));
 					return;
@@ -483,7 +486,7 @@ public final class CheatWatch {
 
 		Track track = tracks.get(attacker);
 		double distance = reachDistance(track, victim, hurt.tick());
-		double limit = track.still(hurt.tick()) && victim.still(hurt.tick()) ? REACH_STANDING : REACH_MOVING;
+		double limit = track.still(hurt.tick()) && victim.still(hurt.tick()) ? tuning.reachStanding() : tuning.reachMoving();
 		if (distance > limit && distance <= ATTACK_RANGE) {
 			add(found, attacker, Check.REACH, String.format(Locale.ROOT, "%.1f blocks", distance), hurt.tick());
 		} else if (distance <= REACH_FAIR) {
@@ -807,7 +810,7 @@ public final class CheatWatch {
 			while (!track.placements.isEmpty() && track.placements.peekFirst() <= placement.tick() - 20) {
 				track.placements.removeFirst();
 			}
-			if (track.placements.size() > FASTPLACE_LIMIT) {
+			if (track.placements.size() > tuning.fastPlaceLimit()) {
 				add(found, placer, Check.FASTPLACE, track.placements.size() + " blocks a second", placement.tick());
 			}
 
@@ -928,7 +931,7 @@ public final class CheatWatch {
 		List<Frame> bridge = track.run(tick - 4, tick);
 		if (bridge != null && track.lastShove < tick - 10 && tick - track.lastBridgeFlag >= 20
 				&& track.swungWithin(tick - 3, tick)) {
-			String detail = backwardsBridge(bridge);
+			String detail = backwardsBridge(bridge, tuning.bridgeSpeed());
 			if (detail != null) {
 				track.lastBridgeFlag = tick;
 				add(found, player, Check.SCAFFOLD, detail, tick);
@@ -942,7 +945,7 @@ public final class CheatWatch {
 				travelled += second.get(i).horizontalFrom(second.get(i - 1));
 			}
 			double speed = travelled / 20;
-			if (speed > SPEED_LIMIT) {
+			if (speed > tuning.speedLimit()) {
 				add(found, player, Check.SPEED, String.format(Locale.ROOT, "%.1f blocks/s", speed * 20), tick);
 			}
 		}
@@ -958,7 +961,7 @@ public final class CheatWatch {
 	 * swinging: backwards bridging. Legs do that at up to about 4 blocks a second on the flat; past 5
 	 * — or rising a tower while going sideways — it is a scaffold, whatever the rotation says.
 	 */
-	private static String backwardsBridge(List<Frame> frames) {
+	private static String backwardsBridge(List<Frame> frames, double limit) {
 		Frame first = frames.getFirst();
 		Frame last = frames.getLast();
 		if (frames.stream().anyMatch(f -> f.held() != Frame.Held.BLOCK || f.assisted() || f.riding()) || last.pitch() < 50) {
@@ -978,7 +981,7 @@ public final class CheatWatch {
 		if (cos > Math.cos(Math.toRadians(165)) || speed > 0.5) {
 			return null;
 		}
-		if (Math.abs(rise) < 0.05 && speed > 0.25) {
+		if (Math.abs(rise) < 0.05 && speed > limit) {
 			return String.format(Locale.ROOT, "bridged backwards at %.1f blocks/s", speed * 20);
 		}
 		if (rise > 0.2 && rise < 0.75 && speed > 0.15) {

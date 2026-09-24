@@ -2,6 +2,8 @@ package de.raindancer118.hypixelscout.cheat;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SuspicionTest {
@@ -140,6 +142,33 @@ class SuspicionTest {
 		suspicion.forget("Cheater", null);
 		assertThat(suspicion.flags("Cheater")).isEmpty();
 		assertThat(suspicion.confidence("Cheater")).isZero();
+	}
+
+	@Test
+	void everybodySeenDoingAnythingIsASuspectTheSurestFirstWithEveryCheck() {
+		suspicion.record(new Violation("Maybe", Check.SPEED, "13.0 blocks/s", 5), 1.0);
+		for (int i = 0; i < 4; i++) {
+			suspicion.record(reach(10 + i), 1.0);
+		}
+		suspicion.record(new Violation("Cheater", Check.FLY, "moved in mid-air", 20), 1.0);
+		suspicion.record(Violation.relief("Cheater", Check.AUTOBLOCK, 21), 1.0);
+
+		List<Suspicion.Suspect> suspects = suspicion.suspects();
+		assertThat(suspects).extracting(Suspicion.Suspect::player).containsExactly("Cheater", "Maybe");
+
+		Suspicion.Suspect cheater = suspects.getFirst();
+		assertThat(cheater.flagged()).isTrue();
+		assertThat(cheater.confidence()).isEqualTo(suspicion.confidence("Cheater"));
+		assertThat(cheater.lastTick()).isEqualTo(20);
+		assertThat(cheater.checks()).extracting(Suspicion.Seen::check).containsExactly(Check.REACH, Check.FLY);
+		Suspicion.Seen reach = cheater.checks().getFirst();
+		assertThat(reach.count()).isEqualTo(4);
+		assertThat(reach.flagged()).isTrue();
+		assertThat(reach.detail()).isEqualTo("4.1 blocks");
+		assertThat(reach.tick()).isEqualTo(13);
+		assertThat(cheater.checks().get(1).flagged()).isFalse();
+
+		assertThat(suspects.get(1).flagged()).isFalse();
 	}
 
 	@Test

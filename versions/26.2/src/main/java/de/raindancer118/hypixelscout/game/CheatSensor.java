@@ -166,6 +166,16 @@ public final class CheatSensor {
 		return flags;
 	}
 
+	/** Everybody seen doing anything suspicious this round, the surest first; nobody while detection is off. */
+	public List<Suspicion.Suspect> suspects() {
+		return settings.get().cheats.enabled ? suspicion.suspects() : List.of();
+	}
+
+	/** The tick being played, for how long ago a sighting was. */
+	public long tick() {
+		return tick;
+	}
+
 	/** How sure the mod is that this player cheats, 0 to 1; 0 when detection is off. */
 	public double confidence(String name) {
 		return settings.get().cheats.enabled ? suspicion.confidence(name) : 0;
@@ -321,8 +331,9 @@ public final class CheatSensor {
 		}
 
 		double sensitivity = settings.get().cheats.sensitivity / 100.0;
+		watch.setTuning(settings.get().cheats.tuning());
 		for (Violation violation : watch.endTick(tick, (x, y, z) -> solid(level, new BlockPos(x, y, z)))) {
-			var flag = suspicion.record(violation, sensitivity);
+			var flag = suspicion.record(violation, sensitivity * settings.get().cheats.sensitivityOf(violation.check()) / 100.0);
 			var logging = logging();
 			if (logging != null) {
 				logging.record(violation, suspicion.confidence(violation.player()), settings.get().cheats.sensitivity);

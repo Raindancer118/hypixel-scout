@@ -42,6 +42,7 @@ public final class ScoutCommands {
 				.then(ClientCommands.literal("teams").executes(context -> openTab(mod, ScoutScreen.Page.TEAMS)))
 				.then(ClientCommands.literal("lookup").executes(context -> openTab(mod, ScoutScreen.Page.LOOKUP)))
 				.then(ClientCommands.literal("queue").executes(context -> openTab(mod, ScoutScreen.Page.QUEUE)))
+				.then(ClientCommands.literal("suspects").executes(context -> openTab(mod, ScoutScreen.Page.CHEATS)))
 				.then(ClientCommands.literal("settings").executes(context -> {
 					HypixelScout.open(mod.settingsScreen(null));
 					return 1;

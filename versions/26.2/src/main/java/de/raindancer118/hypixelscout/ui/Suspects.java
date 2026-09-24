@@ -46,6 +46,20 @@ public final class Suspects {
 		return colour + Math.round(confidence * 100) + "%";
 	}
 
+	/** The section-sign colour of a player's Bedwars team, white when there is none. */
+	public static String teamCode(String name) {
+		return switch (de.raindancer118.hypixelscout.game.Teams.of(name).name()) {
+			case "Red" -> "\u00a7c";
+			case "Blue" -> "\u00a79";
+			case "Green" -> "\u00a7a";
+			case "Yellow" -> "\u00a7e";
+			case "Aqua" -> "\u00a7b";
+			case "Pink" -> "\u00a7d";
+			case "Gray" -> "\u00a77";
+			default -> "\u00a7f";
+		};
+	}
+
 	/** {@code ⚠ 91% } in front of a flagged player's nametag; nothing for anybody else. */
 	public static String tagMark(String name) {
 		return of(name).isEmpty() ? "" : MARK + percent(confidence(name)) + " ";

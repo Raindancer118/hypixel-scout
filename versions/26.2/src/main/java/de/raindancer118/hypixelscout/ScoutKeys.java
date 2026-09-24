@@ -51,6 +51,11 @@ public final class ScoutKeys {
 		// Held, not pressed: the stats are up exactly as long as the key is down.
 		peekKey = add("peek", GLFW.GLFW_KEY_R, () -> { });
 		add("settings", GLFW.GLFW_KEY_UNKNOWN, () -> HypixelScout.open(mod.settingsScreen(null)));
+		add("suspects", GLFW.GLFW_KEY_UNKNOWN, () -> {
+			var screen = mod.scoutScreen(null);
+			screen.showPage(de.raindancer118.hypixelscout.ui.screen.ScoutScreen.Page.CHEATS);
+			HypixelScout.open(screen);
+		});
 		add("move_table", GLFW.GLFW_KEY_UNKNOWN, () -> HypixelScout.open(mod.tableEditor(null)));
 		// The profile of whoever is under the crosshair: the one lookup nobody can type fast enough.
 		add("profile_target", GLFW.GLFW_KEY_UNKNOWN, this::profileOfTarget);

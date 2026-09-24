@@ -54,16 +54,16 @@ import java.util.stream.Collectors;
 
 /**
  * The mod's front door: everybody in the game, the teams they make up, a lookup for anybody at all,
- * and the queue slots — four tabs under vanilla's own tab bar, so it sits in the game like one of
+ * the queue slots and the suspected cheaters — five tabs under vanilla's own tab bar, so it sits in the game like one of
  * its menus rather than a program that happens to run inside it.
  *
  * <p>Nothing here waits on the network. Rows are rebuilt from the roster and the cache every tick,
  * which is also what fills them in as the lookups come back while the screen is open.
  */
 public final class ScoutScreen extends Screen {
-	/** The four tabs, in the order the bar shows them. */
+	/** The tabs, in the order the bar shows them. */
 	public enum Page {
-		GAME, TEAMS, LOOKUP, QUEUE;
+		GAME, TEAMS, LOOKUP, QUEUE, CHEATS;
 
 		Component title() {
 			return Component.translatable("message.hypixelscout.page." + name().toLowerCase(Locale.ROOT));
@@ -95,6 +95,7 @@ public final class ScoutScreen extends Screen {
 
 	private EditBox lookupBox;
 	private int teamScroll;
+	private final CheatsPage cheatsPage;
 
 	public ScoutScreen(HypixelScout mod, Screen parent) {
 		super(Component.translatable("message.hypixelscout.title"));
@@ -102,6 +103,7 @@ public final class ScoutScreen extends Screen {
 		this.parent = parent;
 		this.roster = mod.roster();
 		this.stats = mod.stats();
+		this.cheatsPage = new CheatsPage(mod, this);
 	}
 
 	/** Chooses the tab the screen opens on; commands use it to land on the right one. */
@@ -146,6 +148,7 @@ public final class ScoutScreen extends Screen {
 			case TEAMS -> initTeams();
 			case LOOKUP -> initLookup();
 			case QUEUE -> initQueue();
+			case CHEATS -> cheatsPage.init(contentLeft(), contentTop, contentWidth(), contentBottom, this::addRenderableWidget);
 		}
 
 		int footerY = height - FOOTER + 7;
@@ -817,6 +820,9 @@ public final class ScoutScreen extends Screen {
 	@Override
 	public void tick() {
 		syncRows();
+		if (page == Page.CHEATS) {
+			cheatsPage.tick();
+		}
 	}
 
 	@Override
@@ -831,6 +837,7 @@ public final class ScoutScreen extends Screen {
 			case TEAMS -> drawTeams(g);
 			case LOOKUP -> drawLookup(g, mouseX, mouseY);
 			case QUEUE -> drawQueue(g);
+			case CHEATS -> cheatsPage.draw(g);
 		}
 	}
 
@@ -919,6 +926,11 @@ public final class ScoutScreen extends Screen {
 	/** For the client game test: the rows the game tab is showing right now. */
 	public int shownRows() {
 		return gameList == null ? 0 : gameList.children().size();
+	}
+
+	/** For the client game test: the suspects the cheats tab lists. */
+	public int shownSuspects() {
+		return cheatsPage.shownRows();
 	}
 
 	/** For the client game test: the UUID in a given row of the game tab. */

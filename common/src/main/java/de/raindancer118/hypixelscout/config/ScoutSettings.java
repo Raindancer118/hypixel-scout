@@ -18,7 +18,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Every setting the mod has, as {@code config/hypixelscout.json}.
@@ -246,6 +248,33 @@ public final class ScoutSettings {
 		public int sensitivity = 100;
 		/** Every sighting, flag and verdict into a local file, to tune the checks by. */
 		public boolean log = false;
+		/** Percent per check, by its name, on top of {@link #sensitivity}; a check not in here is at 100. */
+		public Map<String, Integer> checkSensitivity = new LinkedHashMap<>();
+		/** The limits, in the units a player thinks in. */
+		public double reachStanding = 3.2;
+		public double reachMoving = 3.8;
+		public double speedPerSecond = 12.4;
+		public int fastPlacePerSecond = 13;
+		public double bridgePerSecond = 5.0;
+		public Hud hud = new Hud();
+
+		public int sensitivityOf(de.raindancer118.hypixelscout.cheat.Check check) {
+			return checkSensitivity.getOrDefault(check.name(), 100);
+		}
+
+		public void setSensitivity(de.raindancer118.hypixelscout.cheat.Check check, int percent) {
+			if (percent == 100) {
+				checkSensitivity.remove(check.name());
+			} else {
+				checkSensitivity.put(check.name(), Math.clamp(percent, MIN_CHEAT_SENSITIVITY, MAX_CHEAT_SENSITIVITY));
+			}
+		}
+
+		public de.raindancer118.hypixelscout.cheat.CheatWatch.Tuning tuning() {
+			return new de.raindancer118.hypixelscout.cheat.CheatWatch.Tuning(reachStanding, reachMoving,
+					speedPerSecond / 20, fastPlacePerSecond, bridgePerSecond / 20);
+		}
+
 		/** The checks switched off, one by one; everything else is watched. */
 		public List<de.raindancer118.hypixelscout.cheat.Check> off = new ArrayList<>();
 
@@ -260,6 +289,22 @@ public final class ScoutSettings {
 			}
 		}
 	}
+
+	/** The suspects in a corner of the screen. */
+	public static final class Hud {
+		public boolean enabled = true;
+		/** Only players with a flag; otherwise everybody from {@link #minPercent} up. */
+		public boolean onlyFlagged = false;
+		public int minPercent = 50;
+		public int maxRows = 5;
+		/** The checks behind each name, not just the confidence. */
+		public boolean showChecks = true;
+		public double scale = 1.0;
+		public TablePlacement placement = DEFAULT_SUSPECTS_PLACEMENT;
+	}
+
+	/** Bottom right, clear of the chat, the hotbar and the scoreboard. */
+	public static final TablePlacement DEFAULT_SUSPECTS_PLACEMENT = new TablePlacement(TableAnchor.BOTTOM_RIGHT, -0.006, -0.1);
 
 	/** Messages on hotkeys, filled in with whoever is aimed at ({@link de.raindancer118.hypixelscout.core.Callout}). */
 	public static final class Callouts {
@@ -347,6 +392,10 @@ public final class ScoutSettings {
 		return file;
 	}
 
+	private static double finiteClamp(double value, double min, double max, double fallback) {
+		return Double.isFinite(value) ? Math.clamp(value, min, max) : fallback;
+	}
+
 	/** Fills in whatever a hand-edited file left out and pulls every number back into range. */
 	void sanitise() {
 		apiKey = apiKey == null ? "" : apiKey.trim();
@@ -394,6 +443,20 @@ public final class ScoutSettings {
 		cheats = cheats == null ? new Cheats() : cheats;
 		cheats.sensitivity = Math.clamp(cheats.sensitivity, MIN_CHEAT_SENSITIVITY, MAX_CHEAT_SENSITIVITY);
 		// A check name this version does not know reads as null; a hand-edited list may repeat one.
+		cheats.checkSensitivity = cheats.checkSensitivity == null ? new LinkedHashMap<>() : new LinkedHashMap<>(cheats.checkSensitivity);
+		cheats.checkSensitivity.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null
+				|| java.util.Arrays.stream(de.raindancer118.hypixelscout.cheat.Check.values()).noneMatch(check -> check.name().equals(entry.getKey())));
+		cheats.checkSensitivity.replaceAll((check, percent) -> Math.clamp(percent, MIN_CHEAT_SENSITIVITY, MAX_CHEAT_SENSITIVITY));
+		cheats.reachStanding = finiteClamp(cheats.reachStanding, 3.0, 4.5, 3.2);
+		cheats.reachMoving = finiteClamp(cheats.reachMoving, 3.0, 5.0, 3.8);
+		cheats.speedPerSecond = finiteClamp(cheats.speedPerSecond, 8.0, 30.0, 12.4);
+		cheats.fastPlacePerSecond = Math.clamp(cheats.fastPlacePerSecond, 8, 30);
+		cheats.bridgePerSecond = finiteClamp(cheats.bridgePerSecond, 3.0, 10.0, 5.0);
+		cheats.hud = cheats.hud == null ? new Hud() : cheats.hud;
+		cheats.hud.minPercent = Math.clamp(cheats.hud.minPercent, 1, 99);
+		cheats.hud.maxRows = Math.clamp(cheats.hud.maxRows, 1, 12);
+		cheats.hud.scale = finiteClamp(cheats.hud.scale, MIN_SCALE, MAX_SCALE, 1.0);
+		cheats.hud.placement = cheats.hud.placement == null ? DEFAULT_SUSPECTS_PLACEMENT : cheats.hud.placement;
 		cheats.off = cheats.off == null ? new ArrayList<>()
 				: new ArrayList<>(new java.util.LinkedHashSet<>(cheats.off.stream().filter(java.util.Objects::nonNull).toList()));
 

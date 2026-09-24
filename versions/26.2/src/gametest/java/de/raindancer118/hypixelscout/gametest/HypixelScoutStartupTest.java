@@ -43,7 +43,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			"key.hypixelscout.queue_1", "key.hypixelscout.queue_9", "key.hypixelscout.queue_random");
 
 	private static final List<String> EXPECTED_SUBCOMMANDS = List.of(
-			"game", "teams", "lookup", "queue", "settings", "move", "table", "party", "refresh", "status", "cheats",
+			"game", "teams", "lookup", "queue", "settings", "move", "table", "party", "refresh", "status", "cheats", "suspects",
 			"testkey", "key", "player", "list", "requeue");
 
 	private record Seat(String team, HypixelStub.Player player) {
@@ -566,6 +566,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 		});
 		context.takeScreenshot("scout_incoming_fireball");
+		cleanShot(context, mod, "scout_incoming_fireball_clean", 1);
 		context.runOnClient(client -> client.level.getEntity(525_001).discard());
 		context.waitTicks(2);
 		context.runOnClient(client -> {
@@ -630,6 +631,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 		});
 		context.takeScreenshot("scout_fireball_aim");
+		cleanShot(context, mod, "scout_fireball_aim_clean", 50);
 		singleplayer.getServer().runCommand("item replace entity @a weapon.mainhand with air");
 		context.waitTicks(3);
 		context.runOnClient(client -> {
@@ -1007,6 +1009,34 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		context.waitTicks(3);
 		context.takeScreenshot("scout_cheat_flags");
 
+		// The cheats tab lists the suspects with the surest chosen; the HUD card shows them in game.
+		context.setScreen(() -> {
+			var screen = mod.scoutScreen(null);
+			screen.showPage(ScoutScreen.Page.CHEATS);
+			return screen;
+		});
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			if (((ScoutScreen) client.gui.screen()).shownSuspects() < 1) {
+				throw new AssertionError("The cheats tab lists nobody although Sundial is flagged");
+			}
+		});
+		context.takeScreenshot("scout_page_cheats");
+		context.setScreen(() -> null);
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			var shown = de.raindancer118.hypixelscout.ui.hud.SuspectsHud.shown(mod.cheats().suspects(), mod.settings().cheats.hud);
+			if (shown.stream().noneMatch(suspect -> suspect.player().equals("Sundial"))) {
+				throw new AssertionError("The suspects card does not show Sundial: " + shown);
+			}
+		});
+		context.takeScreenshot("scout_suspects_hud");
+		context.setScreen(() -> new de.raindancer118.hypixelscout.ui.hud.SuspectsEditorScreen(mod::settings, mod.cheats(),
+				mod::saveSettings, null));
+		context.waitTicks(3);
+		context.takeScreenshot("scout_suspects_editor");
+		context.setScreen(() -> null);
+
 		// A wrong flag, cleared by the player: gone from the mark, written down as a false one.
 		context.runOnClient(client -> client.player.connection.sendCommand("scout cheats wrong Ashenvale velocity"));
 		context.waitTicks(10);
@@ -1043,6 +1073,48 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			place(client.level.getEntity(424_243), before[1][0], before[1][1], before[1][2], (float) before[1][3]);
 		});
 		context.waitTicks(2);
+	}
+
+	/**
+	 * The same moment once more with nothing but the element itself: chat cleared, the look tooltip,
+	 * the proximity popup, the table and the decorated nametags off, the players in front out of
+	 * sight — then all back. {@code settle} ticks let vanilla's item-name popup fade where there is time.
+	 */
+	private static void cleanShot(ClientGameTestContext context, HypixelScout mod, String name, int settle) {
+		boolean[] before = new boolean[4];
+		context.runOnClient(client -> {
+			before[0] = mod.settings().tooltip.enabled;
+			before[1] = mod.settings().nametag.stars;
+			before[2] = mod.table().isOpen();
+			before[3] = mod.settings().proximity.enabled;
+			mod.settings().proximity.enabled = false;
+			mod.settings().tooltip.enabled = false;
+			mod.settings().nametag.stars = false;
+			mod.table().close();
+			client.gui.hud.getChat().clearMessages(false);
+			for (int id : new int[] {424_242, 424_243}) {
+				var entity = client.level.getEntity(id);
+				if (entity != null) {
+					entity.setInvisible(true);
+				}
+			}
+		});
+		context.waitTicks(settle);
+		context.takeScreenshot(name);
+		context.runOnClient(client -> {
+			mod.settings().tooltip.enabled = before[0];
+			mod.settings().nametag.stars = before[1];
+			mod.settings().proximity.enabled = before[3];
+			if (before[2]) {
+				mod.table().toggle();
+			}
+			for (int id : new int[] {424_242, 424_243}) {
+				var entity = client.level.getEntity(id);
+				if (entity != null) {
+					entity.setInvisible(false);
+				}
+			}
+		});
 	}
 
 	private static void place(net.minecraft.world.entity.Entity entity, double x, double y, double z, float yaw) {
@@ -1094,6 +1166,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 		});
 		context.takeScreenshot("scout_target_lock");
+		cleanShot(context, mod, "scout_target_lock_clean", 1);
 
 		// He turns aside: the lock and its tone are gone.
 		context.runOnClient(client -> face.accept(client.level.getEntity(424_242), new float[] {120.0f, 0.0f}));

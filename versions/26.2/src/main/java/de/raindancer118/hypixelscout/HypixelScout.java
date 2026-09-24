@@ -175,6 +175,8 @@ public final class HypixelScout implements ClientModInitializer {
 		HudElementRegistry.attachElementAfter(id("incoming"), id("hazards"), new HazardElement(hazards, () -> settings));
 		cheats = new CheatSensor(roster, () -> settings);
 		Suspects.use(name -> settings.cheats.mark ? cheats.flags(name) : java.util.List.of(), cheats::confidence);
+		HudElementRegistry.attachElementBefore(id("peek"), id("suspects"),
+				new de.raindancer118.hypixelscout.ui.hud.SuspectsElement(cheats, () -> settings, roster).hideWhile(() -> peek.isHeld()));
 		HudElementRegistry.replaceElement(VanillaHudElements.PLAYER_LIST,
 				vanilla -> new TabStatsElement(vanilla, roster, stats, () -> settings));
 

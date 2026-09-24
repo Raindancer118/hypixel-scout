@@ -46,10 +46,25 @@ public final class Suspicion {
 		boolean flagged;
 		/** The most sightings the faded score ever held at once. */
 		double peak;
+		/** When the check last saw something — reliefs do not count. */
+		long lastSeen;
 
 		double confidence(Check check) {
 			return 1 - Math.pow(1 - check.sureness(), peak);
 		}
+	}
+
+	/** One check on one player, for the screens: how often, how sure, flagged or not, the latest evidence. */
+	public record Seen(Check check, int count, double confidence, boolean flagged, String detail, long tick) {
+	}
+
+	/**
+	 * Everything seen on one player this round.
+	 *
+	 * @param lastTick when any of their checks last saw something
+	 * @param checks   the checks that did, the surest first
+	 */
+	public record Suspect(String player, double confidence, boolean flagged, long lastTick, List<Seen> checks) {
 	}
 
 	private final Map<String, Map<Check, Score>> scores = new LinkedHashMap<>();
@@ -73,6 +88,7 @@ public final class Suspicion {
 		score.tick = violation.tick();
 		score.count++;
 		score.detail = violation.detail();
+		score.lastSeen = violation.tick();
 		score.peak = Math.max(score.peak, score.points / violation.check().weight());
 
 		if (!score.flagged && score.points * sensitivity >= FLAG_AT - 1e-9) {
@@ -129,6 +145,32 @@ public final class Suspicion {
 			innocent *= 1 - entry.getValue().confidence(entry.getKey());
 		}
 		return 1 - innocent;
+	}
+
+	/** Everybody seen doing anything suspicious this round, flagged or not, the surest first. */
+	public synchronized List<Suspect> suspects() {
+		List<Suspect> suspects = new ArrayList<>();
+		scores.forEach((player, byCheck) -> {
+			List<Seen> seen = new ArrayList<>();
+			long last = 0;
+			boolean flagged = false;
+			for (Map.Entry<Check, Score> entry : byCheck.entrySet()) {
+				Score score = entry.getValue();
+				if (score.count == 0) {
+					continue;
+				}
+				seen.add(new Seen(entry.getKey(), score.count, score.confidence(entry.getKey()), score.flagged,
+						score.detail, score.lastSeen));
+				last = Math.max(last, score.lastSeen);
+				flagged |= score.flagged;
+			}
+			if (!seen.isEmpty()) {
+				seen.sort(Comparator.comparingDouble(Seen::confidence).reversed().thenComparing(Seen::check));
+				suspects.add(new Suspect(player, confidence(player), flagged, last, List.copyOf(seen)));
+			}
+		});
+		suspects.sort(Comparator.comparingDouble(Suspect::confidence).reversed().thenComparing(Suspect::player));
+		return suspects;
 	}
 
 	/** How often a check was seen on a player, flagged or not. */

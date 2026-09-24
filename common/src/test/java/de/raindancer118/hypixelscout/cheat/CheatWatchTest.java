@@ -298,6 +298,38 @@ class CheatWatchTest {
 	}
 
 	@Test
+	void aTighterMovingLimitCatchesWhatTheDefaultLetsThrough() {
+		watch.setTuning(new CheatWatch.Tuning(3.2, 3.4, CheatWatch.Tuning.DEFAULT.speedLimit(),
+				CheatWatch.Tuning.DEFAULT.fastPlaceLimit(), CheatWatch.Tuning.DEFAULT.bridgeSpeed()));
+		inAChaseAHitFromThreeAndAHalfBlocksIsLag_scene();
+		assertThat(checks()).contains(Check.REACH);
+	}
+
+	@Test
+	void aLooserSpeedLimitLetsAFasterRunnerGo() {
+		watch.setTuning(new CheatWatch.Tuning(3.2, 3.8, 1.0, 13, 0.25));
+		Pose runner = put("Runner", 0, 0, 0);
+		for (int i = 0; i < 30; i++) {
+			runner.z += 0.8;
+			step();
+		}
+		assertThat(checks()).doesNotContain(Check.SPEED);
+	}
+
+	private void inAChaseAHitFromThreeAndAHalfBlocksIsLag_scene() {
+		Pose victim = put("Victim", 0, 0, 180);
+		Pose chaser = put("Chaser", 0, 3.9, 180);
+		for (int i = 0; i < 6; i++) {
+			victim.z -= 0.28;
+			chaser.z -= 0.28;
+			step();
+		}
+		watch.swing("Chaser", tick + 1);
+		watch.hurt("Victim", tick + 1, CheatWatch.Hit.MELEE, null);
+		step();
+	}
+
+	@Test
 	void theSwingAndPushArrivingTogetherNameTheAttackerInACrowd() {
 		put("Victim", 0, 0, 0);
 		put("One", 0, 4.4, 180);

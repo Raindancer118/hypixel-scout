@@ -80,6 +80,11 @@ class ScoutSettingsTest {
 		assertThat(settings.cheats.sensitivity).isEqualTo(100);
 		assertThat(settings.cheats.off).isEmpty();
 		assertThat(settings.cheats.log).isFalse();
+		assertThat(settings.cheats.sensitivityOf(de.raindancer118.hypixelscout.cheat.Check.REACH)).isEqualTo(100);
+		assertThat(settings.cheats.tuning()).isEqualTo(de.raindancer118.hypixelscout.cheat.CheatWatch.Tuning.DEFAULT);
+		assertThat(settings.cheats.hud.enabled).isTrue();
+		assertThat(settings.cheats.hud.minPercent).isEqualTo(50);
+		assertThat(settings.cheats.hud.maxRows).isEqualTo(5);
 		assertThat(settings.cheats.isOn(de.raindancer118.hypixelscout.cheat.Check.REACH)).isTrue();
 		// Six callouts, the first the classic, all into team chat.
 		assertThat(settings.callouts.messages).hasSize(ScoutSettings.CALLOUTS);
@@ -164,6 +169,23 @@ class ScoutSettingsTest {
 				de.raindancer118.hypixelscout.cheat.Check.FLY);
 		assertThat(checks.cheats.isOn(de.raindancer118.hypixelscout.cheat.Check.REACH)).isFalse();
 		assertThat(checks.cheats.isOn(de.raindancer118.hypixelscout.cheat.Check.SPEED)).isTrue();
+		Files.writeString(file, """
+				{ "cheats": { "checkSensitivity": { "REACH": 9000, "NOPE": 50, "FLY": 10 },
+				  "reachStanding": 1.0, "reachMoving": 99, "speedPerSecond": -3, "fastPlacePerSecond": 1000,
+				  "bridgePerSecond": 0, "hud": { "minPercent": 900, "maxRows": 0, "scale": 99 } } }
+				""", StandardCharsets.UTF_8);
+		ScoutSettings tuned = ScoutSettings.load(file);
+		assertThat(tuned.cheats.sensitivityOf(de.raindancer118.hypixelscout.cheat.Check.REACH)).isEqualTo(ScoutSettings.MAX_CHEAT_SENSITIVITY);
+		assertThat(tuned.cheats.sensitivityOf(de.raindancer118.hypixelscout.cheat.Check.FLY)).isEqualTo(ScoutSettings.MIN_CHEAT_SENSITIVITY);
+		assertThat(tuned.cheats.checkSensitivity).doesNotContainKey(null);
+		assertThat(tuned.cheats.reachStanding).isEqualTo(3.0);
+		assertThat(tuned.cheats.reachMoving).isEqualTo(5.0);
+		assertThat(tuned.cheats.speedPerSecond).isEqualTo(8.0);
+		assertThat(tuned.cheats.fastPlacePerSecond).isEqualTo(30);
+		assertThat(tuned.cheats.bridgePerSecond).isEqualTo(3.0);
+		assertThat(tuned.cheats.hud.minPercent).isEqualTo(99);
+		assertThat(tuned.cheats.hud.maxRows).isEqualTo(1);
+		assertThat(tuned.cheats.hud.scale).isEqualTo(ScoutSettings.MAX_SCALE);
 		Files.writeString(file, """
 				{ "cheats": null }
 				""", StandardCharsets.UTF_8);

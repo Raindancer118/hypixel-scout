@@ -126,6 +126,16 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   `CHEATER? YELLOW Sundial 91% sure - Reach x4, Scaffold x8`. Nothing is ever sent by itself (a chat
   macro is bannable), and nothing is reported to Hypixel for you — `/wdr` stays your call.
 
+  **Cheats tab** (`/scout suspects`, or a key of your choice): everybody seen doing anything
+  suspicious this round, the surest first, flagged or merely suspected — and for the chosen one every
+  check with how often it saw something, how sure it is, the latest evidence and how long ago, with
+  **Wrong flag**, **Cheating** and **Profile** buttons and the party/team report. The **suspects card**
+  on the HUD shows the same in a corner (movable and sizeable; only flagged players, or everybody from
+  a confidence of your choice; with or without the checks). **Everything is configurable** under
+  Settings → Cheats → *Checks, limits & HUD…*: each check on its own switch with its own sensitivity,
+  the limits the checks measure against (Reach standing/moving, Speed, FastPlace, backwards bridging),
+  and the card.
+
   **Sighting log** (Settings → Cheats, off by default): every sighting with its measured evidence,
   every flag and a per-round summary go into `logs/hypixelscout/cheats-<date>.jsonl` in the game
   folder, one JSON object a line, at most 5 MB a day, local only. A flag that was wrong: click
