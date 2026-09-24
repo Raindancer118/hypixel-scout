@@ -28,7 +28,7 @@ class CheatLogTest {
 
 	private List<JsonObject> lines() throws IOException {
 		return Files.readAllLines(dir.resolve("cheats-2026-09-24.jsonl"), StandardCharsets.UTF_8).stream()
-				.map(line -> JsonParser.parseString(line).getAsJsonObject()).toList();
+				.map(line -> new JsonParser().parse(line).getAsJsonObject()).toList();
 	}
 
 	@Test

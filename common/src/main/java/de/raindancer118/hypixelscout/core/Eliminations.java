@@ -25,7 +25,7 @@ public final class Eliminations {
 			return null;
 		}
 
-		Matcher matcher = FINAL_KILL.matcher(line.strip());
+		Matcher matcher = FINAL_KILL.matcher(line.trim());
 		return matcher.matches() ? matcher.group(1) : null;
 	}
 

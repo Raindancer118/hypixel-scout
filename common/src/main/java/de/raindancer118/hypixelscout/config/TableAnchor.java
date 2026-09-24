@@ -40,6 +40,6 @@ public enum TableAnchor {
 			return 0;
 		}
 
-		return Math.clamp((long) Math.floor(3.0 * value / size), 0, 2);
+		return (int) Math.max(0, Math.min(2, (long) Math.floor(3.0 * value / size)));
 	}
 }

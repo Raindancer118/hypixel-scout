@@ -15,15 +15,27 @@ public final class Ranks {
 			return "§7";
 		}
 
-		return switch (rank) {
-			case "VIP", "VIP_PLUS" -> "§a";
-			case "MVP", "MVP_PLUS" -> "§b";
-			case "SUPERSTAR" -> "§6";
-			case "YOUTUBER", "ADMIN", "OWNER" -> "§c";
-			case "GAME_MASTER", "MODERATOR" -> "§2";
-			case "HELPER" -> "§9";
-			default -> "§6";
-		};
+		switch (rank) {
+			case "VIP":
+			case "VIP_PLUS":
+				return "§a";
+			case "MVP":
+			case "MVP_PLUS":
+				return "§b";
+			case "SUPERSTAR":
+				return "§6";
+			case "YOUTUBER":
+			case "ADMIN":
+			case "OWNER":
+				return "§c";
+			case "GAME_MASTER":
+			case "MODERATOR":
+				return "§2";
+			case "HELPER":
+				return "§9";
+			default:
+				return "§6";
+		}
 	}
 
 	/** The bracket in front of the name, or an empty string for a player without a rank. */
@@ -32,19 +44,31 @@ public final class Ranks {
 			return "";
 		}
 
-		return switch (rank) {
-			case "VIP" -> "§a[VIP]";
-			case "VIP_PLUS" -> "§a[VIP§6+§a]";
-			case "MVP" -> "§b[MVP]";
-			case "MVP_PLUS" -> "§b[MVP§c+§b]";
-			case "SUPERSTAR" -> "§6[MVP§c++§6]";
-			case "YOUTUBER" -> "§c[§fYOUTUBE§c]";
-			case "ADMIN" -> "§c[ADMIN]";
-			case "OWNER" -> "§c[OWNER]";
-			case "GAME_MASTER" -> "§2[GM]";
-			case "MODERATOR" -> "§2[MOD]";
-			case "HELPER" -> "§9[HELPER]";
-			default -> "";
-		};
+		switch (rank) {
+			case "VIP":
+				return "§a[VIP]";
+			case "VIP_PLUS":
+				return "§a[VIP§6+§a]";
+			case "MVP":
+				return "§b[MVP]";
+			case "MVP_PLUS":
+				return "§b[MVP§c+§b]";
+			case "SUPERSTAR":
+				return "§6[MVP§c++§6]";
+			case "YOUTUBER":
+				return "§c[§fYOUTUBE§c]";
+			case "ADMIN":
+				return "§c[ADMIN]";
+			case "OWNER":
+				return "§c[OWNER]";
+			case "GAME_MASTER":
+				return "§2[GM]";
+			case "MODERATOR":
+				return "§2[MOD]";
+			case "HELPER":
+				return "§9[HELPER]";
+			default:
+				return "";
+		}
 	}
 }

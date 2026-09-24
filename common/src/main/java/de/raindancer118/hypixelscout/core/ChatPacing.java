@@ -18,7 +18,7 @@ public final class ChatPacing {
 	}
 
 	public static int ticksBetween(boolean ranked, int configuredTicks) {
-		int ticks = Math.clamp(configuredTicks, MIN_TICKS, MAX_TICKS);
+		int ticks = Math.max(MIN_TICKS, Math.min(MAX_TICKS, configuredTicks));
 		return ranked ? ticks : Math.max(ticks, UNRANKED_TICKS);
 	}
 }

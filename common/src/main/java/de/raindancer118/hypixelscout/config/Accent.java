@@ -28,7 +28,7 @@ public enum Accent {
 
 	/** The same colour with its alpha replaced, for rules and highlights that must not shout. */
 	public int withAlpha(int alpha) {
-		return (Math.clamp(alpha, 0, 255) << 24) | (argb & 0xFFFFFF);
+		return (Math.max(0, Math.min(255, alpha)) << 24) | (argb & 0xFFFFFF);
 	}
 
 	/** The chat formatting code closest to it, for text built from section-sign strings. */

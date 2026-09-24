@@ -43,7 +43,7 @@ public final class GameStart {
 		}
 
 		for (String line : message.split("\n")) {
-			if (line.strip().equals(START_LINE)) {
+			if (line.trim().equals(START_LINE)) {
 				return true;
 			}
 		}

@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class BedwarsStatsParserTest {
 	private static JsonObject json(String raw) {
-		return JsonParser.parseString(raw).getAsJsonObject();
+		return new JsonParser().parse(raw).getAsJsonObject();
 	}
 
 	@Test

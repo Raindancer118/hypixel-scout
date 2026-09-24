@@ -155,7 +155,7 @@ public final class HypixelClient implements StatsSource {
 				body.append(line);
 			}
 
-			return JsonParser.parseString(body.toString()).getAsJsonObject();
+			return new JsonParser().parse(body.toString()).getAsJsonObject();
 		} catch (RuntimeException e) {
 			throw new IOException("Hypixel sent something that is not JSON", e);
 		} finally {

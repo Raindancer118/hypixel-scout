@@ -28,7 +28,40 @@ public final class KeyCheck {
 	}
 
 	/** @param detail the account name on success, otherwise the reason given, or {@code ""} */
-	public record Result(Outcome outcome, String detail) {
+	public static final class Result {
+		private final Outcome outcome;
+		private final String detail;
+
+		public Result(Outcome outcome, String detail) {
+			this.outcome = outcome;
+			this.detail = detail;
+		}
+
+		public Outcome outcome() {
+			return outcome;
+		}
+
+		public String detail() {
+			return detail;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Result)) return false;
+			Result other = (Result) obj;
+			return outcome == other.outcome && java.util.Objects.equals(detail, other.detail);
+		}
+
+		@Override
+		public int hashCode() {
+			return java.util.Objects.hash(outcome, detail);
+		}
+
+		@Override
+		public String toString() {
+			return "Result[outcome=" + outcome + ", detail=" + detail + "]";
+		}
 	}
 
 	private KeyCheck() {
@@ -50,11 +83,15 @@ public final class KeyCheck {
 	}
 
 	private static Outcome classify(HypixelApiException e) {
-		return switch (e.getStatusCode()) {
-			case HypixelApiException.NO_RESPONSE -> Outcome.UNREACHABLE;
-			case 403 -> Outcome.INVALID_KEY;
-			case 429 -> Outcome.RATE_LIMITED;
-			default -> Outcome.FAILED;
-		};
+		int statusCode = e.getStatusCode();
+		if (statusCode == HypixelApiException.NO_RESPONSE) {
+			return Outcome.UNREACHABLE;
+		} else if (statusCode == 403) {
+			return Outcome.INVALID_KEY;
+		} else if (statusCode == 429) {
+			return Outcome.RATE_LIMITED;
+		} else {
+			return Outcome.FAILED;
+		}
 	}
 }

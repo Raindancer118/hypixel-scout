@@ -14,16 +14,31 @@ java {
 	targetCompatibility = JavaVersion.VERSION_25
 }
 
-tasks.withType(JavaCompile).configureEach {
-	it.options.release = 25
-	it.options.encoding = 'UTF-8'
+// Main classes are consumed by a Forge 1.8.9 module that runs on Java 8 with Gson 2.2.4 (what
+// Minecraft 1.8.9 ships), next to the Fabric 26.2 module on the current toolchain. Only
+// compileJava is pinned to release 8; compileTestJava stays on the toolchain default so the
+// existing JUnit 5 test sources need no rewrite, but they still exercise the Java-8-compiled main
+// classes and the same old Gson, so no newer API sneaks in through either side.
+tasks.named('compileJava', JavaCompile) {
+	options.release = 8
+	options.encoding = 'UTF-8'
+	options.compilerArgs << '-Xlint:-options'
+}
+
+tasks.named('compileTestJava', JavaCompile) {
+	options.release = 25
+	options.encoding = 'UTF-8'
 }
 
 dependencies {
-	// Provided by the game; compiled against, never bundled.
-	compileOnly "com.google.code.gson:gson:${project.gson_version}"
+	// Provided by the game; compiled against, never bundled. Pinned to 2.2.4 (not the shared
+	// gson_version) because that is exactly what Minecraft 1.8.9 ships on the Forge side.
+	compileOnly 'com.google.code.gson:gson:2.2.4'
 
-	testImplementation "com.google.code.gson:gson:${project.gson_version}"
+	// Tests run against the same old Gson so no 2.9+/2.10+/2.11+ API can slip into main code
+	// unnoticed. 2.2.4 is also what versions/26.2 (via the game) provides, so it's the true
+	// runtime shape from both consumers' point of view.
+	testImplementation 'com.google.code.gson:gson:2.2.4'
 	testImplementation "org.junit.jupiter:junit-jupiter:${project.junit_version}"
 	testImplementation "org.assertj:assertj-core:${project.assertj_version}"
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -28,7 +29,40 @@ public final class Roster {
 	private static final Pattern PLAYER_NAME = Pattern.compile("^\\w{3,16}$");
 
 	/** A player in the game: the name on their nametag and the UUID the server gave for it. */
-	public record Member(String name, UUID uuid) {
+	public static final class Member {
+		private final String name;
+		private final UUID uuid;
+
+		public Member(String name, UUID uuid) {
+			this.name = name;
+			this.uuid = uuid;
+		}
+
+		public String name() {
+			return name;
+		}
+
+		public UUID uuid() {
+			return uuid;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (!(obj instanceof Member)) return false;
+			Member other = (Member) obj;
+			return Objects.equals(name, other.name) && Objects.equals(uuid, other.uuid);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(name, uuid);
+		}
+
+		@Override
+		public String toString() {
+			return "Member[name=" + name + ", uuid=" + uuid + "]";
+		}
 	}
 
 	private final StatsService stats;

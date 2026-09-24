@@ -64,7 +64,7 @@ public final class Aim {
 		double rayHeight = horizontalLook < 1.0e-9
 				? (targetBottom + targetTop) / 2
 				: eyeY + lookY * horizontalDistance / horizontalLook;
-		return Math.clamp(rayHeight, targetBottom, targetTop);
+		return Math.max(targetBottom, Math.min(targetTop, rayHeight));
 	}
 
 	/** The comparison happens in cosines, so the configured angle is converted once. */
