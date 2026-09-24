@@ -26,6 +26,10 @@ jobs:
         # A real client, a staged Bedwars game, every screen photographed.
         run: xvfb-run -a ./gradlew -p versions/26.2 runClientGameTest
 
+      # LWJGL 2 reads the display modes by running xrandr; without it the client dies at startup.
+      - name: xrandr for LWJGL 2
+        run: sudo apt-get update -q && sudo apt-get install -y -q x11-xserver-utils
+
       # LWJGL 2 finds no display mode on Xvfb's default 8-bit screen (Ubuntu's xvfb-run default),
       # so the 1.8.9 clients get an explicit 24-bit one.
       - name: Client startup test (1.8.9)

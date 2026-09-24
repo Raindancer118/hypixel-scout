@@ -36,6 +36,10 @@ jobs:
         run: ./gradlew -p common build && ./gradlew -p versions/1.8.9 build
 
       # A green build does not prove the mod loads, so both client tests gate the release.
+      # LWJGL 2 reads the display modes by running xrandr; without it the client dies at startup.
+      - name: xrandr for LWJGL 2
+        run: sudo apt-get update -q && sudo apt-get install -y -q x11-xserver-utils
+
       - name: Client startup test (1.8.9)
         run: xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew -p versions/1.8.9 runClientStartupTest
 
