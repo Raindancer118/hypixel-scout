@@ -95,7 +95,18 @@ public final class ScoutCommands {
 						.then(ClientCommands.literal("team").executes(context -> {
 							mod.partyReport().sendCheats(PartyReport.Channel.TEAM, mod.cheats().suspicion());
 							return 1;
-						})))
+						}))
+						.then(ClientCommands.literal("wrong")
+								.then(ClientCommands.argument("player", StringArgumentType.word())
+										.suggests((context, builder) -> SharedSuggestionProvider.suggest(flaggedPlayers(mod), builder))
+										.executes(context -> verdict(context, mod, false, false))
+										.then(ClientCommands.argument("check", StringArgumentType.word())
+												.suggests((context, builder) -> SharedSuggestionProvider.suggest(checkNames(), builder))
+												.executes(context -> verdict(context, mod, false, true)))))
+						.then(ClientCommands.literal("right")
+								.then(ClientCommands.argument("player", StringArgumentType.word())
+										.suggests((context, builder) -> SharedSuggestionProvider.suggest(flaggedPlayers(mod), builder))
+										.executes(context -> verdict(context, mod, true, false)))))
 				.then(ClientCommands.literal("testkey").executes(context -> {
 					context.getSource().sendFeedback(Chat.prefixed(
 							Component.translatable("message.hypixelscout.key.checking")));
@@ -206,6 +217,45 @@ public final class ScoutCommands {
 			source.sendFeedback(Chat.prefixed(Component.literal(line.toString())));
 		}
 		source.sendFeedback(Chat.prefixed(de.raindancer118.hypixelscout.game.CheatSensor.reportLinks()));
+		return 1;
+	}
+
+	private static java.util.stream.Stream<String> flaggedPlayers(HypixelScout mod) {
+		return mod.cheats().suspicion().flagged().stream().map(flag -> flag.player()).distinct();
+	}
+
+	private static java.util.stream.Stream<String> checkNames() {
+		return java.util.Arrays.stream(de.raindancer118.hypixelscout.cheat.Check.values())
+				.map(check -> check.name().toLowerCase(Locale.ROOT));
+	}
+
+	/** {@code /scout cheats wrong <player> [check]} and {@code /scout cheats right <player>}. */
+	private static int verdict(CommandContext<FabricClientCommandSource> context, HypixelScout mod, boolean cheating,
+			boolean withCheck) {
+		var source = context.getSource();
+		String player = StringArgumentType.getString(context, "player");
+		de.raindancer118.hypixelscout.cheat.Check check = null;
+		if (withCheck) {
+			String name = StringArgumentType.getString(context, "check");
+			try {
+				check = de.raindancer118.hypixelscout.cheat.Check.valueOf(name.toUpperCase(Locale.ROOT));
+			} catch (IllegalArgumentException e) {
+				source.sendError(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.unknown_check", name)));
+				return 0;
+			}
+		}
+
+		var flags = mod.cheats().verdict(player, check, cheating);
+		if (flags.isEmpty()) {
+			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.not_flagged", player)));
+		} else {
+			String checks = flags.stream().map(flag -> flag.check().label()).collect(java.util.stream.Collectors.joining(", "));
+			source.sendFeedback(Chat.prefixed(Component.translatable(cheating
+					? "message.hypixelscout.cheat.confirmed" : "message.hypixelscout.cheat.cleared", player, checks)));
+		}
+		if (!mod.settings().cheats.log) {
+			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.not_logged")));
+		}
 		return 1;
 	}
 

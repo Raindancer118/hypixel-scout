@@ -137,6 +137,15 @@ public final class Suspicion {
 		return score == null ? 0 : score.count;
 	}
 
+	/** A flag the player says was wrong: this check of this player, or all of theirs for {@code null}. */
+	public synchronized void forget(String player, Check check) {
+		if (check == null) {
+			scores.remove(player);
+		} else {
+			scores.getOrDefault(player, new LinkedHashMap<>()).remove(check);
+		}
+	}
+
 	/** A check switched off: its sightings and flags go, for everybody. */
 	public synchronized void forget(Check check) {
 		for (Map<Check, Score> byCheck : scores.values()) {

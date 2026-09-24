@@ -126,6 +126,23 @@ class SuspicionTest {
 	}
 
 	@Test
+	void aWrongFlagIsClearedForThatPlayerAlone() {
+		for (int i = 0; i < 4; i++) {
+			suspicion.record(reach(i), 1.0);
+			suspicion.record(new Violation("Other", Check.REACH, "", i), 1.0);
+		}
+		suspicion.record(new Violation("Cheater", Check.NUKER, "", 5), 1.0);
+		suspicion.forget("Cheater", Check.REACH);
+
+		assertThat(suspicion.flags("Cheater")).extracting(Suspicion.Flag::check).containsExactly(Check.NUKER);
+		assertThat(suspicion.flags("Other")).extracting(Suspicion.Flag::check).containsExactly(Check.REACH);
+
+		suspicion.forget("Cheater", null);
+		assertThat(suspicion.flags("Cheater")).isEmpty();
+		assertThat(suspicion.confidence("Cheater")).isZero();
+	}
+
+	@Test
 	void everyFlagOfTheRoundAndAClearSlate() {
 		suspicion.record(new Violation("A", Check.NUKER, "", 1), 1.0);
 		suspicion.record(new Violation("B", Check.NUKER, "", 1), 1.0);

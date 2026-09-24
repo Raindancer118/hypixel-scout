@@ -79,6 +79,7 @@ class ScoutSettingsTest {
 		assertThat(settings.cheats.mark).isTrue();
 		assertThat(settings.cheats.sensitivity).isEqualTo(100);
 		assertThat(settings.cheats.off).isEmpty();
+		assertThat(settings.cheats.log).isFalse();
 		assertThat(settings.cheats.isOn(de.raindancer118.hypixelscout.cheat.Check.REACH)).isTrue();
 		// Six callouts, the first the classic, all into team chat.
 		assertThat(settings.callouts.messages).hasSize(ScoutSettings.CALLOUTS);

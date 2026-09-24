@@ -309,6 +309,7 @@ public final class HypixelScout implements ClientModInitializer {
 		proximity.reset();
 		flights.reset();
 		hazards.reset();
+		cheats.endRound();
 		teamsReady = false;
 		requeue.reset();
 		partyReport.cancel();

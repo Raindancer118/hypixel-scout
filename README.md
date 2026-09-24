@@ -126,6 +126,12 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   `CHEATER? YELLOW Sundial 91% sure - Reach x4, Scaffold x8`. Nothing is ever sent by itself (a chat
   macro is bannable), and nothing is reported to Hypixel for you — `/wdr` stays your call.
 
+  **Sighting log** (Settings → Cheats, off by default): every sighting with its measured evidence,
+  every flag and a per-round summary go into `logs/hypixelscout/cheats-<date>.jsonl` in the game
+  folder, one JSON object a line, at most 5 MB a day, local only. A flag that was wrong: click
+  **[✗]** under its alert or `/scout cheats wrong <player> [check]` — cleared and logged as false;
+  `/scout cheats right <player>` logs one as confirmed. That file is what the thresholds get tuned by.
+
   Several checks and thresholds are adapted from two open-source client-side detectors (both MIT):
   [HackerDetector](https://github.com/Alexdoru/MegaWallsEnhancements) by Alexdoru and
   [Iustitia](https://github.com/ThoriaDevelopment/Iustitia).

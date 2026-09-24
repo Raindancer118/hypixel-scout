@@ -866,6 +866,16 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 	private static void assertCheats(ClientGameTestContext context, HypixelScout mod) {
 		double[][] before = new double[2][];
 		int[] base = new int[3];
+		// The sighting log, fresh for this run: everything below should land in it.
+		java.nio.file.Path logDir = mod.cheats().log().dir();
+		try (var old = java.nio.file.Files.exists(logDir) ? java.nio.file.Files.list(logDir) : java.util.stream.Stream.<java.nio.file.Path>empty()) {
+			for (java.nio.file.Path file : old.toList()) {
+				java.nio.file.Files.delete(file);
+			}
+		} catch (java.io.IOException e) {
+			throw new AssertionError("Could not empty the log directory of an earlier run", e);
+		}
+		context.runOnClient(client -> mod.settings().cheats.log = true);
 		context.runOnClient(client -> {
 			var sundial = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_242);
 			var mate = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_243);
@@ -996,6 +1006,32 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		});
 		context.waitTicks(3);
 		context.takeScreenshot("scout_cheat_flags");
+
+		// A wrong flag, cleared by the player: gone from the mark, written down as a false one.
+		context.runOnClient(client -> client.player.connection.sendCommand("scout cheats wrong Ashenvale velocity"));
+		context.waitTicks(10);
+		context.runOnClient(client -> {
+			if (mod.cheats().flags("Ashenvale").stream().anyMatch(f -> f.check() == de.raindancer118.hypixelscout.cheat.Check.VELOCITY)) {
+				throw new AssertionError("/scout cheats wrong did not clear the flag");
+			}
+			String written;
+			try (var files = java.nio.file.Files.list(logDir)) {
+				StringBuilder all = new StringBuilder();
+				for (java.nio.file.Path file : files.toList()) {
+					all.append(java.nio.file.Files.readString(file));
+				}
+				written = all.toString();
+			} catch (java.io.IOException e) {
+				throw new AssertionError("The sighting log was not written", e);
+			}
+			for (String expected : new String[] {"\"event\":\"round\"", "\"event\":\"sighting\",", "\"player\":\"Sundial\",\"check\":\"REACH\"",
+					"\"event\":\"flag\"", "\"event\":\"verdict\"", "\"player\":\"Ashenvale\",\"check\":\"VELOCITY\",\"cheating\":false"}) {
+				if (!written.contains(expected)) {
+					throw new AssertionError("The sighting log lacks " + expected + ":\n" + written);
+				}
+			}
+			mod.settings().cheats.log = false;
+		});
 
 		context.runOnClient(client -> {
 			for (int i = 0; i < 8; i++) {

@@ -361,6 +361,7 @@ public final class SettingsScreen extends Screen {
 					value -> Math.round(value) + "%");
 			sensitivity.setTooltip(Tooltip.create(Component.translatable("message.hypixelscout.settings.cheats.sensitivity.tooltip")));
 			rows.addChild(sensitivity);
+			rows.addChild(toggle("cheats.log", cheats.log, value -> cheats.log = value));
 			rows.addChild(Button.builder(Component.translatable("message.hypixelscout.settings.cheats.checks"),
 							button -> minecraft.gui.setScreen(new CheatChecksScreen(mod, SettingsScreen.this)))
 					.tooltip(Tooltip.create(Component.translatable("message.hypixelscout.settings.cheats.checks.tooltip")))

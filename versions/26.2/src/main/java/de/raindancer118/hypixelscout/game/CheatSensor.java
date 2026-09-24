@@ -68,6 +68,19 @@ public final class CheatSensor {
 	 */
 	private static final long TOGETHER_NANOS = 2_000_000;
 
+	/** Where the sighting log goes when it is on; writes on its own thread. */
+	private final de.raindancer118.hypixelscout.cheat.CheatLog log = new de.raindancer118.hypixelscout.cheat.CheatLog(
+			net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve("logs").resolve("hypixelscout"),
+			de.raindancer118.hypixelscout.core.Clock.SYSTEM,
+			java.util.concurrent.Executors.newSingleThreadExecutor(task -> {
+				Thread thread = new Thread(task, "Hypixel Scout cheat log");
+				thread.setDaemon(true);
+				return thread;
+			}),
+			java.time.ZoneId.systemDefault(), de.raindancer118.hypixelscout.cheat.CheatLog.DEFAULT_MAX_BYTES);
+	/** Whether this round's start is in the log yet: the log may be switched on halfway through. */
+	private boolean roundLogged;
+
 	public CheatSensor(Roster roster, Supplier<ScoutSettings> settings) {
 		this.roster = roster;
 		this.settings = settings;
@@ -110,6 +123,49 @@ public final class CheatSensor {
 		return settings.get().cheats.enabled ? suspicion.flags(name) : List.of();
 	}
 
+	/** The round is over, however it ended: its summary into the log. */
+	public void endRound() {
+		if (roundLogged) {
+			log.roundEnded();
+			roundLogged = false;
+		}
+	}
+
+	public de.raindancer118.hypixelscout.cheat.CheatLog log() {
+		return log;
+	}
+
+	/** The log, with this round's start in it, when it is switched on; else {@code null}. */
+	private de.raindancer118.hypixelscout.cheat.CheatLog logging() {
+		if (!settings.get().cheats.log) {
+			return null;
+		}
+		if (!roundLogged) {
+			log.roundStarted(roster.mode(), roster.map());
+			roundLogged = true;
+		}
+		return log;
+	}
+
+	/**
+	 * The player's verdict on a flag: wrong ({@code cheating} false) clears it and logs it as a false
+	 * one, right logs it as confirmed. {@code check} {@code null} for all of the player's flags.
+	 *
+	 * @return the flags the verdict was about; empty when there were none
+	 */
+	public List<Suspicion.Flag> verdict(String player, de.raindancer118.hypixelscout.cheat.Check check, boolean cheating) {
+		List<Suspicion.Flag> flags = suspicion.flags(player).stream()
+				.filter(flag -> check == null || flag.check() == check).toList();
+		var logging = logging();
+		if (logging != null) {
+			logging.verdict(player, check, cheating, flags, suspicion.confidence(player));
+		}
+		if (!cheating) {
+			suspicion.forget(player, check);
+		}
+		return flags;
+	}
+
 	/** How sure the mod is that this player cheats, 0 to 1; 0 when detection is off. */
 	public double confidence(String name) {
 		return settings.get().cheats.enabled ? suspicion.confidence(name) : 0;
@@ -117,6 +173,7 @@ public final class CheatSensor {
 
 	/** A new game: nobody has done anything yet. */
 	public void newRound() {
+		endRound();
 		watch.clear();
 		suspicion.clear();
 		hurtAt.clear();
@@ -265,7 +322,13 @@ public final class CheatSensor {
 
 		double sensitivity = settings.get().cheats.sensitivity / 100.0;
 		for (Violation violation : watch.endTick(tick, (x, y, z) -> solid(level, new BlockPos(x, y, z)))) {
-			suspicion.record(violation, sensitivity).ifPresent(this::announce);
+			var flag = suspicion.record(violation, sensitivity);
+			var logging = logging();
+			if (logging != null) {
+				logging.record(violation, suspicion.confidence(violation.player()), settings.get().cheats.sensitivity);
+				flag.ifPresent(raised -> logging.flagged(raised, suspicion.confidence(raised.player())));
+			}
+			flag.ifPresent(this::announce);
 		}
 		hurtAt.values().removeIf(at -> at < tick - 20);
 	}
@@ -361,7 +424,9 @@ public final class CheatSensor {
 						Component.literal(flag.check().label()).withColor(0xFF5555),
 						flag.detail(),
 						Component.literal(Suspects.percent(suspicion.confidence(flag.player()))))
-				.append(" ").append(reportLinks()));
+				.append(" ").append(reportLinks())
+				.append(" ").append(link("message.hypixelscout.cheat.wrong",
+						"/scout cheats wrong " + flag.player() + " " + flag.check().name().toLowerCase(java.util.Locale.ROOT))));
 	}
 
 	/** {@code [→ Party] [→ Team]}: a click sends every flag of the round, the way the command does. */

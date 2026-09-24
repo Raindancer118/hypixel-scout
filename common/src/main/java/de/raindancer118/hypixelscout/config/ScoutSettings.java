@@ -244,6 +244,8 @@ public final class ScoutSettings {
 		public boolean mark = true;
 		/** Percent: 100 as designed, higher flags on fewer sightings. */
 		public int sensitivity = 100;
+		/** Every sighting, flag and verdict into a local file, to tune the checks by. */
+		public boolean log = false;
 		/** The checks switched off, one by one; everything else is watched. */
 		public List<de.raindancer118.hypixelscout.cheat.Check> off = new ArrayList<>();
 
