@@ -8,6 +8,7 @@ import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.BedDefense;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.flight.Vec;
+import de.raindancer118.hypixelscout.mixin.LivingEntityAccessor;
 import de.raindancer118.hypixelscout.ui.Chat;
 import de.raindancer118.hypixelscout.ui.Suspects;
 import net.minecraft.client.Minecraft;
@@ -28,6 +29,7 @@ import net.minecraft.world.level.block.WebBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.HashMap;
 import java.util.List;
@@ -336,7 +338,7 @@ public final class CheatSensor {
 
 		double sensitivity = settings.get().cheats.sensitivity / 100.0;
 		watch.setTuning(settings.get().cheats.tuning());
-		for (Violation violation : watch.endTick(tick, (x, y, z) -> solid(level, new BlockPos(x, y, z)))) {
+		for (Violation violation : watch.endTick(tick, new LevelTerrain(level))) {
 			var flag = suspicion.record(violation, sensitivity * settings.get().cheats.sensitivityOf(violation.check()) / 100.0);
 			var logging = logging();
 			if (logging != null) {
@@ -384,11 +386,19 @@ public final class CheatSensor {
 	private Frame frame(ClientLevel level, Player player) {
 		Vec3 feet = player.position();
 		double pitch = player.getXRot();
+		double yaw = player.getYHeadRot();
 		InterpolationHandler interpolation = player.getInterpolation();
 		if (interpolation != null && interpolation.hasActiveInterpolation()) {
 			// Where the server last put them, not the smoothed position drawn on its way there.
 			feet = interpolation.position();
 			pitch = interpolation.xRot();
+		}
+		if (player instanceof LivingEntityAccessor accessor && accessor.hypixelscout$lerpHeadSteps() > 0) {
+			// getYHeadRot() is still lerping towards the last rotation packet for every other player;
+			// the target it is lerping to, not the smoothed value on its way there, is where they
+			// actually looked — the same reasoning the position and pitch interpolation above already
+			// use.
+			yaw = accessor.hypixelscout$lerpYHeadRot();
 		}
 		AABB box = player.getBoundingBox().move(feet.subtract(player.position()));
 		AABB below = new AABB(box.minX, box.minY - 0.1, box.minZ, box.maxX, box.minY, box.maxZ);
@@ -396,7 +406,7 @@ public final class CheatSensor {
 				|| inWeb(level, box);
 
 		return new Frame(tick, Flights.vec(feet), Flights.vec(feet.add(0, player.getEyeHeight(), 0)), Flights.box(box),
-				player.getYHeadRot(), pitch, player.onGround(), !level.noCollision(below), player.isSprinting(),
+				yaw, pitch, player.onGround(), !level.noCollision(below), player.isSprinting(),
 				player.isUsingItem(), assisted, player.isPassenger(), player.isShiftKeyDown(), held(player));
 	}
 
@@ -427,6 +437,42 @@ public final class CheatSensor {
 		}
 		BlockState state = level.getBlockState(pos);
 		return !state.isAir() && !state.getCollisionShape(level, pos).isEmpty();
+	}
+
+	/**
+	 * {@link CheatWatch.Terrain} over the real world: {@link #solid} keeps treating any collision
+	 * shape as a full cube, for the callers that only need that coarse answer (knockback's wall and
+	 * ceiling, the bed check); {@link #solidAt} looks at the shape's actual boxes, so a slab, a stair,
+	 * a bed, a carpet, a fence or a snow layer does not block a sight line through the rest of its
+	 * cell.
+	 */
+	private record LevelTerrain(ClientLevel level) implements CheatWatch.Terrain {
+		@Override
+		public boolean solid(int x, int y, int z) {
+			return CheatSensor.solid(level, new BlockPos(x, y, z));
+		}
+
+		@Override
+		public boolean solidAt(double x, double y, double z) {
+			BlockPos pos = BlockPos.containing(x, y, z);
+			if (!level.isLoaded(pos)) {
+				return false;
+			}
+			BlockState state = level.getBlockState(pos);
+			if (state.isAir()) {
+				return false;
+			}
+			VoxelShape shape = state.getCollisionShape(level, pos);
+			if (shape.isEmpty()) {
+				return false;
+			}
+			for (AABB box : shape.move(pos.getX(), pos.getY(), pos.getZ()).toAabbs()) {
+				if (box.contains(x, y, z)) {
+					return true;
+				}
+			}
+			return false;
+		}
 	}
 
 	private void announce(Suspicion.Flag flag) {

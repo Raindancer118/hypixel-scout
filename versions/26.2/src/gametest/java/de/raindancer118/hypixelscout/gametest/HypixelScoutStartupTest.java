@@ -1016,6 +1016,10 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			});
 			context.waitTicks(2);
 		}
+		// Scaffold placements are now judged only once their burst-and-look window has resolved (a
+		// pop-up tower needs its later blocks to tell it apart from a hand) - give the last one's
+		// window time to close before checking for the flag.
+		context.waitTicks(20);
 		context.runOnClient(client -> {
 			var flags = mod.cheats().flags("Sundial").stream().map(f -> f.check()).toList();
 			if (!flags.contains(de.raindancer118.hypixelscout.cheat.Check.SCAFFOLD)) {
