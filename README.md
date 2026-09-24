@@ -97,6 +97,28 @@ profiles, read from the official Hypixel API with your own key — in a real in-
 - **Edge markers**: enemies beside or behind you, outside your view, within 32 blocks (8–64), as
   small markers on the screen's edge in their team colour with the distance. Only with a clear line
   of sight from your eyes — never through walls — and never for invisible players.
+- **Cheat detection** (Settings → Cheats): every player in the game is watched — also in fights
+  you are not part of — for what only a cheat makes possible, from nothing but what your client is
+  told anyway:
+  - **Reach** — a melee hit from further than 3.3 blocks (eyes to hitbox, best of several ticks for lag).
+  - **KillAura** — a hit on somebody well outside the attacker's view.
+  - **AutoBlock** — swinging while blocking, eating or drawing a bow.
+  - **Anti-knockback** — hit, and neither pushed back nor lifted (walls and ceilings excused).
+  - **NoSlow** — full speed or sprinting while using an item. **Omni-sprint** — sprinting backwards.
+  - **Scaffold** — blocks placed where the placer was not looking. **FastPlace** — more than 13 a second.
+    Bridge eggs and pop-up towers are left alone.
+  - **Bed nuker** — a bed broken while still wrapped in its defence (TNT and fireballs excused).
+  - **Speed** — faster than a Speed II sprint-jump; **Fly** — moving about in mid-air without falling.
+    Blasts, hits, pearls and ladders/water/webs are excused.
+
+  One sighting is never a flag (except a nuker); sightings fade after twenty seconds each, so lag
+  spikes over a long game do not add up. Each flag comes with a **confidence** (every sighting counts as
+  independent evidence with its check's own weight; a player's checks combine), shown as `⚠ 91%` on the
+  nametag, `⚠` in the table, tab list and Teams screen, and in the chat alert. `/scout cheats` lists
+  everybody flagged with their evidence. **Reporting to your party or team** only when you ask: the
+  **[→ Party] [→ Team]** links under every alert, `/scout cheats party|team`, or two bindable keys —
+  `CHEATER? YELLOW Sundial 91% sure - Reach x4, Scaffold x8`. Nothing is ever sent by itself (a chat
+  macro is bannable), and nothing is reported to Hypixel for you — `/wdr` stays your call.
 - **Callouts** (Settings → Callouts): six messages on keys of your choice, about whoever is under
   your crosshair. `{team} inc` while aiming at a red player sends `RED inc` to team chat (or party
   chat, one switch). Placeholders: `{team}` `{name}` `{stars}` `{threat}` `{fkdr}` `{wlr}` `{bblr}`

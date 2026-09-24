@@ -73,6 +73,11 @@ class ScoutSettingsTest {
 		assertThat(settings.awareness.bedDefense).isTrue();
 		assertThat(settings.awareness.offscreen).isTrue();
 		assertThat(settings.awareness.offscreenRange).isEqualTo(32);
+		// Cheat detection watches, marks and says so, at the designed sensitivity.
+		assertThat(settings.cheats.enabled).isTrue();
+		assertThat(settings.cheats.chatAlerts).isTrue();
+		assertThat(settings.cheats.mark).isTrue();
+		assertThat(settings.cheats.sensitivity).isEqualTo(100);
 		// Six callouts, the first the classic, all into team chat.
 		assertThat(settings.callouts.messages).hasSize(ScoutSettings.CALLOUTS);
 		assertThat(settings.callouts.messages[0]).isEqualTo("{team} inc");
@@ -144,6 +149,14 @@ class ScoutSettingsTest {
 				{ "awareness": { "offscreenRange": 5000 } }
 				""", StandardCharsets.UTF_8);
 		assertThat(ScoutSettings.load(file).awareness.offscreenRange).isEqualTo(ScoutSettings.MAX_OFFSCREEN_RANGE);
+		Files.writeString(file, """
+				{ "cheats": { "sensitivity": 9000 } }
+				""", StandardCharsets.UTF_8);
+		assertThat(ScoutSettings.load(file).cheats.sensitivity).isEqualTo(ScoutSettings.MAX_CHEAT_SENSITIVITY);
+		Files.writeString(file, """
+				{ "cheats": null }
+				""", StandardCharsets.UTF_8);
+		assertThat(ScoutSettings.load(file).cheats).isNotNull();
 		Files.writeString(file, """
 				{ "awareness": null }
 				""", StandardCharsets.UTF_8);

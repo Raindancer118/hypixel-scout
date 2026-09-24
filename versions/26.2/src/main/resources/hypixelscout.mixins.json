@@ -4,7 +4,8 @@
 	"package": "de.raindancer118.hypixelscout.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"AvatarRendererMixin"
+		"AvatarRendererMixin",
+		"ClientPacketListenerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

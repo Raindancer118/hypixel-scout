@@ -12,12 +12,14 @@ import de.raindancer118.hypixelscout.core.GameStart;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.game.Teams;
+import de.raindancer118.hypixelscout.ui.Suspects;
 import de.raindancer118.hypixelscout.ui.Threats;
 import de.raindancer118.hypixelscout.core.StatsCache;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.game.Callouts;
 import de.raindancer118.hypixelscout.game.ChatHover;
 import de.raindancer118.hypixelscout.game.Flights;
+import de.raindancer118.hypixelscout.game.CheatSensor;
 import de.raindancer118.hypixelscout.game.Hazards;
 import de.raindancer118.hypixelscout.ui.hud.HazardElement;
 import de.raindancer118.hypixelscout.ui.hud.IncomingElement;
@@ -106,6 +108,7 @@ public final class HypixelScout implements ClientModInitializer {
 	private ProximityElement proximityElement;
 	private Flights flights;
 	private Hazards hazards;
+	private CheatSensor cheats;
 	private Callouts callouts;
 	private ScoutKeys keys;
 	private ChatHover hover;
@@ -170,6 +173,8 @@ public final class HypixelScout implements ClientModInitializer {
 		hazards = new Hazards(roster, () -> settings);
 		new HazardLines(hazards).register();
 		HudElementRegistry.attachElementAfter(id("incoming"), id("hazards"), new HazardElement(hazards, () -> settings));
+		cheats = new CheatSensor(roster, () -> settings);
+		Suspects.use(name -> settings.cheats.mark ? cheats.flags(name) : java.util.List.of(), cheats::confidence);
 		HudElementRegistry.replaceElement(VanillaHudElements.PLAYER_LIST,
 				vanilla -> new TabStatsElement(vanilla, roster, stats, () -> settings));
 
@@ -211,6 +216,7 @@ public final class HypixelScout implements ClientModInitializer {
 		proximity.tick(minecraft);
 		flights.tick(minecraft);
 		hazards.tick(minecraft);
+		cheats.tick(minecraft);
 		requeue.tick(minecraft);
 
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
@@ -279,6 +285,7 @@ public final class HypixelScout implements ClientModInitializer {
 		proximity.reset();
 		flights.reset();
 		hazards.newRound();
+		cheats.newRound();
 		teamsReady = false;
 		requeue.gameJoined();
 		scanTicks = 0;
@@ -433,6 +440,10 @@ public final class HypixelScout implements ClientModInitializer {
 	/** The arrows and fireballs in the air, for the client game test. */
 	public Flights flights() {
 		return flights;
+	}
+
+	public CheatSensor cheats() {
+		return cheats;
 	}
 
 	public Hazards hazards() {

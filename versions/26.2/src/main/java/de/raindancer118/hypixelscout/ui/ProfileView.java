@@ -42,7 +42,7 @@ public final class ProfileView {
 		Heads.draw(g, uuid, left + 8, top + 8, 36);
 
 		int textX = left + 52;
-		ScoutTheme.text(g, StatLines.name(name, profile), textX, top + 9, ScoutTheme.TEXT);
+		ScoutTheme.text(g, Suspects.mark(name) + StatLines.name(name, profile), textX, top + 9, ScoutTheme.TEXT);
 
 		if (!profile.isNicked()) {
 			long now = System.currentTimeMillis();

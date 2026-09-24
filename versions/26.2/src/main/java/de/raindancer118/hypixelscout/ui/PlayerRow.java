@@ -84,7 +84,7 @@ public record PlayerRow(UUID uuid, String name, Teams.Team team, PlayerStats sta
 
 	/** Star, rank and name as Hypixel prints them. */
 	public String displayName() {
-		return StatLines.name(name, stats);
+		return Suspects.mark(name) + StatLines.name(name, stats);
 	}
 
 	public boolean nicked() {

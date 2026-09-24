@@ -43,7 +43,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			"key.hypixelscout.queue_1", "key.hypixelscout.queue_9", "key.hypixelscout.queue_random");
 
 	private static final List<String> EXPECTED_SUBCOMMANDS = List.of(
-			"game", "teams", "lookup", "queue", "settings", "move", "table", "party", "refresh", "status",
+			"game", "teams", "lookup", "queue", "settings", "move", "table", "party", "refresh", "status", "cheats",
 			"testkey", "key", "player", "list", "requeue");
 
 	private record Seat(String team, HypixelStub.Player player) {
@@ -316,6 +316,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			assertProjectiles(context, singleplayer, mod);
 			assertHazards(context, singleplayer, mod);
 			assertCallouts(context, mod);
+			assertCheats(context, mod);
 
 			// The threat report into team chat: one line per enemy team, most dangerous first.
 			context.runOnClient(client -> {
@@ -854,6 +855,116 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
 		});
 		context.waitTicks(2);
+	}
+
+	/**
+	 * Cheat detection on a fight the player is not part of: Sundial hits Ashenvale from 4.2 blocks,
+	 * again and again, through the real packet handlers — flagged for Reach, marked on his nametag and
+	 * in the lists. Then blocks appear behind him while he looks the other way: Scaffold. Both go
+	 * back where they stood, and the blocks go again.
+	 */
+	private static void assertCheats(ClientGameTestContext context, HypixelScout mod) {
+		double[][] before = new double[2][];
+		int[] base = new int[3];
+		context.runOnClient(client -> {
+			var sundial = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_242);
+			var mate = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_243);
+			before[0] = new double[] {sundial.getX(), sundial.getY(), sundial.getZ(), sundial.getYRot(), sundial.getXRot()};
+			before[1] = new double[] {mate.getX(), mate.getY(), mate.getZ(), mate.getYRot(), mate.getXRot()};
+			base[0] = client.player.getBlockX() + 6;
+			base[1] = client.player.getBlockY();
+			base[2] = client.player.getBlockZ() - 6;
+			place(sundial, base[0] + 0.5, base[1], base[2] + 0.5, -90.0f);
+			place(mate, base[0] + 5.1, base[1], base[2] + 0.5, 90.0f);
+		});
+		context.waitTicks(8);
+
+		var attack = new java.util.concurrent.atomic.AtomicReference<net.minecraft.core.Holder<net.minecraft.world.damagesource.DamageType>>();
+		for (int hit = 0; hit < 4; hit++) {
+			context.runOnClient(client -> {
+				if (attack.get() == null) {
+					attack.set(client.level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE)
+							.getOrThrow(net.minecraft.world.damagesource.DamageTypes.PLAYER_ATTACK));
+				}
+				var sundial = client.level.getEntity(424_242);
+				client.getConnection().handleAnimate(new net.minecraft.network.protocol.game.ClientboundAnimatePacket(sundial, 0));
+				client.getConnection().handleDamageEvent(new net.minecraft.network.protocol.game.ClientboundDamageEventPacket(
+						424_243, attack.get(), 424_242, 424_242, java.util.Optional.empty()));
+			});
+			context.waitTicks(10);
+		}
+		context.runOnClient(client -> {
+			var flags = mod.cheats().flags("Sundial").stream().map(f -> f.check()).toList();
+			if (!flags.contains(de.raindancer118.hypixelscout.cheat.Check.REACH)) {
+				throw new AssertionError("Hits from 4.2 blocks between two other players are not Reach: " + flags);
+			}
+			var sundial = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_242);
+			String tag = de.raindancer118.hypixelscout.game.Nametags.decorate(sundial,
+					net.minecraft.network.chat.Component.literal("Sundial")).getString();
+			if (!tag.contains("\u26a0") || !tag.contains("%")) {
+				throw new AssertionError("The flagged player's nametag is not marked: " + tag);
+			}
+			if (!de.raindancer118.hypixelscout.ui.Suspects.mark("Sundial").equals(de.raindancer118.hypixelscout.ui.Suspects.MARK)
+					|| !de.raindancer118.hypixelscout.ui.Suspects.mark("Ashenvale").isEmpty()
+							&& mod.cheats().flags("Ashenvale").isEmpty()) {
+				throw new AssertionError("The lists do not mark exactly the flagged players");
+			}
+			if (mod.cheats().flags("Ashenvale").stream().anyMatch(f -> f.check() == de.raindancer118.hypixelscout.cheat.Check.REACH)) {
+				throw new AssertionError("The victim was flagged for Reach");
+			}
+		});
+
+		// Blocks appearing behind him, one a tick, while he looks straight ahead.
+		for (int i = 0; i < 8; i++) {
+			int z = base[2] - 3 + i;
+			context.runOnClient(client -> {
+				var sundial = client.level.getEntity(424_242);
+				client.getConnection().handleAnimate(new net.minecraft.network.protocol.game.ClientboundAnimatePacket(sundial, 0));
+				client.getConnection().handleBlockUpdate(new net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket(
+						new net.minecraft.core.BlockPos(base[0] - 2, base[1] + 3, z),
+						net.minecraft.world.level.block.Blocks.END_STONE.defaultBlockState()));
+			});
+			context.waitTicks(2);
+		}
+		context.runOnClient(client -> {
+			var flags = mod.cheats().flags("Sundial").stream().map(f -> f.check()).toList();
+			if (!flags.contains(de.raindancer118.hypixelscout.cheat.Check.SCAFFOLD)) {
+				throw new AssertionError("Blocks placed behind somebody looking away are not Scaffold: " + flags);
+			}
+			client.player.connection.sendCommand("scout cheats");
+
+			// Reported to the party only when asked: one plain line per flagged player, surest first.
+			mod.partyReport().sendCheats(de.raindancer118.hypixelscout.game.PartyReport.Channel.PARTY, mod.cheats().suspicion());
+			var lines = mod.partyReport().pendingLines();
+			int sure = (int) Math.round(mod.cheats().confidence("Sundial") * 100);
+			if (lines.stream().noneMatch(line -> line.startsWith("CHEATER? YELLOW Sundial " + sure + "% sure - ")
+					&& line.contains("Reach x") && line.contains("Scaffold x"))) {
+				throw new AssertionError("No cheat report line for Sundial: " + lines);
+			}
+			if (sure <= 50 || sure >= 100) {
+				throw new AssertionError("Implausible confidence for Sundial: " + sure);
+			}
+			mod.partyReport().cancel();
+		});
+		context.waitTicks(3);
+		context.takeScreenshot("scout_cheat_flags");
+
+		context.runOnClient(client -> {
+			for (int i = 0; i < 8; i++) {
+				client.getConnection().handleBlockUpdate(new net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket(
+						new net.minecraft.core.BlockPos(base[0] - 2, base[1] + 3, base[2] - 3 + i),
+						net.minecraft.world.level.block.Blocks.AIR.defaultBlockState()));
+			}
+			place(client.level.getEntity(424_242), before[0][0], before[0][1], before[0][2], (float) before[0][3]);
+			place(client.level.getEntity(424_243), before[1][0], before[1][1], before[1][2], (float) before[1][3]);
+		});
+		context.waitTicks(2);
+	}
+
+	private static void place(net.minecraft.world.entity.Entity entity, double x, double y, double z, float yaw) {
+		entity.snapTo(x, y, z, yaw, 0.0f);
+		entity.setYHeadRot(yaw);
+		entity.setOldPosAndRot();
 	}
 
 	/**

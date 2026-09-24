@@ -5,6 +5,7 @@ import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.core.StatFormat;
 import de.raindancer118.hypixelscout.core.StatsService;
+import de.raindancer118.hypixelscout.ui.Suspects;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Avatar;
@@ -41,6 +42,17 @@ public final class Nametags {
 	}
 
 	private Component decorateTag(Avatar entity, Component tag) {
+		Component decorated = withStats(entity, tag);
+		if (entity instanceof Player player && roster.isInGame()) {
+			String mark = Suspects.tagMark(player.getScoreboardName());
+			if (!mark.isEmpty()) {
+				return Component.empty().append(Component.literal(mark)).append(decorated);
+			}
+		}
+		return decorated;
+	}
+
+	private Component withStats(Avatar entity, Component tag) {
 		ScoutSettings.Nametag nametag = settings.get().nametag;
 		if (!nametag.stars || !roster.isInGame() || !(entity instanceof Player player)
 				|| player == Minecraft.getInstance().player) {

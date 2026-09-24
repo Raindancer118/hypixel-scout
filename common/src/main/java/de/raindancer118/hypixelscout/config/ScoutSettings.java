@@ -55,6 +55,8 @@ public final class ScoutSettings {
 	public static final int MAX_OFFSCREEN_RANGE = 64;
 	public static final int MAX_POPUP_SECONDS = 15;
 	public static final int MAX_REQUEUE_DELAY = 15;
+	public static final int MIN_CHEAT_SENSITIVITY = 50;
+	public static final int MAX_CHEAT_SENSITIVITY = 200;
 	public static final int MIN_SENSITIVITY = 25;
 	public static final int MAX_SENSITIVITY = 400;
 
@@ -104,6 +106,7 @@ public final class ScoutSettings {
 	public Requeue requeue = new Requeue();
 	public Projectiles projectiles = new Projectiles();
 	public Awareness awareness = new Awareness();
+	public Cheats cheats = new Cheats();
 	public Callouts callouts = new Callouts();
 	public Queue queue = new Queue();
 
@@ -230,6 +233,17 @@ public final class ScoutSettings {
 		/** Enemies behind or beside the player in plain line of sight, as markers on the screen's edge. */
 		public boolean offscreen = true;
 		public int offscreenRange = 32;
+	}
+
+	/** Watching the other players for what only a cheat makes possible ({@code cheat.CheatWatch}). */
+	public static final class Cheats {
+		public boolean enabled = true;
+		/** A line in the player's own chat when somebody is flagged. Never sent to anybody. */
+		public boolean chatAlerts = true;
+		/** A warning sign on the flagged player's nametag and in every list of players. */
+		public boolean mark = true;
+		/** Percent: 100 as designed, higher flags on fewer sightings. */
+		public int sensitivity = 100;
 	}
 
 	/** Messages on hotkeys, filled in with whoever is aimed at ({@link de.raindancer118.hypixelscout.core.Callout}). */
@@ -361,6 +375,9 @@ public final class ScoutSettings {
 		projectiles = projectiles == null ? new Projectiles() : projectiles;
 		awareness = awareness == null ? new Awareness() : awareness;
 		awareness.offscreenRange = Math.clamp(awareness.offscreenRange, 8, MAX_OFFSCREEN_RANGE);
+
+		cheats = cheats == null ? new Cheats() : cheats;
+		cheats.sensitivity = Math.clamp(cheats.sensitivity, MIN_CHEAT_SENSITIVITY, MAX_CHEAT_SENSITIVITY);
 
 		callouts = callouts == null ? new Callouts() : callouts;
 		String[] messages = callouts.messages == null ? new String[0] : callouts.messages;

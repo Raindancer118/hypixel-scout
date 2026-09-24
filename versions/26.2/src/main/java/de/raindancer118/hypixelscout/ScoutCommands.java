@@ -87,6 +87,15 @@ public final class ScoutCommands {
 					return 1;
 				}))
 				.then(ClientCommands.literal("status").executes(context -> status(context, mod)))
+				.then(ClientCommands.literal("cheats").executes(context -> cheats(context, mod))
+						.then(ClientCommands.literal("party").executes(context -> {
+							mod.partyReport().sendCheats(PartyReport.Channel.PARTY, mod.cheats().suspicion());
+							return 1;
+						}))
+						.then(ClientCommands.literal("team").executes(context -> {
+							mod.partyReport().sendCheats(PartyReport.Channel.TEAM, mod.cheats().suspicion());
+							return 1;
+						})))
 				.then(ClientCommands.literal("testkey").executes(context -> {
 					context.getSource().sendFeedback(Chat.prefixed(
 							Component.translatable("message.hypixelscout.key.checking")));
@@ -164,6 +173,39 @@ public final class ScoutCommands {
 			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.status.error", error)));
 		}
 
+		return 1;
+	}
+
+	/** Everybody flagged this round, one line per player with each check, how often and the latest evidence. */
+	private static int cheats(CommandContext<FabricClientCommandSource> context, HypixelScout mod) {
+		var source = context.getSource();
+		if (!mod.settings().cheats.enabled) {
+			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.off")));
+			return 1;
+		}
+		var flags = mod.cheats().suspicion().flagged();
+		if (flags.isEmpty()) {
+			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.none")));
+			return 1;
+		}
+		java.util.Map<String, java.util.List<de.raindancer118.hypixelscout.cheat.Suspicion.Flag>> byPlayer =
+				new java.util.LinkedHashMap<>();
+		for (var flag : flags) {
+			byPlayer.computeIfAbsent(flag.player(), name -> new java.util.ArrayList<>()).add(flag);
+		}
+		java.util.List<String> players = new java.util.ArrayList<>(byPlayer.keySet());
+		players.sort(java.util.Comparator.comparingDouble((String name) -> mod.cheats().confidence(name)).reversed());
+		for (String player : players) {
+			StringBuilder line = new StringBuilder("\u00a7c\u26a0 \u00a7f").append(player).append(" ")
+					.append(de.raindancer118.hypixelscout.ui.Suspects.percent(mod.cheats().confidence(player)))
+					.append("\u00a77:");
+			for (var flag : byPlayer.get(player)) {
+				line.append(" \u00a7c").append(flag.check().label()).append(" \u00a77\u00d7").append(flag.count())
+						.append(" \u00a78(").append(flag.detail()).append(", ").append(flag.percent()).append("%)");
+			}
+			source.sendFeedback(Chat.prefixed(Component.literal(line.toString())));
+		}
+		source.sendFeedback(Chat.prefixed(de.raindancer118.hypixelscout.game.CheatSensor.reportLinks()));
 		return 1;
 	}
 

@@ -1,5 +1,7 @@
 package de.raindancer118.hypixelscout.game;
 
+import de.raindancer118.hypixelscout.cheat.CheatReport;
+import de.raindancer118.hypixelscout.cheat.Suspicion;
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.BedwarsModes;
 import de.raindancer118.hypixelscout.core.ChatPacing;
@@ -180,6 +182,35 @@ public final class PartyReport {
 		StatLines.chatLines(name, playerStats, Threats.scale()).forEach(text -> pending.add(new Line(channel, text)));
 		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.player_team"
 				: "message.hypixelscout.report.player_party", name);
+	}
+
+	/**
+	 * Everybody flagged for cheating this round, one line each with their team, how sure the mod is
+	 * and what they were seen doing. Only when the player asks, like every other report; queued
+	 * behind anything already going out. Party chat works anywhere on Hypixel, team chat only in a
+	 * game with teams.
+	 */
+	public void sendCheats(Channel channel, Suspicion suspicion) {
+		if (!canSendPlayer(channel)) {
+			Chat.sayTranslated(channel == Channel.TEAM && roster.isInGame()
+					? "message.hypixelscout.report.solo" : "message.hypixelscout.report.nowhere");
+			return;
+		}
+
+		List<String> lines = CheatReport.lines(suspicion, name -> Teams.of(name).name());
+		if (lines.isEmpty()) {
+			Chat.sayTranslated("message.hypixelscout.cheat.none");
+			return;
+		}
+
+		for (String text : lines) {
+			Line line = new Line(channel, text);
+			if (!pending.contains(line)) {
+				pending.add(line);
+			}
+		}
+		Chat.sayTranslated(channel == Channel.TEAM ? "message.hypixelscout.report.sending_team"
+				: "message.hypixelscout.party.sending", lines.size());
 	}
 
 	/**

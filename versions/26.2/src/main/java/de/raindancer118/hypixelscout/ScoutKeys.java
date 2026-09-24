@@ -81,6 +81,11 @@ public final class ScoutKeys {
 		add("team_report", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().send(PartyReport.Channel.TEAM));
 		add("party_list", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().sendAll(PartyReport.Channel.PARTY));
 		add("team_list", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().sendAll(PartyReport.Channel.TEAM));
+		// Everybody flagged for cheating, with how sure the mod is — only when pressed.
+		add("cheats_party", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().sendCheats(PartyReport.Channel.PARTY,
+				mod.cheats().suspicion()));
+		add("cheats_team", GLFW.GLFW_KEY_UNKNOWN, () -> mod.partyReport().sendCheats(PartyReport.Channel.TEAM,
+				mod.cheats().suspicion()));
 		// Whoever is under the crosshair, into chat in one press: the call-out mid-fight.
 		add("send_target_team", GLFW.GLFW_KEY_UNKNOWN, () -> sendTarget(PartyReport.Channel.TEAM));
 		add("send_target_party", GLFW.GLFW_KEY_UNKNOWN, () -> sendTarget(PartyReport.Channel.PARTY));

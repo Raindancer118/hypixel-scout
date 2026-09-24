@@ -96,7 +96,7 @@ public final class SettingsScreen extends Screen {
 		keyButtons.clear();
 		tabBar = MenuTabBar.builder(tabManager, width)
 				.addTabs(new GeneralTab(), new TableTab(), new OverlaysTab(), new AlertsTab(), new ProjectilesTab(),
-						new AwarenessTab(), new CalloutsTab(), new KeysTab())
+						new AwarenessTab(), new CheatsTab(), new CalloutsTab(), new KeysTab())
 				.build();
 		addRenderableWidget(tabBar);
 
@@ -346,6 +346,24 @@ public final class SettingsScreen extends Screen {
 		}
 	}
 
+	/** Watching the other players for cheats: whether, how loudly, and how readily. */
+	private final class CheatsTab extends SettingsTab {
+		CheatsTab() {
+			super("cheats");
+
+			ScoutSettings.Cheats cheats = settings().cheats;
+			rows.addChild(toggle("cheats.enabled", cheats.enabled, value -> cheats.enabled = value));
+			rows.addChild(toggle("cheats.chat", cheats.chatAlerts, value -> cheats.chatAlerts = value));
+			rows.addChild(toggle("cheats.mark", cheats.mark, value -> cheats.mark = value));
+			SettingSlider sensitivity = new SettingSlider(0, 0, NARROW, "message.hypixelscout.settings.cheats.sensitivity",
+					ScoutSettings.MIN_CHEAT_SENSITIVITY, ScoutSettings.MAX_CHEAT_SENSITIVITY, cheats.sensitivity,
+					value -> cheats.sensitivity = (int) Math.round(value),
+					value -> Math.round(value) + "%");
+			sensitivity.setTooltip(Tooltip.create(Component.translatable("message.hypixelscout.settings.cheats.sensitivity.tooltip")));
+			rows.addChild(sensitivity);
+		}
+	}
+
 	/**
 	 * The callout hotkeys: each message beside its key. The placeholders are in every field's
 	 * tooltip, where they are needed, rather than taking a row of their own.
@@ -377,7 +395,7 @@ public final class SettingsScreen extends Screen {
 	}
 
 	/** Index of the keys tab, for whoever wants to open the screen right there. */
-	public static final int KEYS_TAB = 7;
+	public static final int KEYS_TAB = 8;
 	/** Index of the callouts tab. */
 	public static final int CALLOUTS_TAB = 6;
 
