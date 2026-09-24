@@ -204,7 +204,10 @@ jar {
 				// Chains the Mixin launchwrapper tweaker in ahead of FML's own tweaker.
 				'TweakClass'                 : 'org.spongepowered.asm.launch.MixinTweaker',
 				'TweakOrder'                 : '0',
-				'MixinConfigs'               : 'hypixelscout.mixins.json'
+				'MixinConfigs'               : 'hypixelscout.mixins.json',
+				// A jar with a TweakClass is loaded as a tweaker and skipped as a mod; this makes
+				// Mixin hand it back to FML, or the @Mod never loads in a real client.
+				'ForceLoadAsMod'             : 'true'
 		)
 	}
 }
@@ -336,6 +339,81 @@ tasks.register('runClientStartupTest') {
 tasks.named('remapJar').configure {
 	mixinRemap {
 		enableBaseMixin()
+	}
+}
+
+// The same startup test, but in a client put together the way a launcher does it: the obfuscated
+// vanilla jar, Forge's universal jar, launchwrapper with FMLTweaker, and in mods/ the jar we
+// actually ship next to the Hypixel Mod API as players download it. The dev client never sees the
+// remapped jar, its manifest or its refmap, so only this run shows whether the mod loads for real.
+configurations {
+	productionForge
+	productionMods {
+		transitive = false
+	}
+}
+
+dependencies {
+	productionForge "net.minecraftforge:forge:${minecraft_version}-${forge_version}:universal@jar"
+	productionMods "maven.modrinth:hypixel-mod-api:${hypixel_mod_api_version}"
+}
+
+tasks.register('runProductionStartupTest') {
+	group = 'verification'
+	description = 'Runs the startup test in a production-like Forge client with the shipped jar.'
+	dependsOn tasks.named('remapJar')
+	mustRunAfter tasks.named('runClientStartupTest')
+
+	doLast {
+		def runDir = layout.buildDirectory.dir('run/productionTest').get().asFile
+		def natives = layout.buildDirectory.dir('run/startupTest/natives').get().asFile
+		def clientJar = new File(gradle.gradleUserHomeDir,
+				"caches/unimined/net/minecraft/minecraft/${minecraft_version}/minecraft-${minecraft_version}-client.jar")
+		if (!natives.isDirectory()) {
+			throw new GradleException("runProductionStartupTest: no natives at ${natives} — run runClientStartupTest first")
+		}
+		if (!clientJar.isFile()) {
+			throw new GradleException("runProductionStartupTest: no vanilla client jar at ${clientJar}")
+		}
+
+		project.delete(runDir)
+		new File(runDir, 'mods').mkdirs()
+		project.copy {
+			from tasks.named('remapJar')
+			from configurations.productionMods
+			into new File(runDir, 'mods')
+		}
+		new File(runDir, 'options.txt').text = 'soundCategory_master:0.0\npauseOnLostFocus:false\n'
+
+		// Minecraft's and Forge's libraries from the dev classpath, without anything that exists
+		// only in development: our classes, the MCP-named game, the remapped dev mods.
+		def libraries = tasks.named('runClient', JavaExec).get().classpath.filter { file ->
+			file.isFile() && !(file.name ==~ /(?i).*(fixForge|mcp|hypixelscout|mixin|annotations|hypixel-mod-api).*/)
+		}
+		def runId = UUID.randomUUID().toString()
+		def result = project.services.get(org.gradle.process.ExecOperations).javaexec {
+			executable = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(8) }.get()
+					.executablePath.asFile.absolutePath
+			workingDir = runDir
+			classpath = libraries + configurations.productionForge + files(clientJar)
+			mainClass = 'net.minecraft.launchwrapper.Launch'
+			environment 'ALSOFT_DRIVERS', 'null'
+			jvmArgs = ["-Djava.library.path=${natives}", '-Dhypixelscout.startupTest=true',
+					"-Dhypixelscout.startupTest.runId=${runId}", '-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=true']
+			args = ['--tweakClass', 'net.minecraftforge.fml.common.launcher.FMLTweaker', '--version', minecraft_version,
+					'--gameDir', runDir.absolutePath, '--assetsDir', new File(gradle.gradleUserHomeDir, 'caches/unimined/assets').absolutePath,
+					'--assetIndex', '1.8', '--accessToken', '0', '--userProperties', '{}', '--username', 'Dev']
+			ignoreExitValue = true
+		}
+
+		def resultFile = new File(runDir, 'startupTest/result.txt')
+		def lines = resultFile.isFile() ? resultFile.readLines() : []
+		if (result.exitValue != 0 || lines.isEmpty() || lines[0] != "run ${runId}".toString()
+				|| !lines.drop(1).join('\n').startsWith('PASS')) {
+			throw new GradleException("runProductionStartupTest: exit ${result.exitValue}, result: "
+					+ (lines ? lines.join(' / ') : 'none') + " — see ${runDir}/logs/latest.log")
+		}
+		logger.lifecycle("runProductionStartupTest: ${lines.drop(1).join(' ')}")
 	}
 }
 

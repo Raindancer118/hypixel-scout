@@ -40,6 +40,10 @@ jobs:
       - name: Client startup test (1.8.9)
         run: xvfb-run -a ./gradlew -p versions/1.8.9 runClientStartupTest
 
+      - name: Production startup test (1.8.9)
+        # The shipped jar in a launcher-style Forge client: vanilla jar, Forge universal, mods/.
+        run: xvfb-run -a ./gradlew -p versions/1.8.9 runProductionStartupTest
+
       - name: Modpack (26.2)
         run: ./gradlew -p versions/26.2 mrpack
 
