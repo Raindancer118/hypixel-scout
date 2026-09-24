@@ -594,16 +594,33 @@ public final class ScoutScreen extends Screen {
 			detail = "§8" + I18n.get("message.hypixelscout.teams.bed.unseen");
 		} else if (entry.gone()) {
 			label += " §c§l" + I18n.get("message.hypixelscout.teams.bed.gone");
-			// What it was wrapped in last is still worth knowing: they may rebuild it the same way.
-			detail = entry.report().open() ? "§8" + I18n.get("message.hypixelscout.hazard.bed_open")
-					: "§8" + entry.report().outside().stream().map(BedDefense.Material::name).collect(Collectors.joining(", "));
+			// What it was wrapped in is still worth knowing: they may rebuild it the same way.
+			detail = "§8" + StatLines.plain(layersText(entry));
 		} else {
-			detail = HazardElement.defenceText(entry.report());
+			detail = layersText(entry);
 			ScoutTheme.textRight(g, "§8" + I18n.get("message.hypixelscout.teams.bed.ago",
 					ago(entry.ageMillis(System.currentTimeMillis()))), x + width, y, ScoutTheme.TEXT);
 		}
 		ScoutTheme.text(g, label, x, y, ScoutTheme.TEXT);
 		ScoutTheme.text(g, ScoutTheme.fit(detail, width), x, y + 11, ScoutTheme.TEXT);
+	}
+
+	/**
+	 * Every layer seen of the defence this round, outside to inside — {@code End Stone › Wood › Wool},
+	 * with {@code › ?} where there is more inside than anybody has seen — or that it is open.
+	 */
+	private static String layersText(BedLedger.Entry entry) {
+		List<BedDefense.Layer> layers = entry.layers();
+		if (layers.isEmpty()) {
+			return entry.report().open() ? "§c§l" + I18n.get("message.hypixelscout.hazard.bed_open")
+					: HazardElement.defenceText(entry.report());
+		}
+		String text = layers.stream().map(layer -> (layer.depth() == 1 ? "§e" : "§f") + layer.material())
+				.collect(Collectors.joining(" §8› "));
+		if (BedDefense.unknownInside(layers)) {
+			text += " §8› §7?";
+		}
+		return entry.report().open() ? "§c" + I18n.get("message.hypixelscout.hazard.bed_open") + " §8· " + text : text;
 	}
 
 	/** {@code 45s}, {@code 3m}, {@code 1h 5m}. */

@@ -91,4 +91,39 @@ class BedLedgerTest {
 		ledger.clear();
 		assertThat(ledger.entries()).isEmpty();
 	}
+
+	@Test
+	void everyLookAddsToWhatIsKnownOfTheDefence() {
+		List<BedDefense.Cell> bed = List.of(HEAD, new BedDefense.Cell(11, 64, -3));
+		BedDefense.Cell top = new BedDefense.Cell(10, 66, -3);
+		BedDefense.Cell inner = new BedDefense.Cell(10, 65, -3);
+		ledger.record("red", bed, new BedDefense.Report(false, List.of(), null,
+				java.util.Map.of(top, new BedDefense.Block("End Stone", 3.0))));
+		ledger.record("red", bed, new BedDefense.Report(false, List.of(), null,
+				java.util.Map.of(inner, new BedDefense.Block("Wool", 0.8))));
+
+		BedLedger.Entry red = ledger.of("Red").orElseThrow();
+		assertThat(red.seen()).containsKeys(top, inner);
+		assertThat(red.layers()).extracting(BedDefense.Layer::material).containsExactly("End Stone", "Wool");
+	}
+
+	@Test
+	void aBlockWatchedGoingUpJoinsTheDefenceOfABedOnRecord() {
+		List<BedDefense.Cell> bed = List.of(HEAD, new BedDefense.Cell(11, 64, -3));
+		ledger.record("red", bed, WOOL);
+		BedDefense.Cell placed = new BedDefense.Cell(10, 65, -2);
+		ledger.watched(bed, "red", placed, new BedDefense.Block("End Stone", 3.0));
+
+		assertThat(ledger.of("Red").orElseThrow().seen()).containsEntry(placed, new BedDefense.Block("End Stone", 3.0));
+	}
+
+	@Test
+	void aBlockWatchedGoingUpAroundABedNotLookedAtYetStartsItsRecord() {
+		List<BedDefense.Cell> bed = List.of(new BedDefense.Cell(0, 64, 0), new BedDefense.Cell(1, 64, 0));
+		ledger.watched(bed, "blue", new BedDefense.Cell(0, 65, 0), new BedDefense.Block("Blue Wool", 0.8));
+
+		BedLedger.Entry blue = ledger.of("Blue").orElseThrow();
+		assertThat(blue.layers()).extracting(BedDefense.Layer::material).containsExactly("Blue Wool");
+		assertThat(blue.gone()).isFalse();
+	}
 }

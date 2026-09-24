@@ -839,6 +839,22 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 					|| !red.report().outside().getFirst().name().equals("White Wool")) {
 				throw new AssertionError("The red bed's last look is not on record: " + red);
 			}
+			// Both layers were in sight at one look or another: end stone outside, wool inside.
+			var layers = red.layers().stream().map(de.raindancer118.hypixelscout.core.BedDefense.Layer::material).toList();
+			if (!layers.equals(List.of("End Stone", "White Wool"))) {
+				throw new AssertionError("The red bed's layers are not both remembered: " + layers);
+			}
+			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
+		});
+		// A plank going up beside the defence, in plain sight: watched being built, so on record.
+		server.runCommand(String.format(java.util.Locale.ROOT, "setblock %d %d %d oak_planks", x - 3, y, z + 10));
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			var red = mod.hazards().ledger().of("Red").orElse(null);
+			var plank = new de.raindancer118.hypixelscout.core.BedDefense.Cell(x - 3, y, z + 10);
+			if (red == null || !red.seen().containsKey(plank)) {
+				throw new AssertionError("A block placed in sight beside the bed was not recorded: " + (red == null ? null : red.seen().keySet()));
+			}
 			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
 		});
 		server.runCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d air", x - 2, y, z + 8, x + 3, y + 2, z + 12));

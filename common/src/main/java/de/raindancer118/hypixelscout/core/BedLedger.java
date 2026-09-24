@@ -23,9 +23,20 @@ public final class BedLedger {
 	 * @param seenAt when that look was
 	 * @param goneAt when the bed was found missing; {@code 0} while it stands
 	 */
-	public record Entry(String team, BedDefense.Cell head, BedDefense.Report report, long seenAt, long goneAt) {
+	public record Entry(String team, BedDefense.Cell head, BedDefense.Report report, long seenAt, long goneAt,
+			List<BedDefense.Cell> bed, Map<BedDefense.Cell, BedDefense.Block> seen) {
+		public Entry {
+			bed = List.copyOf(bed);
+			seen = Map.copyOf(seen);
+		}
+
 		public boolean gone() {
 			return goneAt != 0;
+		}
+
+		/** Every layer seen of this bed's defence this round, outermost first. */
+		public List<BedDefense.Layer> layers() {
+			return BedDefense.layers(bed, seen);
 		}
 
 		public long ageMillis(long now) {
@@ -40,17 +51,52 @@ public final class BedLedger {
 		this.clock = clock;
 	}
 
-	/** A look at the bed of this dye colour ({@code red}, {@code light_blue}, …). */
+	/** A look at the bed of this dye colour ({@code red}, {@code light_blue}, …), known only by its head. */
 	public synchronized void record(String dye, BedDefense.Cell head, BedDefense.Report report) {
+		record(dye, List.of(head), report);
+	}
+
+	/**
+	 * A look at the bed of this dye colour. What it saw of the defence joins what earlier looks saw,
+	 * so a layer stays known after it has been dug through or built over.
+	 */
+	public synchronized void record(String dye, List<BedDefense.Cell> bed, BedDefense.Report report) {
 		String team = teamOf(dye);
-		entries.put(team, new Entry(team, head, report, clock.millis(), 0));
+		Entry before = entries.get(team);
+		Map<BedDefense.Cell, BedDefense.Block> seen = new java.util.HashMap<>();
+		if (before != null && before.bed().equals(bed)) {
+			seen.putAll(before.seen());
+		}
+		seen.putAll(report.seen());
+		entries.put(team, new Entry(team, bed.getFirst(), report, clock.millis(), 0, bed, seen));
+	}
+
+	/**
+	 * A block placed around a bed while the player could see it go up: it joins what is known of that
+	 * bed's defence, and starts a record for a bed nobody has looked at yet.
+	 */
+	public synchronized void watched(List<BedDefense.Cell> bed, String dye, BedDefense.Cell cell, BedDefense.Block block) {
+		String team = teamOf(dye);
+		Entry before = entries.get(team);
+		if (before != null && before.gone()) {
+			return;
+		}
+		Map<BedDefense.Cell, BedDefense.Block> seen = new java.util.HashMap<>();
+		if (before != null && before.bed().equals(bed)) {
+			seen.putAll(before.seen());
+		}
+		seen.put(cell, block);
+		BedDefense.Report report = before == null ? new BedDefense.Report(false, List.of(), null) : before.report();
+		long seenAt = before == null ? clock.millis() : before.seenAt();
+		entries.put(team, new Entry(team, bed.getFirst(), report, seenAt, 0, bed, seen));
 	}
 
 	/** The bed is no longer where it was: broken. Its last defence stays on record. */
 	public synchronized void markGone(String team) {
 		Entry entry = entries.get(team);
 		if (entry != null && !entry.gone()) {
-			entries.put(team, new Entry(entry.team(), entry.head(), entry.report(), entry.seenAt(), clock.millis()));
+			entries.put(team, new Entry(entry.team(), entry.head(), entry.report(), entry.seenAt(), clock.millis(),
+					entry.bed(), entry.seen()));
 		}
 	}
 

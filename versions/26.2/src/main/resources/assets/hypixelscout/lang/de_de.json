@@ -84,7 +84,7 @@
 	"message.hypixelscout.teams.no_team": "Kein Team",
 	"message.hypixelscout.teams.you": "(du)",
 	"message.hypixelscout.teams.bed": "Bett",
-	"message.hypixelscout.teams.bed.unseen": "noch nicht gesehen — anschauen",
+	"message.hypixelscout.teams.bed.unseen": "noch nicht gesehen — anschauen oder beim Bauen zusehen",
 	"message.hypixelscout.teams.bed.gone": "ZERSTÖRT",
 	"message.hypixelscout.teams.bed.ago": "vor %s",
 	"message.hypixelscout.lookup.caption": "Jeden beliebigen Spieler, ob in deiner Runde oder nicht.",

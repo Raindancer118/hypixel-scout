@@ -101,4 +101,91 @@ class BedDefenseTest {
 		assertThat(report.outside().get(1).exposed()).isGreaterThan(1);
 		assertThat(report.weakest()).isEqualTo(new BedDefense.Cell(-1, 1, 0));
 	}
+
+	@Test
+	void everyAirFacingBlockIsKeptWithWhereItIs() {
+		defend(WOOL, END_STONE);
+		BedDefense.Report report = analyse();
+
+		assertThat(report.seen()).isNotEmpty();
+		assertThat(report.seen().values()).extracting(BedDefense.Block::name).containsOnly("End Stone");
+	}
+
+	@Test
+	void theLayersAreWhatWasEverSeenByDistanceOutermostFirst() {
+		defend(WOOL, END_STONE);
+		java.util.Map<BedDefense.Cell, BedDefense.Block> seen = new java.util.HashMap<>(analyse().seen());
+		// Somebody breaks through the top: the wool comes into sight, and stays remembered.
+		blocks.remove(new BedDefense.Cell(0, 3, 0));
+		seen.putAll(analyse().seen());
+
+		List<BedDefense.Layer> layers = BedDefense.layers(BED, seen);
+		assertThat(layers).extracting(BedDefense.Layer::material).containsExactly("End Stone", "Wool");
+		assertThat(layers).extracting(BedDefense.Layer::depth).containsExactly(2, 1);
+		assertThat(BedDefense.unknownInside(layers)).isFalse();
+	}
+
+	@Test
+	void layersNobodyHasSeenYetAreUnknownNotGuessed() {
+		defend(WOOL, WOOD, END_STONE);
+		List<BedDefense.Layer> layers = BedDefense.layers(BED, analyse().seen());
+
+		assertThat(layers).extracting(BedDefense.Layer::material).containsExactly("End Stone");
+		assertThat(BedDefense.unknownInside(layers)).isTrue();
+		assertThat(BedDefense.unknownInside(List.of())).isTrue();
+	}
+
+	@Test
+	void aMixedLayerIsNamedByWhatMostOfItIs() {
+		defend(WOOD);
+		blocks.put(new BedDefense.Cell(-1, 1, 0), WOOL);
+		List<BedDefense.Layer> layers = BedDefense.layers(BED, analyse().seen());
+
+		assertThat(layers.getFirst().material()).isEqualTo("Wood");
+		assertThat(layers.getFirst().count()).isGreaterThan(1);
+	}
+
+	@Test
+	void aThickShellOfOneMaterialIsOneLayerThatKnowsItsThickness() {
+		defend(WOOL, END_STONE, END_STONE);
+		java.util.Map<BedDefense.Cell, BedDefense.Block> seen = new java.util.HashMap<>();
+		// Seen as it went up, shell by shell, from the inside out.
+		for (int shell = 1; shell <= 3; shell++) {
+			for (var entry : blocks.entrySet()) {
+				if (entry.getKey().y() > 0 && distance(entry.getKey()) == shell) {
+					seen.put(entry.getKey(), entry.getValue());
+				}
+			}
+		}
+		List<BedDefense.Layer> layers = BedDefense.layers(BED, seen);
+
+		assertThat(layers).extracting(BedDefense.Layer::material).containsExactly("End Stone", "Wool");
+		assertThat(layers.getFirst().thickness()).isEqualTo(2);
+		assertThat(layers.get(1).thickness()).isEqualTo(1);
+	}
+
+	@Test
+	void aBlockPlacedAgainstADefenceBelongsToIt() {
+		assertThat(BedDefense.partOf(BED, new BedDefense.Cell(0, 2, 0))).isTrue();
+		assertThat(BedDefense.partOf(BED, new BedDefense.Cell(0, 5, 0))).isTrue();
+		assertThat(BedDefense.partOf(BED, new BedDefense.Cell(0, 6, 0))).isFalse();
+		// The floor is not part of it, nor the bed itself.
+		assertThat(BedDefense.partOf(BED, new BedDefense.Cell(0, 0, 0))).isFalse();
+		assertThat(BedDefense.partOf(BED, BED.getFirst())).isFalse();
+	}
+
+	@Test
+	void threeShellsOfOneMaterialAreStillOneLayer() {
+		defend(WOOL, END_STONE, END_STONE, END_STONE);
+		java.util.Map<BedDefense.Cell, BedDefense.Block> seen = new java.util.HashMap<>();
+		for (var entry : blocks.entrySet()) {
+			if (entry.getKey().y() > 0) {
+				seen.put(entry.getKey(), entry.getValue());
+			}
+		}
+		List<BedDefense.Layer> layers = BedDefense.layers(BED, seen);
+
+		assertThat(layers).extracting(BedDefense.Layer::material).containsExactly("End Stone", "Wool");
+		assertThat(layers.getFirst().thickness()).isEqualTo(3);
+	}
 }

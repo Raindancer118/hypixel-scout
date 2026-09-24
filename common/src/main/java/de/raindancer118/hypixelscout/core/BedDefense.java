@@ -45,8 +45,24 @@ public final class BedDefense {
 	 * @param open    whether the bed itself has a face to the air
 	 * @param outside the exposed materials, softest first
 	 * @param weakest the exposed block of the softest material closest to the bed; {@code null} if none
+	 * @param seen    every block with a face to the air, where it is — what a look could see
 	 */
-	public record Report(boolean open, List<Material> outside, Cell weakest) {
+	public record Report(boolean open, List<Material> outside, Cell weakest, Map<Cell, Block> seen) {
+		public Report {
+			seen = Map.copyOf(seen);
+		}
+
+		public Report(boolean open, List<Material> outside, Cell weakest) {
+			this(open, outside, weakest, Map.of());
+		}
+	}
+
+	/**
+	 * One layer of a defence: one material wrapped round the bed, named by what most of its blocks
+	 * are. {@code depth} is how far out its inner side is — 1 is right against the bed — and
+	 * {@code thickness} how many blocks deep it goes outwards from there.
+	 */
+	public record Layer(int depth, String material, int count, int thickness) {
 	}
 
 	/** The world, as far as this is concerned: the solid block in a cell, {@code null} for air. */
@@ -72,6 +88,7 @@ public final class BedDefense {
 			}
 		}
 
+		Map<Cell, Block> seen = new LinkedHashMap<>();
 		Map<String, int[]> counts = new LinkedHashMap<>();
 		Map<String, Double> hardness = new LinkedHashMap<>();
 		List<Cell> exposed = new ArrayList<>();
@@ -85,6 +102,7 @@ public final class BedDefense {
 						continue;
 					}
 					counts.computeIfAbsent(block.name(), name -> new int[1])[0]++;
+					seen.put(cell, block);
 					hardness.put(block.name(), block.hardness());
 					exposed.add(cell);
 				}
@@ -103,7 +121,53 @@ public final class BedDefense {
 					.min(Comparator.comparingInt((Cell cell) -> distance(cell, bed)))
 					.orElse(null);
 		}
-		return new Report(open, List.copyOf(outside), weakest);
+		return new Report(open, List.copyOf(outside), weakest, seen);
+	}
+
+	/**
+	 * The layers of a defence from the blocks ever seen of it — a layer seen once, before it was
+	 * dug through or built over, is still a layer — outermost first. Only what was in sight: a layer
+	 * nobody has looked at is missing here, not guessed ({@link #unknownInside}).
+	 */
+	public static List<Layer> layers(List<Cell> bed, Map<Cell, Block> seen) {
+		Map<Integer, Map<String, int[]>> byDepth = new java.util.TreeMap<>(Comparator.reverseOrder());
+		Map<String, Double> hardness = new java.util.HashMap<>();
+		seen.forEach((cell, block) -> {
+			int depth = distance(cell, bed);
+			if (depth >= 1 && depth <= RADIUS) {
+				byDepth.computeIfAbsent(depth, d -> new LinkedHashMap<>()).computeIfAbsent(block.name(), n -> new int[1])[0]++;
+				hardness.put(block.name(), block.hardness());
+			}
+		});
+		List<Layer> layers = new ArrayList<>();
+		byDepth.forEach((depth, counts) -> {
+			Map.Entry<String, int[]> most = counts.entrySet().stream()
+					.max(Comparator.comparingInt((Map.Entry<String, int[]> e) -> e.getValue()[0])
+							.thenComparingDouble(e -> hardness.get(e.getKey())))
+					.orElseThrow();
+			Layer outer = layers.isEmpty() ? null : layers.getLast();
+			// One material several blocks deep is one thick layer, not several — even across a depth
+			// nobody saw a block of.
+			if (outer != null && outer.material().equals(most.getKey())) {
+				int outermost = outer.depth() + outer.thickness() - 1;
+				layers.set(layers.size() - 1, new Layer(depth, outer.material(), outer.count() + most.getValue()[0],
+						outermost - depth + 1));
+			} else {
+				layers.add(new Layer(depth, most.getKey(), most.getValue()[0], 1));
+			}
+		});
+		return List.copyOf(layers);
+	}
+
+	/** Whether a block in this cell would be part of the bed's defence: from its height up, close enough. */
+	public static boolean partOf(List<Cell> bed, Cell cell) {
+		int bottom = bed.stream().mapToInt(Cell::y).min().orElse(0);
+		return !bed.contains(cell) && cell.y() >= bottom && distance(cell, bed) <= RADIUS;
+	}
+
+	/** Whether there is more inside than has been seen: no layer seen right against the bed. */
+	public static boolean unknownInside(List<Layer> layers) {
+		return layers.isEmpty() || layers.getLast().depth() > 1;
 	}
 
 	private static boolean facesAir(Cell cell, Set<Cell> bed, World world) {

@@ -290,11 +290,15 @@ public final class CheatSensor {
 
 	/** A block about to change from what is there now to {@code next}. */
 	public static void onBlock(BlockPos pos, BlockState next) {
+		Minecraft client = Minecraft.getInstance();
+		if (client.level != null && client.player != null && client.level.getBlockState(pos).getCollisionShape(client.level, pos).isEmpty()) {
+			de.raindancer118.hypixelscout.HypixelScout.get().hazards().placed(client.level, client.player, pos, next);
+		}
 		CheatSensor sensor = instance;
 		if (sensor == null || !sensor.active()) {
 			return;
 		}
-		ClientLevel level = Minecraft.getInstance().level;
+		ClientLevel level = client.level;
 		BlockState before = level.getBlockState(pos);
 		BedDefense.Cell cell = new BedDefense.Cell(pos.getX(), pos.getY(), pos.getZ());
 

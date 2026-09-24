@@ -61,7 +61,7 @@ public final class Hazards {
 	}
 
 	/** A bed looked at, and its defence from outside; {@code dye} is its colour's id ({@code light_blue}). */
-	public record Bed(String colour, String dye, BlockPos head, BedDefense.Report report) {
+	public record Bed(String colour, String dye, BlockPos head, List<BedDefense.Cell> cells, BedDefense.Report report) {
 	}
 
 	/** An enemy outside the view, in plain sight. */
@@ -102,7 +102,7 @@ public final class Hazards {
 		fall = options.voidWarning ? fall(level, player) : null;
 		bed = options.bedDefense ? bed(level, player) : null;
 		if (bed != null) {
-			ledger.record(bed.dye(), cell(bed.head()), bed.report());
+			ledger.record(bed.dye(), bed.cells(), bed.report());
 		}
 		if (++ledgerTicks >= LEDGER_CHECK_TICKS) {
 			ledgerTicks = 0;
@@ -220,9 +220,66 @@ public final class Hazards {
 			cells.add(cell(other));
 		}
 
+		// In one order whichever half the crosshair found, so every look adds to the same bed.
+		cells.sort(Comparator.comparingInt(BedDefense.Cell::x).thenComparingInt(BedDefense.Cell::y)
+				.thenComparingInt(BedDefense.Cell::z));
 		BedDefense.Report report = BedDefense.analyse(cells, at -> block(level, new BlockPos(at.x(), at.y(), at.z())));
 		String dye = ((BedBlock) state.getBlock()).getColor().getName();
-		return new Bed(dye.toUpperCase(Locale.ROOT).replace('_', ' '), dye, head, report);
+		return new Bed(dye.toUpperCase(Locale.ROOT).replace('_', ' '), dye, head, List.copyOf(cells), report);
+	}
+
+	/** Further than this a block going up is not something the player watched. */
+	private static final double WATCH_RANGE = 128.0;
+
+	/**
+	 * A block about to appear where there was none. Placed within a bed's defence and in plain sight
+	 * of the player — a clear line from the eyes to it, as it goes up on the outside — it joins what
+	 * is known of that defence: the player watched it being built. Placed out of sight, it does not.
+	 */
+	public void placed(ClientLevel level, LocalPlayer player, BlockPos pos, BlockState next) {
+		if (!settings.get().awareness.bedDefense || next.getBlock() instanceof BedBlock
+				|| next.getCollisionShape(level, pos).isEmpty()) {
+			return;
+		}
+		Vec3 centre = Vec3.atCenterOf(pos);
+		Vec3 eye = player.getEyePosition();
+		if (eye.distanceTo(centre) > WATCH_RANGE) {
+			return;
+		}
+
+		BlockPos bedPos = null;
+		for (BlockPos near : BlockPos.betweenClosed(pos.offset(-BED_SEARCH, -BED_SEARCH, -BED_SEARCH),
+				pos.offset(BED_SEARCH, 0, BED_SEARCH))) {
+			if (level.getBlockState(near).getBlock() instanceof BedBlock) {
+				bedPos = near.immutable();
+				break;
+			}
+		}
+		if (bedPos == null) {
+			return;
+		}
+		BlockState bedState = level.getBlockState(bedPos);
+		List<BedDefense.Cell> cells = new ArrayList<>();
+		cells.add(cell(bedPos));
+		BlockPos other = bedPos.relative(BedBlock.getConnectedDirection(bedState));
+		if (level.getBlockState(other).getBlock() instanceof BedBlock) {
+			cells.add(cell(other));
+		}
+		cells.sort(Comparator.comparingInt(BedDefense.Cell::x).thenComparingInt(BedDefense.Cell::y)
+				.thenComparingInt(BedDefense.Cell::z));
+		if (!BedDefense.partOf(cells, cell(pos)) || !inSight(level, player, eye, pos, centre)) {
+			return;
+		}
+		String dye = ((BedBlock) bedState.getBlock()).getColor().getName();
+		ledger.watched(cells, dye, cell(pos), new BedDefense.Block(next.getBlock().getName().getString(),
+				next.getDestroySpeed(level, pos)));
+	}
+
+	/** Nothing solid between the eyes and the block about to go up. */
+	private static boolean inSight(ClientLevel level, LocalPlayer player, Vec3 eye, BlockPos pos, Vec3 centre) {
+		BlockHitResult hit = level.clip(new ClipContext(eye, centre, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, player));
+		return hit.getType() == HitResult.Type.MISS || hit.getBlockPos().equals(pos)
+				|| hit.getLocation().distanceTo(centre) < 0.9;
 	}
 
 	/** A bed on record whose head is loaded but no longer a bed has been broken. */

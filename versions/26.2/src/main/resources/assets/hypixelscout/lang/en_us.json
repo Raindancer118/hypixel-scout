@@ -84,7 +84,7 @@
 	"message.hypixelscout.teams.no_team": "No team",
 	"message.hypixelscout.teams.you": "(you)",
 	"message.hypixelscout.teams.bed": "Bed",
-	"message.hypixelscout.teams.bed.unseen": "not seen yet — look at it",
+	"message.hypixelscout.teams.bed.unseen": "not seen yet — look at it, or watch it being built",
 	"message.hypixelscout.teams.bed.gone": "BROKEN",
 	"message.hypixelscout.teams.bed.ago": "%s ago",
 	"message.hypixelscout.lookup.caption": "Anybody at all, in your game or not.",
