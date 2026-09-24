@@ -1,0 +1,10 @@
+{
+	"missile_inbound": {
+		"category": "master",
+		"sounds": ["hypixelscout:missile_inbound"]
+	},
+	"missile_lock": {
+		"category": "master",
+		"sounds": ["hypixelscout:missile_lock"]
+	}
+}

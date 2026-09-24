@@ -13,7 +13,8 @@ public final class StartupTestListener {
 	private final StartupTestRunner runner;
 
 	public StartupTestListener() {
-		this.runner = new StartupTestRunner(StartupTestRunner.gameDir(), new MainMenuScreenshotCheck());
+		this.runner = new StartupTestRunner(StartupTestRunner.gameDir(), new MainMenuScreenshotCheck(),
+				new ScoutFeatureCheck(), new MainMenuScreenshotCheck());
 	}
 
 	@SubscribeEvent
