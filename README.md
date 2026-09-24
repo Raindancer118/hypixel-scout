@@ -69,7 +69,30 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   in 1.4° steps, so aiming within half a block of you still counts. Settings → Missiles → Target
   lock warning.
 - **Fireball aim line**: while you hold a fire charge, the line your fireball would fly if you
-  threw it now, and the spot it would hit. Just a line — nothing aims for you.
+  threw it now, and the spot it would hit. Just a line — nothing aims for you. At its end the
+  **blast preview**: the blast's 2.5-block reach as a ring, red when an enemy stands in it.
+- **Pearl and bow aim lines**: holding an ender pearl, the arc it would fly (your own running and
+  jumping carried into it, as vanilla does) and the spot you would land on; drawing a bow, the
+  arrow's arc at the current draw. Your own shot only — nothing about where anybody will be.
+- **Enemy pearls**: every ender pearl in the air gets its path drawn in purple and its landing spot
+  marked — where the thrower is about to appear. Pearls never count as incoming.
+- **TNT** (Settings → Awareness): primed TNT's fall, where it goes off, and its reach as two rings —
+  the outer where the push ends, the inner where it is half as strong. While the blast would reach
+  you, a card above the incoming warning: `⚠ TNT 2.9 s · knockback → 62%` — time left, the way you
+  would be thrown (relative to where you look) and how hard, with your cover counted the way vanilla
+  counts it (rays from your hitbox to the blast). Vanilla's power-4 blast; the fuse is read from the
+  entity, so a server's shorter fuse is right, a server's changed power is not.
+- **Landing prediction**: while you fall, the spot you come down on is marked green if it is more
+  than 4 blocks down; if nothing is under your path but the void, **⚠ NO SAFE LANDING** under the
+  crosshair. Vanilla's air movement assuming you let go of the keys — the question when you are
+  knocked off a bridge.
+- **Bed defence**: looking at (or near) a bed, a card under the crosshair — `RED BED · Wool 3 · End
+  Stone 12`, softest first — with the softest exposed block outlined, or `RED BED · OPEN`. Only
+  blocks with a face to the air: the layers under the outer shell are what you cannot see, and the
+  mod does not tell you either; they show up as soon as somebody uncovers them.
+- **Edge markers**: enemies beside or behind you, outside your view, within 32 blocks (8–64), as
+  small markers on the screen's edge in their team colour with the distance. Only with a clear line
+  of sight from your eyes — never through walls — and never for invisible players.
 - **Callouts** (Settings → Callouts): six messages on keys of your choice, about whoever is under
   your crosshair. `{team} inc` while aiming at a red player sends `RED inc` to team chat (or party
   chat, one switch). Placeholders: `{team}` `{name}` `{stars}` `{threat}` `{fkdr}` `{wlr}` `{bblr}`
@@ -180,8 +203,12 @@ cards, the tooltip and both reports all use the same scale.
   `/play` goes out only on a key press, or through the auto requeue if you switched it on.
 - **No wallhack.** The look tooltip needs line of sight and only sees players the server sent you;
   flight paths are hidden behind blocks like anything else.
-- **No aim assist that aims.** The fireball line shows where a throw would go; moving the crosshair
-  stays yours.
+- **No aim assist that aims.** The fireball, pearl and bow lines show where your own throw would go;
+  moving the crosshair stays yours. There is deliberately no prediction of where another player will
+  move to and no "optimal aim" point: that is aim assist, on Hypixel's list of disallowed mods.
+- **Nothing through walls, nothing invisible.** Invisible players stay invisible (the potion is
+  something they paid for), edge markers need a clear line of sight, and the bed defence shows only
+  its outside.
 - **Nicked players stay unknown.** There is no profile behind a nick; the mod says so.
 
 ## Building

@@ -62,6 +62,17 @@ class ScoutSettingsTest {
 		assertThat(settings.projectiles.arrows).isTrue();
 		assertThat(settings.projectiles.fireballs).isTrue();
 		assertThat(settings.projectiles.onlyInGame).isTrue();
+		// Pearls, the bow line and the blast preview join them.
+		assertThat(settings.projectiles.pearls).isTrue();
+		assertThat(settings.projectiles.pearlAim).isTrue();
+		assertThat(settings.projectiles.bowAim).isTrue();
+		assertThat(settings.projectiles.blastPreview).isTrue();
+		// TNT, the void, beds and the edge markers are all on.
+		assertThat(settings.awareness.tnt).isTrue();
+		assertThat(settings.awareness.voidWarning).isTrue();
+		assertThat(settings.awareness.bedDefense).isTrue();
+		assertThat(settings.awareness.offscreen).isTrue();
+		assertThat(settings.awareness.offscreenRange).isEqualTo(32);
 		// Six callouts, the first the classic, all into team chat.
 		assertThat(settings.callouts.messages).hasSize(ScoutSettings.CALLOUTS);
 		assertThat(settings.callouts.messages[0]).isEqualTo("{team} inc");
@@ -128,6 +139,15 @@ class ScoutSettingsTest {
 		assertThat(proximity.proximity.radius).isEqualTo(ScoutSettings.MAX_RADIUS);
 		assertThat(proximity.proximity.seconds).isEqualTo(1);
 		assertThat(proximity.proximity.from).isEqualTo(Threat.NONE);
+
+		Files.writeString(file, """
+				{ "awareness": { "offscreenRange": 5000 } }
+				""", StandardCharsets.UTF_8);
+		assertThat(ScoutSettings.load(file).awareness.offscreenRange).isEqualTo(ScoutSettings.MAX_OFFSCREEN_RANGE);
+		Files.writeString(file, """
+				{ "awareness": null }
+				""", StandardCharsets.UTF_8);
+		assertThat(ScoutSettings.load(file).awareness).isNotNull();
 
 		Files.writeString(file, """
 				{ "requeue": { "mode": "SOMETIMES", "delaySeconds": 99 } }

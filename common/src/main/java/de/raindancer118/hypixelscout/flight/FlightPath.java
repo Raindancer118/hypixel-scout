@@ -44,8 +44,8 @@ public record FlightPath(List<Vec> points, boolean blocked) {
 
 		Vec at = position;
 		Vec motion = velocity;
-		// A fireball speeds up before it moves, an arrow after: vanilla's order for each.
-		if (kind == ProjectileKind.FIREBALL) {
+		// A fireball speeds up and a pearl falls before it moves, an arrow after: vanilla's order for each.
+		if (kind != ProjectileKind.ARROW) {
 			motion = kind.nextVelocity(motion, accelerationPower);
 		}
 

@@ -96,7 +96,7 @@ public final class SettingsScreen extends Screen {
 		keyButtons.clear();
 		tabBar = MenuTabBar.builder(tabManager, width)
 				.addTabs(new GeneralTab(), new TableTab(), new OverlaysTab(), new AlertsTab(), new ProjectilesTab(),
-						new CalloutsTab(), new KeysTab())
+						new AwarenessTab(), new CalloutsTab(), new KeysTab())
 				.build();
 		addRenderableWidget(tabBar);
 
@@ -322,6 +322,27 @@ public final class SettingsScreen extends Screen {
 			rows.addChild(toggle("arrows", projectiles.arrows, value -> projectiles.arrows = value));
 			rows.addChild(toggle("fireballs", projectiles.fireballs, value -> projectiles.fireballs = value));
 			rows.addChild(toggle("only_in_game", projectiles.onlyInGame, value -> projectiles.onlyInGame = value));
+			rows.addChild(toggle("pearls", projectiles.pearls, value -> projectiles.pearls = value));
+			rows.addChild(toggle("pearl_aim", projectiles.pearlAim, value -> projectiles.pearlAim = value));
+			rows.addChild(toggle("bow_aim", projectiles.bowAim, value -> projectiles.bowAim = value));
+			rows.addChild(toggle("blast_preview", projectiles.blastPreview, value -> projectiles.blastPreview = value));
+		}
+	}
+
+	/** TNT, falls, beds and enemies out of view. */
+	private final class AwarenessTab extends SettingsTab {
+		AwarenessTab() {
+			super("awareness");
+
+			ScoutSettings.Awareness awareness = settings().awareness;
+			rows.addChild(toggle("tnt", awareness.tnt, value -> awareness.tnt = value));
+			rows.addChild(toggle("void_warning", awareness.voidWarning, value -> awareness.voidWarning = value));
+			rows.addChild(toggle("bed_defense", awareness.bedDefense, value -> awareness.bedDefense = value));
+			rows.addChild(toggle("offscreen", awareness.offscreen, value -> awareness.offscreen = value));
+			rows.addChild(new SettingSlider(0, 0, NARROW, "message.hypixelscout.settings.offscreen_range", 8,
+					ScoutSettings.MAX_OFFSCREEN_RANGE, awareness.offscreenRange,
+					value -> awareness.offscreenRange = (int) Math.round(value),
+					value -> String.valueOf(Math.round(value))));
 		}
 	}
 
@@ -356,9 +377,9 @@ public final class SettingsScreen extends Screen {
 	}
 
 	/** Index of the keys tab, for whoever wants to open the screen right there. */
-	public static final int KEYS_TAB = 6;
+	public static final int KEYS_TAB = 7;
 	/** Index of the callouts tab. */
-	public static final int CALLOUTS_TAB = 5;
+	public static final int CALLOUTS_TAB = 6;
 
 	/**
 	 * The bindings that matter mid-game, changeable without leaving for vanilla's controls — which

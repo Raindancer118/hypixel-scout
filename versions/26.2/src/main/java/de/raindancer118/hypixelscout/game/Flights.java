@@ -8,6 +8,7 @@ import de.raindancer118.hypixelscout.flight.IncomingWatch;
 import de.raindancer118.hypixelscout.flight.LockWatch;
 import de.raindancer118.hypixelscout.flight.MissileAlarm;
 import de.raindancer118.hypixelscout.flight.ProjectileKind;
+import de.raindancer118.hypixelscout.flight.Throw;
 import de.raindancer118.hypixelscout.flight.Vec;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -19,6 +20,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.projectile.hurtingprojectile.Fireball;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
@@ -42,8 +44,14 @@ import java.util.function.Supplier;
 public final class Flights {
 	/** How far ahead a path is followed: four seconds, longer than any arrow stays in the air. */
 	private static final int PATH_TICKS = 80;
+	/** A pearl thrown off a high ledge stays up longer than an arrow: six seconds. */
+	private static final int PEARL_TICKS = 120;
 	/** Speeds below this are a projectile lying still (an arrow in a wall) or not yet sent. */
 	private static final double STILL = 1e-3;
+
+	/** Where something the player holds would fly if thrown or shot now. */
+	public record Aim(ProjectileKind kind, FlightPath path) {
+	}
 
 	/** One projectile in flight and where it goes. */
 	public record Flying(Entity entity, ProjectileKind kind, FlightPath path, boolean mine) {
@@ -175,7 +183,8 @@ public final class Flights {
 		for (Entity entity : level.entitiesForRendering()) {
 			ProjectileKind kind = kindOf(entity);
 			if (kind == null || (kind == ProjectileKind.ARROW && !options.arrows)
-					|| (kind == ProjectileKind.FIREBALL && !options.fireballs)) {
+					|| (kind == ProjectileKind.FIREBALL && !options.fireballs)
+					|| (kind == ProjectileKind.PEARL && !options.pearls)) {
 				continue;
 			}
 
@@ -190,7 +199,7 @@ public final class Flights {
 
 			double acceleration = entity instanceof Fireball fireball ? fireball.accelerationPower : 0.0;
 			FlightPath path = FlightPath.predict(kind, vec(entity.getPosition(partialTick)), vec(motion), acceleration,
-					PATH_TICKS, obstacle(level, entity));
+					kind == ProjectileKind.PEARL ? PEARL_TICKS : PATH_TICKS, obstacle(level, entity));
 			result.add(new Flying(entity, kind, path, isMine(entity, player)));
 		}
 		return result;
@@ -201,11 +210,40 @@ public final class Flights {
 	 * charge. Straight along the view, from the eyes, until the first block.
 	 */
 	public FlightPath aim(ClientLevel level, LocalPlayer player, float partialTick) {
-		if (!settings.get().projectiles.aim || !holdsFireCharge(player)) {
-			return null;
-		}
+		Aim aim = aimAny(level, player, partialTick);
+		return aim != null && aim.kind() == ProjectileKind.FIREBALL ? aim.path() : null;
+	}
 
-		return fireballFrom(level, player, partialTick);
+	/**
+	 * Where whatever the player has ready would fly: a fire charge in hand, an ender pearl in hand, or
+	 * a bow being drawn — at the current draw. {@code null} for none of them, or where the setting for
+	 * it is off. A drawn bow comes first: it is what the player is about to let go of.
+	 */
+	public Aim aimAny(ClientLevel level, LocalPlayer player, float partialTick) {
+		ScoutSettings.Projectiles options = settings.get().projectiles;
+		Vec3 look = player.getViewVector(partialTick);
+		Vec eye = vec(player.getEyePosition(partialTick));
+
+		if (options.bowAim && player.isUsingItem() && player.getUseItem().is(Items.BOW)
+				&& Throw.bowShoots(player.getTicksUsingItem())) {
+			Vec velocity = Throw.velocity(vec(look), Throw.ARROW_SPEED * Throw.bowPower(player.getTicksUsingItem()),
+					vec(player.getKnownMovement()), player.onGround());
+			return new Aim(ProjectileKind.ARROW, FlightPath.predict(ProjectileKind.ARROW, Throw.start(eye), velocity, 0,
+					PATH_TICKS, obstacle(level, player)));
+		}
+		if (options.aim && holdsFireCharge(player)) {
+			return new Aim(ProjectileKind.FIREBALL, fireballFrom(level, player, partialTick));
+		}
+		if (options.pearlAim && holds(player, Items.ENDER_PEARL)) {
+			Vec velocity = Throw.velocity(vec(look), Throw.PEARL_SPEED, vec(player.getKnownMovement()), player.onGround());
+			return new Aim(ProjectileKind.PEARL, FlightPath.predict(ProjectileKind.PEARL, Throw.start(eye), velocity, 0,
+					PEARL_TICKS, obstacle(level, player)));
+		}
+		return null;
+	}
+
+	private static boolean holds(LivingEntity player, net.minecraft.world.item.Item item) {
+		return player.getMainHandItem().is(item) || player.getOffhandItem().is(item);
 	}
 
 	/** A fireball thrown by {@code thrower} right now: straight along their view, from their eyes. */
@@ -216,7 +254,7 @@ public final class Flights {
 	}
 
 	public static boolean holdsFireCharge(LivingEntity player) {
-		return player.getMainHandItem().is(Items.FIRE_CHARGE) || player.getOffhandItem().is(Items.FIRE_CHARGE);
+		return holds(player, Items.FIRE_CHARGE);
 	}
 
 	private static ProjectileKind kindOf(Entity entity) {
@@ -225,6 +263,9 @@ public final class Flights {
 		}
 		if (entity instanceof Fireball) {
 			return ProjectileKind.FIREBALL;
+		}
+		if (entity instanceof ThrownEnderpearl) {
+			return ProjectileKind.PEARL;
 		}
 		return null;
 	}
@@ -235,7 +276,7 @@ public final class Flights {
 	}
 
 	/** The blocks the projectile collides with, as vanilla's own flight code asks for them. */
-	private static FlightPath.Obstacle obstacle(ClientLevel level, Entity entity) {
+	public static FlightPath.Obstacle obstacle(ClientLevel level, Entity entity) {
 		return (from, to) -> {
 			BlockHitResult hit = level.clip(new ClipContext(vec3(from), vec3(to), ClipContext.Block.COLLIDER,
 					ClipContext.Fluid.NONE, entity));
@@ -247,7 +288,7 @@ public final class Flights {
 	 * Half the horizontal field of view, in radians: the options hold the vertical one, the window's
 	 * shape gives the rest.
 	 */
-	private static double halfViewAngle(Minecraft client) {
+	public static double halfViewAngle(Minecraft client) {
 		double vertical = Math.toRadians(client.options.fov().get());
 		double aspect = (double) client.getWindow().getWidth() / Math.max(1, client.getWindow().getHeight());
 		return Math.atan(Math.tan(vertical / 2) * aspect);
@@ -261,7 +302,7 @@ public final class Flights {
 		return new Vec3(value.x(), value.y(), value.z());
 	}
 
-	private static Box box(AABB aabb) {
+	public static Box box(AABB aabb) {
 		return new Box(aabb.minX, aabb.minY, aabb.minZ, aabb.maxX, aabb.maxY, aabb.maxZ);
 	}
 

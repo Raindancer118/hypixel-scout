@@ -100,4 +100,15 @@ class FlightPathTest {
 		// Past the end it stays at the end.
 		assertThat(path.at(1000)).isEqualTo(path.end());
 	}
+
+	@Test
+	void aPearlFallsAndSlowsBeforeItMoves() {
+		// Vanilla's order in ThrowableProjectile.tick: gravity 0.03, drag 0.99, then move.
+		FlightPath path = FlightPath.predict(ProjectileKind.PEARL, new Vec(0, 100, 0), new Vec(1.5, 0, 0), 0, 2, OPEN_AIR);
+
+		assertThat(path.points().get(1).x()).isCloseTo(1.5 * 0.99, within(1e-9));
+		assertThat(path.points().get(1).y()).isCloseTo(100 - 0.03 * 0.99, within(1e-9));
+		double vy2 = (-0.03 * 0.99 - 0.03) * 0.99;
+		assertThat(path.points().get(2).y()).isCloseTo(100 - 0.03 * 0.99 + vy2, within(1e-9));
+	}
 }

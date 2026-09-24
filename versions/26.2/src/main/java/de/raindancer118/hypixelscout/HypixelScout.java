@@ -18,7 +18,10 @@ import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.game.Callouts;
 import de.raindancer118.hypixelscout.game.ChatHover;
 import de.raindancer118.hypixelscout.game.Flights;
+import de.raindancer118.hypixelscout.game.Hazards;
+import de.raindancer118.hypixelscout.ui.hud.HazardElement;
 import de.raindancer118.hypixelscout.ui.hud.IncomingElement;
+import de.raindancer118.hypixelscout.ui.world.HazardLines;
 import de.raindancer118.hypixelscout.ui.world.FlightLines;
 import de.raindancer118.hypixelscout.game.LocationBridge;
 import de.raindancer118.hypixelscout.game.Nametags;
@@ -102,6 +105,7 @@ public final class HypixelScout implements ClientModInitializer {
 	private AutoRequeue requeue;
 	private ProximityElement proximityElement;
 	private Flights flights;
+	private Hazards hazards;
 	private Callouts callouts;
 	private ScoutKeys keys;
 	private ChatHover hover;
@@ -163,6 +167,9 @@ public final class HypixelScout implements ClientModInitializer {
 		new FlightLines(flights, () -> settings).register();
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, id("incoming"),
 				new IncomingElement(flights, () -> settings));
+		hazards = new Hazards(roster, () -> settings);
+		new HazardLines(hazards).register();
+		HudElementRegistry.attachElementAfter(id("incoming"), id("hazards"), new HazardElement(hazards, () -> settings));
 		HudElementRegistry.replaceElement(VanillaHudElements.PLAYER_LIST,
 				vanilla -> new TabStatsElement(vanilla, roster, stats, () -> settings));
 
@@ -203,6 +210,7 @@ public final class HypixelScout implements ClientModInitializer {
 		partyReport.tick(minecraft);
 		proximity.tick(minecraft);
 		flights.tick(minecraft);
+		hazards.tick(minecraft);
 		requeue.tick(minecraft);
 
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
@@ -270,6 +278,7 @@ public final class HypixelScout implements ClientModInitializer {
 		stats.clearFailures();
 		proximity.reset();
 		flights.reset();
+		hazards.reset();
 		teamsReady = false;
 		requeue.gameJoined();
 		scanTicks = 0;
@@ -292,6 +301,7 @@ public final class HypixelScout implements ClientModInitializer {
 		alerts.reset();
 		proximity.reset();
 		flights.reset();
+		hazards.reset();
 		teamsReady = false;
 		requeue.reset();
 		partyReport.cancel();
@@ -423,6 +433,10 @@ public final class HypixelScout implements ClientModInitializer {
 	/** The arrows and fireballs in the air, for the client game test. */
 	public Flights flights() {
 		return flights;
+	}
+
+	public Hazards hazards() {
+		return hazards;
 	}
 
 	public TableHudElement table() {

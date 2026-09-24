@@ -6,11 +6,13 @@ package de.raindancer118.hypixelscout.flight;
  * <p>Arrows (AbstractArrow.tick): move by the velocity, then air drag 0.99, then gravity 0.05.
  * Fireballs (AbstractHurtingProjectile.tick): no gravity; each tick the velocity gains its own
  * direction times the acceleration power and then loses to inertia 0.95 — a straight line that
- * settles at a top speed of 19 times the acceleration.
+ * settles at a top speed of 19 times the acceleration. Ender pearls (ThrowableProjectile.tick): gravity
+ * 0.03 and drag 0.99 first, then the move.
  */
 public enum ProjectileKind {
 	ARROW(0.3, 0.0),
-	FIREBALL(0.6, 2.5);
+	FIREBALL(0.6, 2.5),
+	PEARL(0.125, 0.0);
 
 	/** How close the path has to pass a hitbox to count as a hit: half the projectile's size, and some. */
 	private final double reach;
@@ -38,6 +40,7 @@ public enum ProjectileKind {
 				yield new Vec(dragged.x(), dragged.y() - 0.05, dragged.z());
 			}
 			case FIREBALL -> velocity.add(velocity.normalize().scale(accelerationPower)).scale(0.95);
+			case PEARL -> new Vec(velocity.x(), velocity.y() - 0.03, velocity.z()).scale(0.99);
 		};
 	}
 }

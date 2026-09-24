@@ -51,6 +51,8 @@ public final class ScoutSettings {
 	public static final int MAX_CACHE_MINUTES = 120;
 	public static final int MAX_LOOKUPS = 12;
 	public static final int MAX_RADIUS = 48;
+	/** The edge markers look no further than this, in blocks. */
+	public static final int MAX_OFFSCREEN_RANGE = 64;
 	public static final int MAX_POPUP_SECONDS = 15;
 	public static final int MAX_REQUEUE_DELAY = 15;
 	public static final int MIN_SENSITIVITY = 25;
@@ -101,6 +103,7 @@ public final class ScoutSettings {
 	public Proximity proximity = new Proximity();
 	public Requeue requeue = new Requeue();
 	public Projectiles projectiles = new Projectiles();
+	public Awareness awareness = new Awareness();
 	public Callouts callouts = new Callouts();
 	public Queue queue = new Queue();
 
@@ -206,6 +209,27 @@ public final class ScoutSettings {
 		public boolean fireballs = true;
 		/** Only in a Bedwars game, so a lobby or another server is left alone. */
 		public boolean onlyInGame = true;
+		/** Other players' ender pearls: their flight and where they land — where the thrower appears. */
+		public boolean pearls = true;
+		/** While holding an ender pearl: the arc it would fly if thrown now, and where it lands. */
+		public boolean pearlAim = true;
+		/** While drawing a bow: the arc the arrow would fly at the current draw. */
+		public boolean bowAim = true;
+		/** At the end of the fireball aim line: the blast's reach, and who stands in it. */
+		public boolean blastPreview = true;
+	}
+
+	/** What is about to happen around the player: TNT, the void under them, beds, enemies out of view. */
+	public static final class Awareness {
+		/** Primed TNT: where it goes off, its reach, and the push the player would get. */
+		public boolean tnt = true;
+		/** While falling: where the player comes down, or that nothing is under them. */
+		public boolean voidWarning = true;
+		/** Looking at a bed: the materials on the outside of its defence, the softest first. */
+		public boolean bedDefense = true;
+		/** Enemies behind or beside the player in plain line of sight, as markers on the screen's edge. */
+		public boolean offscreen = true;
+		public int offscreenRange = 32;
 	}
 
 	/** Messages on hotkeys, filled in with whoever is aimed at ({@link de.raindancer118.hypixelscout.core.Callout}). */
@@ -335,6 +359,8 @@ public final class ScoutSettings {
 		requeue.delaySeconds = Math.clamp(requeue.delaySeconds, 0, MAX_REQUEUE_DELAY);
 
 		projectiles = projectiles == null ? new Projectiles() : projectiles;
+		awareness = awareness == null ? new Awareness() : awareness;
+		awareness.offscreenRange = Math.clamp(awareness.offscreenRange, 8, MAX_OFFSCREEN_RANGE);
 
 		callouts = callouts == null ? new Callouts() : callouts;
 		String[] messages = callouts.messages == null ? new String[0] : callouts.messages;

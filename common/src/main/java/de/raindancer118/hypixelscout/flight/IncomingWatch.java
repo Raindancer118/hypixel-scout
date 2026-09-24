@@ -73,6 +73,10 @@ public final class IncomingWatch {
 
 		for (Seen projectile : seen) {
 			present.add(projectile.id());
+			if (projectile.kind() == ProjectileKind.PEARL) {
+				// A pearl is where somebody is going, not something that hurts.
+				continue;
+			}
 			boolean excuse = excused.computeIfAbsent(projectile.id(),
 					id -> projectile.mine() || inTheFace(projectile.position(), eye, look, viewCos));
 			if (excuse || projectile.mine()) {
@@ -107,7 +111,7 @@ public final class IncomingWatch {
 	 * Where {@code position} is as seen from {@code eye} looking along {@code look}, in degrees: 0
 	 * straight ahead, negative to the left, positive to the right, ±180 behind. Height is left out.
 	 */
-	static double bearing(Vec position, Vec eye, Vec look) {
+	public static double bearing(Vec position, Vec eye, Vec look) {
 		Vec towards = position.subtract(eye);
 		double cross = look.x() * towards.z() - look.z() * towards.x();
 		double dot = look.x() * towards.x() + look.z() * towards.z();

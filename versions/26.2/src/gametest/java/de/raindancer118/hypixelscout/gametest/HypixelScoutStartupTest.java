@@ -314,6 +314,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.runOnClient(client -> mod.settings().nametag.stars = false);
 
 			assertProjectiles(context, singleplayer, mod);
+			assertHazards(context, singleplayer, mod);
 			assertCallouts(context, mod);
 
 			// The threat report into team chat: one line per enemy team, most dangerous first.
@@ -626,6 +627,203 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
 		});
+	}
+
+	/**
+	 * Pearls, the bow line, TNT, falls, the bed defence and the edge markers — each against real
+	 * client entities or blocks placed by command, and each cleaned away again for the tests after.
+	 */
+	private static void assertHazards(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+			HypixelScout mod) {
+		var server = singleplayer.getServer();
+		int[] home = new int[3];
+		double[] homeExact = new double[3];
+		context.runOnClient(client -> {
+			var self = client.player;
+			home[0] = self.getBlockX();
+			home[1] = self.getBlockY();
+			home[2] = self.getBlockZ();
+			homeExact[0] = self.getX();
+			homeExact[1] = self.getY();
+			homeExact[2] = self.getZ();
+		});
+		int x = home[0];
+		int y = home[1];
+		int z = home[2];
+
+		// Somebody's ender pearl, lobbed across in front: a purple path to where they will appear.
+		context.runOnClient(client -> {
+			var pearl = new net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl(
+					net.minecraft.world.entity.EntityTypes.ENDER_PEARL, client.level);
+			pearl.snapTo(homeExact[0] - 6, homeExact[1] + 4, homeExact[2] + 9, 0.0f, 0.0f);
+			pearl.setDeltaMovement(0.6, 0.2, 0);
+			pearl.setId(525_010);
+			client.level.addEntity(pearl);
+		});
+		context.waitTick();
+		context.runOnClient(client -> {
+			var pearl = mod.flights().flying(client.level, client.player, 1.0f).stream()
+					.filter(flying -> flying.kind() == de.raindancer118.hypixelscout.flight.ProjectileKind.PEARL)
+					.findFirst().orElse(null);
+			if (pearl == null || !pearl.path().blocked()) {
+				throw new AssertionError("No landing spot for an ender pearl in the air: " + pearl);
+			}
+			if (mod.flights().warning() != null) {
+				throw new AssertionError("A pearl counted as incoming: " + mod.flights().warning());
+			}
+		});
+		context.takeScreenshot("scout_enemy_pearl");
+		context.runOnClient(client -> client.level.getEntity(525_010).discard());
+
+		// An ender pearl in hand, looking a little up: its arc comes down on the ground ahead.
+		server.runCommand("item replace entity @a weapon.mainhand with ender_pearl");
+		context.waitTicks(3);
+		context.runOnClient(client -> client.player.snapTo(client.player.getX(), client.player.getY(),
+				client.player.getZ(), 0.0f, -15.0f));
+		context.waitTick();
+		context.runOnClient(client -> {
+			var aim = mod.flights().aimAny(client.level, client.player, 1.0f);
+			if (aim == null || aim.kind() != de.raindancer118.hypixelscout.flight.ProjectileKind.PEARL || !aim.path().blocked()) {
+				throw new AssertionError("No pearl arc to the ground with a pearl in hand: " + aim);
+			}
+		});
+		context.takeScreenshot("scout_pearl_aim");
+
+		// A bow being drawn: the arrow's arc at the current draw.
+		server.runCommand("item replace entity @a weapon.mainhand with bow");
+		server.runCommand("give @a arrow 4");
+		context.waitTicks(3);
+		context.getInput().holdKey(options -> options.keyUse);
+		context.waitTicks(12);
+		context.runOnClient(client -> {
+			var aim = mod.flights().aimAny(client.level, client.player, 1.0f);
+			if (aim == null || aim.kind() != de.raindancer118.hypixelscout.flight.ProjectileKind.ARROW) {
+				throw new AssertionError("No arrow arc while drawing a bow: " + aim);
+			}
+		});
+		context.takeScreenshot("scout_bow_aim");
+		context.getInput().releaseKey(options -> options.keyUse);
+		context.waitTicks(2);
+		server.runCommand("item replace entity @a weapon.mainhand with air");
+		server.runCommand("clear @a arrow");
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
+			if (mod.flights().aimAny(client.level, client.player, 1.0f) != null) {
+				throw new AssertionError("An aim line with empty hands");
+			}
+		});
+
+		// Primed TNT three blocks to the side with three seconds left: it would throw the player away.
+		context.runOnClient(client -> {
+			var tnt = new net.minecraft.world.entity.item.PrimedTnt(net.minecraft.world.entity.EntityTypes.TNT, client.level);
+			tnt.snapTo(homeExact[0] + 3, homeExact[1], homeExact[2], 0.0f, 0.0f);
+			tnt.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+			tnt.setFuse(60);
+			tnt.setId(525_011);
+			client.level.addEntity(tnt);
+		});
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			var tnt = mod.hazards().tnt();
+			if (tnt.isEmpty() || tnt.getFirst().knock() == null) {
+				throw new AssertionError("No knockback from primed TNT three blocks away: " + tnt);
+			}
+			if (tnt.getFirst().knock().push().x() >= 0) {
+				throw new AssertionError("TNT on the +x side does not push towards −x: " + tnt.getFirst().knock());
+			}
+		});
+		context.takeScreenshot("scout_tnt");
+		context.runOnClient(client -> client.level.getEntity(525_011).discard());
+		context.waitTick();
+
+		// Falls: from ten blocks up onto the ground, a landing spot; over a hole to the bottom, the void.
+		server.runCommand("gamemode creative @a");
+		server.runCommand(String.format(java.util.Locale.ROOT, "tp @a %d.5 %d %d.5", x, y + 10, z));
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			var fall = mod.hazards().fall();
+			if (fall == null || fall.intoTheVoid() || fall.landing() == null || Math.abs(fall.landing().y() - y) > 0.01) {
+				throw new AssertionError("No landing on the ground for a fall from ten blocks: " + fall);
+			}
+		});
+		context.takeScreenshot("scout_landing");
+		int holeX = x + 20;
+		server.runCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d air",
+				holeX - 2, -64, z - 2, holeX + 2, y - 1, z + 2));
+		server.runCommand(String.format(java.util.Locale.ROOT, "tp @a %d.5 %d %d.5", holeX, y + 6, z));
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			var fall = mod.hazards().fall();
+			if (fall == null || !fall.intoTheVoid()) {
+				throw new AssertionError("No NO SAFE LANDING over a hole to the void: " + fall);
+			}
+		});
+		context.takeScreenshot("scout_no_safe_landing");
+		server.runCommand(String.format(java.util.Locale.ROOT, "tp @a %s %s %s 0 0", homeExact[0], homeExact[1], homeExact[2]));
+		server.runCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d grass_block",
+				holeX - 2, -64, z - 2, holeX + 2, y - 1, z + 2));
+		server.runCommand("gamemode survival @a");
+		context.waitTicks(5);
+
+		// A red bed in wool under end stone, ten blocks ahead: only the end stone shows.
+		server.runCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d end_stone", x - 2, y, z + 8, x + 3, y + 2, z + 12));
+		server.runCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d white_wool", x - 1, y, z + 9, x + 2, y + 1, z + 11));
+		server.runCommand(String.format(java.util.Locale.ROOT, "setblock %d %d %d red_bed[facing=east,part=foot]", x, y, z + 10));
+		server.runCommand(String.format(java.util.Locale.ROOT, "setblock %d %d %d red_bed[facing=east,part=head]", x + 1, y, z + 10));
+		context.waitTicks(5);
+		context.runOnClient(client -> {
+			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
+		});
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			var bed = mod.hazards().bed();
+			if (bed == null || !bed.colour().equals("RED") || bed.report().open()) {
+				throw new AssertionError("The defended red bed ahead is not seen: " + bed);
+			}
+			var outside = bed.report().outside().stream().map(de.raindancer118.hypixelscout.core.BedDefense.Material::name).toList();
+			if (outside.size() != 1 || !outside.getFirst().equals("End Stone")) {
+				throw new AssertionError("The bed's outside is not just its end stone: " + outside);
+			}
+		});
+		// Somebody breaks the end stone on top: the wool under it is out.
+		server.runCommand(String.format(java.util.Locale.ROOT, "setblock %d %d %d air", x, y + 2, z + 10));
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			var bed = mod.hazards().bed();
+			if (bed == null || !bed.report().outside().getFirst().name().equals("White Wool")) {
+				throw new AssertionError("The uncovered wool is not the softest exposed block: " + bed);
+			}
+		});
+		context.takeScreenshot("scout_bed_defense");
+		server.runCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d air", x - 2, y, z + 8, x + 3, y + 2, z + 12));
+		context.waitTicks(3);
+
+		// Turned round: Sundial, behind in plain sight, is an edge marker; the teammate is not.
+		context.runOnClient(client -> client.player.snapTo(client.player.getX(), client.player.getY(),
+				client.player.getZ(), 180.0f, 0.0f));
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			var names = mod.hazards().offscreen().stream().map(de.raindancer118.hypixelscout.game.Hazards.Offscreen::name).toList();
+			if (!names.contains("Sundial")) {
+				throw new AssertionError("No edge marker for Sundial behind the player: " + names);
+			}
+			if (names.contains("Ashenvale")) {
+				throw new AssertionError("An edge marker for a teammate");
+			}
+		});
+		context.takeScreenshot("scout_edge_markers");
+		// Invisible, he is nobody's marker.
+		context.runOnClient(client -> client.level.getEntity(424_242).setInvisible(true));
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			if (mod.hazards().offscreen().stream().anyMatch(o -> o.name().equals("Sundial"))) {
+				throw new AssertionError("An edge marker for an invisible player");
+			}
+			client.level.getEntity(424_242).setInvisible(false);
+			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
+		});
+		context.waitTicks(2);
 	}
 
 	/**

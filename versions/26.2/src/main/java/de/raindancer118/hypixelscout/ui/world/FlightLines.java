@@ -7,6 +7,7 @@ import de.raindancer118.hypixelscout.flight.LockWatch;
 import de.raindancer118.hypixelscout.flight.ProjectileKind;
 import de.raindancer118.hypixelscout.flight.Vec;
 import de.raindancer118.hypixelscout.game.Flights;
+import de.raindancer118.hypixelscout.game.Teams;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelExtractionContext;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelExtractionEvents;
@@ -32,6 +33,7 @@ public final class FlightLines {
 	private static final int FIREBALL = 0xD0FF8C1A;
 	private static final int AT_ME = 0xF0FF3B3B;
 	private static final int LOCK = 0xF0FFB020;
+	private static final int PEARL = 0xE0B060FF;
 	private static final float WIDTH = 2.5f;
 
 	private final Flights flights;
@@ -50,7 +52,8 @@ public final class FlightLines {
 		Minecraft client = Minecraft.getInstance();
 		ScoutSettings.Projectiles options = settings.get().projectiles;
 		LockWatch.Lock lock = flights.lock();
-		if ((!options.paths && !options.aim && lock == null) || !flights.active(client)) {
+		if ((!options.paths && !options.aim && !options.pearlAim && !options.bowAim && lock == null)
+				|| !flights.active(client)) {
 			return;
 		}
 
@@ -62,7 +65,11 @@ public final class FlightLines {
 				Box self = Flights.hitbox(player);
 				for (Flights.Flying flying : flights.flying(context.level(), player, partialTick)) {
 					boolean atMe = !flying.mine() && flying.path().ticksUntil(self.inflate(flying.kind().reach())) >= 0;
-					int colour = atMe ? AT_ME : flying.kind() == ProjectileKind.FIREBALL ? FIREBALL : ARROW;
+					int colour = atMe ? AT_ME : switch (flying.kind()) {
+						case FIREBALL -> FIREBALL;
+						case PEARL -> PEARL;
+						case ARROW -> ARROW;
+					};
 					drawPath(flying.path(), colour);
 				}
 			}
@@ -71,9 +78,9 @@ public final class FlightLines {
 				drawLock(lock);
 			}
 
-			FlightPath aim = flights.aim(context.level(), player, partialTick);
+			Flights.Aim aim = flights.aimAny(context.level(), player, partialTick);
 			if (aim != null) {
-				drawAim(aim, player.getViewVector(partialTick));
+				drawAim(aim, player, options.blastPreview);
 			}
 		}
 	}
@@ -89,17 +96,47 @@ public final class FlightLines {
 	}
 
 	/**
-	 * The own fireball: from a little in front of the eyes — a line starting in the eye would be a
-	 * dot — to where it would hit, with the spot marked.
+	 * The own throw: from a little in front of the eyes — a line starting in the eye would be a dot —
+	 * along the path to where it would hit, with the spot marked. A fireball's spot gets its blast's
+	 * reach around it, red when an enemy stands in it; a pearl's is where the player would appear.
 	 */
-	private static void drawAim(FlightPath path, Vec3 look) {
-		Vec3 start = Flights.vec3(path.points().getFirst()).add(look.scale(0.6)).add(0, -0.12, 0);
-		Vec3 end = Flights.vec3(path.end());
-		int colour = ScoutTheme.accent(0xE0);
-		Gizmos.line(start, end, colour, WIDTH);
-		if (path.blocked()) {
-			marker(end, colour);
+	private static void drawAim(Flights.Aim aim, LocalPlayer player, boolean blastPreview) {
+		List<Vec> points = aim.path().points();
+		if (points.size() < 2) {
+			return;
 		}
+
+		int colour = aim.kind() == ProjectileKind.PEARL ? PEARL : ScoutTheme.accent(0xE0);
+		Vec3 previous = Flights.vec3(points.getFirst()).add(player.getViewVector(1.0f).scale(0.6)).add(0, -0.12, 0);
+		for (int i = 1; i < points.size(); i++) {
+			Vec3 next = Flights.vec3(points.get(i));
+			if (next.distanceToSqr(Flights.vec3(points.getFirst())) > 0.36) {
+				Gizmos.line(previous, next, colour, WIDTH);
+				previous = next;
+			}
+		}
+
+		if (!aim.path().blocked()) {
+			return;
+		}
+		Vec3 end = Flights.vec3(aim.path().end());
+		marker(end, colour);
+		if (aim.kind() == ProjectileKind.FIREBALL && blastPreview) {
+			float radius = (float) ProjectileKind.FIREBALL.blast();
+			int ring = enemyInBlast(player, aim.path().end()) ? AT_ME : colour;
+			Gizmos.circle(end, radius, GizmoStyle.strokeAndFill(ring, WIDTH, (ring & 0xFFFFFF) | 0x28000000));
+		}
+	}
+
+	/** Whether an enemy's hitbox is within a fireball blast's reach of {@code at}. */
+	private static boolean enemyInBlast(LocalPlayer player, Vec at) {
+		for (var other : player.level().players()) {
+			if (other != player && !other.isSpectator() && !Teams.isOwnTeam(other.getScoreboardName())
+					&& Flights.box(other.getBoundingBox()).distanceTo(at) <= ProjectileKind.FIREBALL.blast()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
