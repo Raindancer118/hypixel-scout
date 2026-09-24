@@ -90,6 +90,10 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   Stone 12`, softest first — with the softest exposed block outlined, or `RED BED · OPEN`. Only
   blocks with a face to the air: the layers under the outer shell are what you cannot see, and the
   mod does not tell you either; they show up as soon as somebody uncovers them.
+  Every bed you look at is remembered for the whole round — through deaths and respawns — and the
+  **Teams** screen shows it on each team's card: its outside at your last look and how long ago that
+  was, **BROKEN** (with what it was wrapped in) once it is gone from where it stood, or *not seen
+  yet*. A look is only as fresh as its age: a bed rebuilt out of your sight is not seen.
 - **Edge markers**: enemies beside or behind you, outside your view, within 32 blocks (8–64), as
   small markers on the screen's edge in their team colour with the distance. Only with a clear line
   of sight from your eyes — never through walls — and never for invisible players.

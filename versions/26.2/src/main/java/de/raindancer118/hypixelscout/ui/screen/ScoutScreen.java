@@ -2,6 +2,8 @@ package de.raindancer118.hypixelscout.ui.screen;
 
 import de.raindancer118.hypixelscout.HypixelScout;
 import de.raindancer118.hypixelscout.config.ScoutSettings;
+import de.raindancer118.hypixelscout.core.BedDefense;
+import de.raindancer118.hypixelscout.core.BedLedger;
 import de.raindancer118.hypixelscout.core.BedwarsModes;
 import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.Roster;
@@ -19,6 +21,7 @@ import de.raindancer118.hypixelscout.ui.Heads;
 import de.raindancer118.hypixelscout.ui.PlayerRow;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
 import de.raindancer118.hypixelscout.ui.Threats;
+import de.raindancer118.hypixelscout.ui.hud.HazardElement;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -47,6 +50,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * The mod's front door: everybody in the game, the teams they make up, a lookup for anybody at all,
@@ -514,7 +518,7 @@ public final class ScoutScreen extends Screen {
 		int gap = 8;
 		int cardWidth = (contentWidth() - gap * (columnsCount - 1)) / columnsCount;
 		int largest = groups.stream().mapToInt(group -> group.rows().size()).max().orElse(1);
-		int cardHeight = ScoutTheme.HEADER_HEIGHT + 6 + largest * 11 + 16;
+		int cardHeight = ScoutTheme.HEADER_HEIGHT + 6 + largest * 11 + 22 + 16;
 
 		int top = contentTop + 18;
 		int rows = (groups.size() + columnsCount - 1) / columnsCount;
@@ -558,6 +562,10 @@ public final class ScoutScreen extends Screen {
 			rowY += 11;
 		}
 
+		if (!group.team().name().isEmpty()) {
+			drawBed(g, group.team().name(), x + 6, y + height - 38, width - 12);
+		}
+
 		TeamReport report = group.report();
 		ScoutTheme.divider(g, x + 6, y + height - 15, width - 12);
 		String stars = "§f" + report.getCombinedStars() + "✫";
@@ -568,6 +576,41 @@ public final class ScoutScreen extends Screen {
 		ScoutTheme.text(g, stars, x + 6, y + height - 11, ScoutTheme.TEXT);
 		ScoutTheme.textRight(g, "§7FKDR §f" + StatFormat.ratio(report.getCombinedFkdr()) + " §7WLR §f"
 				+ StatFormat.ratio(report.getCombinedWlr()), x + width - 6, y + height - 11, ScoutTheme.TEXT);
+	}
+
+	/**
+	 * The team's bed as last seen this round, in two lines: {@code Bed} with how long ago on the right,
+	 * then its outside ({@code Wool 3 · End Stone 12}) — or that it was broken, and what it was wrapped
+	 * in last, or that nobody has looked at it yet.
+	 */
+	private void drawBed(GuiGraphicsExtractor g, String team, int x, int y, int width) {
+		String label = "§7" + I18n.get("message.hypixelscout.teams.bed");
+		BedLedger.Entry entry = mod.hazards().ledger().of(team).orElse(null);
+		String detail;
+		if (entry == null) {
+			detail = "§8" + I18n.get("message.hypixelscout.teams.bed.unseen");
+		} else if (entry.gone()) {
+			label += " §c§l" + I18n.get("message.hypixelscout.teams.bed.gone");
+			// What it was wrapped in last is still worth knowing: they may rebuild it the same way.
+			detail = entry.report().open() ? "§8" + I18n.get("message.hypixelscout.hazard.bed_open")
+					: "§8" + entry.report().outside().stream().map(BedDefense.Material::name).collect(Collectors.joining(", "));
+		} else {
+			detail = HazardElement.defenceText(entry.report());
+			ScoutTheme.textRight(g, "§8" + I18n.get("message.hypixelscout.teams.bed.ago",
+					ago(entry.ageMillis(System.currentTimeMillis()))), x + width, y, ScoutTheme.TEXT);
+		}
+		ScoutTheme.text(g, label, x, y, ScoutTheme.TEXT);
+		ScoutTheme.text(g, ScoutTheme.fit(detail, width), x, y + 11, ScoutTheme.TEXT);
+	}
+
+	/** {@code 45s}, {@code 3m}, {@code 1h 5m}. */
+	static String ago(long millis) {
+		long seconds = millis / 1000;
+		if (seconds < 60) {
+			return seconds + "s";
+		}
+		long minutes = seconds / 60;
+		return minutes < 60 ? minutes + "m" : (minutes / 60) + "h " + (minutes % 60) + "m";
 	}
 
 	// --- lookup -------------------------------------------------------------------------------

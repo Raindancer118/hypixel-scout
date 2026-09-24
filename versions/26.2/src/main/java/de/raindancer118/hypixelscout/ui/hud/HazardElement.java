@@ -86,15 +86,17 @@ public final class HazardElement implements HudElement {
 
 	/** {@code RED BED · OPEN}, or {@code RED BED · Wool 3 · End Stone 12} with the softest first. */
 	public static String bedText(Hazards.Bed bed) {
-		StringBuilder text = new StringBuilder("§f§l")
-				.append(I18n.get("message.hypixelscout.hazard.bed", bed.colour()));
-		if (bed.report().open()) {
-			return text.append(" §7· §c§l").append(I18n.get("message.hypixelscout.hazard.bed_open")).toString();
+		return "§f§l" + I18n.get("message.hypixelscout.hazard.bed", bed.colour()) + " §7· " + defenceText(bed.report());
+	}
+
+	/** {@code OPEN}, or {@code Wool 3 · End Stone 12} with the softest first — also on the Teams screen. */
+	public static String defenceText(BedDefense.Report report) {
+		if (report.open()) {
+			return "§c§l" + I18n.get("message.hypixelscout.hazard.bed_open");
 		}
-		boolean first = true;
-		for (BedDefense.Material material : bed.report().outside()) {
-			text.append(" §7· ").append(first ? "§e" : "§f").append(material.name()).append(" §7").append(material.exposed());
-			first = false;
+		StringBuilder text = new StringBuilder();
+		for (BedDefense.Material material : report.outside()) {
+			text.append(text.isEmpty() ? "§e" : " §7· §f").append(material.name()).append(" §7").append(material.exposed());
 		}
 		return text.toString();
 	}

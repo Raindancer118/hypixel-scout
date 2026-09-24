@@ -2,6 +2,8 @@ package de.raindancer118.hypixelscout.game;
 
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.BedDefense;
+import de.raindancer118.hypixelscout.core.BedLedger;
+import de.raindancer118.hypixelscout.core.Clock;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.flight.Blast;
 import de.raindancer118.hypixelscout.flight.Box;
@@ -32,7 +34,8 @@ import java.util.function.Supplier;
 /**
  * What is about to happen around the player, worked out once a tick from what the client already
  * has: primed TNT and the push it would give, where a fall ends (or that it does not), the outside
- * of the bed being looked at, and enemies in plain sight outside the view.
+ * of the bed being looked at, and enemies in plain sight outside the view. Every bed looked at goes
+ * into the round's {@link BedLedger}, which outlives deaths and only a new game clears.
  *
  * <p>Nothing here looks through walls. TNT and falls are physics of things in sight; the bed shows
  * only blocks with a face to the air; an edge marker needs a clear line from the player's eyes to
@@ -47,6 +50,8 @@ public final class Hazards {
 	private static final int BED_SEARCH = BedDefense.RADIUS;
 	private static final double BED_REACH = 64.0;
 	private static final int MAX_EDGE_MARKERS = 6;
+	/** How often the beds on record are checked for still being there. */
+	private static final int LEDGER_CHECK_TICKS = 20;
 
 	/** Primed TNT: its fall, where it goes off, when, and what it would do to the player. */
 	public record Tnt(int id, List<Vec> path, Vec center, double reach, int fuse, Blast.Knock knock) {
@@ -55,8 +60,8 @@ public final class Hazards {
 		}
 	}
 
-	/** A bed looked at, and its defence from outside. */
-	public record Bed(String colour, BlockPos head, BedDefense.Report report) {
+	/** A bed looked at, and its defence from outside; {@code dye} is its colour's id ({@code light_blue}). */
+	public record Bed(String colour, String dye, BlockPos head, BedDefense.Report report) {
 	}
 
 	/** An enemy outside the view, in plain sight. */
@@ -70,6 +75,8 @@ public final class Hazards {
 	private Fall fall;
 	private Bed bed;
 	private List<Offscreen> offscreen = List.of();
+	private final BedLedger ledger = new BedLedger(Clock.SYSTEM);
+	private int ledgerTicks;
 
 	public Hazards(Roster roster, Supplier<ScoutSettings> settings) {
 		this.roster = roster;
@@ -94,9 +101,17 @@ public final class Hazards {
 		tnt = options.tnt ? tnt(level, player) : List.of();
 		fall = options.voidWarning ? fall(level, player) : null;
 		bed = options.bedDefense ? bed(level, player) : null;
+		if (bed != null) {
+			ledger.record(bed.dye(), cell(bed.head()), bed.report());
+		}
+		if (++ledgerTicks >= LEDGER_CHECK_TICKS) {
+			ledgerTicks = 0;
+			checkLedger(level);
+		}
 		offscreen = options.offscreen ? offscreen(client, level, player, options.offscreenRange) : List.of();
 	}
 
+	/** What is shown right now goes; the beds on record stay — a death does not end the round. */
 	public void reset() {
 		tnt = List.of();
 		fall = null;
@@ -116,6 +131,18 @@ public final class Hazards {
 
 	public Bed bed() {
 		return bed;
+	}
+
+	/** Every bed looked at this round, as last seen. */
+	public BedLedger ledger() {
+		return ledger;
+	}
+
+	/** A new game: the beds on record were somebody else's. */
+	public void newRound() {
+		reset();
+		ledger.clear();
+		ledgerTicks = 0;
 	}
 
 	public List<Offscreen> offscreen() {
@@ -194,8 +221,18 @@ public final class Hazards {
 		}
 
 		BedDefense.Report report = BedDefense.analyse(cells, at -> block(level, new BlockPos(at.x(), at.y(), at.z())));
-		String colour = ((BedBlock) state.getBlock()).getColor().getName().toUpperCase(Locale.ROOT).replace('_', ' ');
-		return new Bed(colour, head, report);
+		String dye = ((BedBlock) state.getBlock()).getColor().getName();
+		return new Bed(dye.toUpperCase(Locale.ROOT).replace('_', ' '), dye, head, report);
+	}
+
+	/** A bed on record whose head is loaded but no longer a bed has been broken. */
+	private void checkLedger(ClientLevel level) {
+		for (BedLedger.Entry entry : ledger.standing()) {
+			BlockPos head = new BlockPos(entry.head().x(), entry.head().y(), entry.head().z());
+			if (level.isLoaded(head) && !(level.getBlockState(head).getBlock() instanceof BedBlock)) {
+				ledger.markGone(entry.team());
+			}
+		}
 	}
 
 	private static BedDefense.Cell cell(BlockPos pos) {

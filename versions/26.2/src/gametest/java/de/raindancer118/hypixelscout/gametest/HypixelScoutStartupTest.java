@@ -475,7 +475,17 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 				if (((ScoutScreen) client.gui.screen()).page() != ScoutScreen.Page.TEAMS) {
 					throw new AssertionError("/scout teams opened the wrong tab");
 				}
+				// Blue's bed, seen standing in wool and end stone; Red's was broken in the hazard test.
+				mod.hazards().ledger().record("blue", new de.raindancer118.hypixelscout.core.BedDefense.Cell(30_000, 70, 30_000),
+						new de.raindancer118.hypixelscout.core.BedDefense.Report(false, List.of(
+								new de.raindancer118.hypixelscout.core.BedDefense.Material("Blue Wool", 0.8, 4),
+								new de.raindancer118.hypixelscout.core.BedDefense.Material("End Stone", 3.0, 14)), null));
 			});
+			context.waitTicks(2);
+			context.takeScreenshot("scout_teams_beds");
+			context.runOnClient(client -> client.gui.screen().mouseScrolled(0, 0, 0, -10));
+			context.waitTicks(2);
+			context.takeScreenshot("scout_teams_beds_scrolled");
 			context.setScreen(() -> null);
 			context.runOnClient(client -> client.player.connection.sendCommand("scout Brickmason"));
 			context.waitForScreen(ProfileScreen.class);
@@ -796,8 +806,28 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 		});
 		context.takeScreenshot("scout_bed_defense");
+		// Looking away — and dying — does not forget it: the round's ledger keeps the last look.
+		context.runOnClient(client -> {
+			mod.hazards().reset();
+			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 80.0f);
+		});
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			var red = mod.hazards().ledger().of("Red").orElse(null);
+			if (mod.hazards().bed() != null || red == null || red.gone()
+					|| !red.report().outside().getFirst().name().equals("White Wool")) {
+				throw new AssertionError("The red bed's last look is not on record: " + red);
+			}
+			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
+		});
 		server.runCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d air", x - 2, y, z + 8, x + 3, y + 2, z + 12));
-		context.waitTicks(3);
+		context.waitTicks(25);
+		context.runOnClient(client -> {
+			var red = mod.hazards().ledger().of("Red").orElse(null);
+			if (red == null || !red.gone()) {
+				throw new AssertionError("The broken red bed is not on record as broken: " + red);
+			}
+		});
 
 		// Turned round: Sundial, behind in plain sight, is an edge marker; the teammate is not.
 		context.runOnClient(client -> client.player.snapTo(client.player.getX(), client.player.getY(),
