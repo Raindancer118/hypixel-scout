@@ -1,10 +1,11 @@
 name: release
 
-# A tag is the release: pushing 0.2.0 builds the jar, runs the tests that prove the mod loads, and
-# publishes it with the modpack. Nothing is done by hand, so nothing can be forgotten.
+# The Forge 1.8.9 branch releases as legacy-X.Y.Z: the same version number as the master release it
+# carries, prefixed so the two never collide. A tag is the release: pushing legacy-0.18.0 builds
+# the jar, runs the tests that prove the mod loads, and publishes it. Nothing is done by hand.
 on:
   push:
-    tags: [ '*.*.*' ]
+    tags: [ 'legacy-*.*.*' ]
 
 permissions:
   contents: write
@@ -25,18 +26,16 @@ jobs:
       - name: Refuse a tag that disagrees with the mod version
         run: |
           declared=$(grep '^mod_version=' gradle/shared.properties | cut -d= -f2)
-          if [ "$declared" != "${GITHUB_REF_NAME}" ]; then
-            echo "tag ${GITHUB_REF_NAME} does not match mod_version ${declared}"
+          if [ "legacy-$declared" != "${GITHUB_REF_NAME}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match legacy-${declared}"
             exit 1
           fi
+          echo "VERSION=$declared" >> "$GITHUB_ENV"
 
       - name: Build and unit test
-        run: ./gradlew build
+        run: ./gradlew -p common build && ./gradlew -p versions/1.8.9 build
 
-      # A green build does not prove the mod loads, so the client tests gate the release too.
-      - name: Client startup test (26.2)
-        run: xvfb-run -a ./gradlew -p versions/26.2 runClientGameTest
-
+      # A green build does not prove the mod loads, so both client tests gate the release.
       - name: Client startup test (1.8.9)
         run: xvfb-run -a ./gradlew -p versions/1.8.9 runClientStartupTest
 
@@ -44,15 +43,12 @@ jobs:
         # The shipped jar in a launcher-style Forge client: vanilla jar, Forge universal, mods/.
         run: xvfb-run -a ./gradlew -p versions/1.8.9 runProductionStartupTest
 
-      - name: Modpack (26.2)
-        run: ./gradlew -p versions/26.2 mrpack
-
       - uses: softprops/action-gh-release@v2
         with:
-          name: Hypixel Scout ${{ github.ref_name }}
+          name: Hypixel Scout ${{ env.VERSION }} for Forge 1.8.9
           generate_release_notes: true
           fail_on_unmatched_files: true
+          # The 26.2 release from master stays the one GitHub shows as latest.
+          make_latest: false
           files: |
-            versions/26.2/build/libs/hypixelscout-mc26.2-${{ github.ref_name }}.jar
-            versions/26.2/build/hypixel-scout-${{ github.ref_name }}-mc26.2.mrpack
-            versions/1.8.9/build/libs/hypixelscout-mc1.8.9-forge-${{ github.ref_name }}.jar
+            versions/1.8.9/build/libs/hypixelscout-mc1.8.9-forge-${{ env.VERSION }}.jar
