@@ -4,6 +4,8 @@ import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.SortMode;
 import de.raindancer118.hypixelscout.game.LookTarget;
 import de.raindancer118.hypixelscout.game.PartyReport;
+import de.raindancer118.hypixelscout.ui.screen.ProfileScreen;
+import de.raindancer118.hypixelscout.ui.screen.ScoutScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.player.EntityPlayer;
@@ -28,13 +30,10 @@ import java.util.UUID;
  * that quietly claims a dozen more breaks somebody's muscle memory. The exceptions — the mod's
  * screen, the table and the queue slots on the number pad — sit on keys vanilla leaves free.
  *
- * <p>Phase 2a of this branch's port (see {@code Project.md}) wires up the table and peek keys: the
- * HUD they drive ({@code ui.hud.TableHudElement}/{@code PeekElement}) now exists. Every key whose
- * 26.2 action instead opens a screen (this branch's screens are a later phase) is still registered
- * here — so the controls screen already lists it and that later phase does not have to touch this
- * class to bind it — but left unwired, see the {@code // not wired yet} comments below. Everything
- * else — settings toggles, sort cycling, party/team reports, callouts, queue slots, the key check —
- * is fully live.
+ * <p>Every key is fully live as of Phase 3 of this branch's port (see {@code Project.md}): the ones
+ * that open a screen ({@code open}, {@code settings}, {@code suspects}, {@code move_table}, {@code
+ * profile_target}) now do, on top of the table/peek keys Phase 2a wired and the settings toggles,
+ * sort cycling, party/team reports, callouts, queue slots and key check Phase 1 already had live.
  */
 public final class ScoutKeys {
 	/** Standard Forge convention: {@code key.categories.<name>} is what {@code GuiControls} looks up. */
@@ -73,8 +72,13 @@ public final class ScoutKeys {
 	}
 
 	public void register() {
-		// opens ScoutScreen once ui/screen is ported (later phase)
-		add("open", Keyboard.KEY_K, NOOP);
+		// Opens the mod's own screen, on the game tab.
+		add("open", Keyboard.KEY_K, new Runnable() {
+			@Override
+			public void run() {
+				Minecraft.getMinecraft().displayGuiScreen(new ScoutScreen(mod, null, ScoutScreen.Page.GAME));
+			}
+		});
 		// One press toggles it open/closed (HudMode.TOGGLE); tick() also feeds the raw key state to
 		// the table for HudMode.HOLD, exactly as 26.2's own table key does.
 		tableKey = add("table", Keyboard.KEY_Y, new Runnable() {
@@ -85,14 +89,41 @@ public final class ScoutKeys {
 		});
 		// Held, not pressed: see isPeekHeld() — read every tick in HypixelScout.onTick().
 		peekKey = add("peek", Keyboard.KEY_R, NOOP);
-		// opens ScoutScreen (settings) once ui/screen is ported (later phase)
-		add("settings", Keyboard.KEY_NONE, NOOP);
-		// opens ScoutScreen on the CHEATS page once ui/screen is ported (later phase)
-		add("suspects", Keyboard.KEY_NONE, NOOP);
-		// opens the table editor screen once ui/screen is ported (later phase)
-		add("move_table", Keyboard.KEY_NONE, NOOP);
-		// opens ProfileScreen once ui/screen is ported (later phase)
-		add("profile_target", Keyboard.KEY_NONE, NOOP);
+		// Opens the mod's own settings screen.
+		add("settings", Keyboard.KEY_NONE, new Runnable() {
+			@Override
+			public void run() {
+				Minecraft.getMinecraft().displayGuiScreen(mod.settingsScreen(null));
+			}
+		});
+		// Opens the mod's own screen, on the CHEATS page.
+		add("suspects", Keyboard.KEY_NONE, new Runnable() {
+			@Override
+			public void run() {
+				Minecraft.getMinecraft().displayGuiScreen(new ScoutScreen(mod, null, ScoutScreen.Page.CHEATS));
+			}
+		});
+		// Opens the table editor screen.
+		add("move_table", Keyboard.KEY_NONE, new Runnable() {
+			@Override
+			public void run() {
+				Minecraft.getMinecraft().displayGuiScreen(mod.tableEditor(null));
+			}
+		});
+		// Opens the profile screen for whoever is under the crosshair.
+		add("profile_target", Keyboard.KEY_NONE, new Runnable() {
+			@Override
+			public void run() {
+				ScoutSettings.Tooltip tooltip = mod.settings().tooltip;
+				EntityPlayer target = LookTarget.pick(tooltip.cosine(), tooltip.throughWalls);
+				if (target == null) {
+					say(EnumChatFormatting.RED + "Not looking at anybody.");
+					return;
+				}
+				String name = target.getName();
+				Minecraft.getMinecraft().displayGuiScreen(new ProfileScreen(mod, name, mod.roster().uuidOf(name), null));
+			}
+		});
 
 		add("toggle_tab", Keyboard.KEY_NONE, new Runnable() {
 			@Override
@@ -232,10 +263,10 @@ public final class ScoutKeys {
 		});
 	}
 
+	/** Only {@code peek} uses this: it is read as a held state ({@link #isPeekHeld()}), not fired as a press. */
 	private static final Runnable NOOP = new Runnable() {
 		@Override
 		public void run() {
-			// Nothing to do yet: the screen this key opens is a later phase.
 		}
 	};
 
@@ -299,6 +330,40 @@ public final class ScoutKeys {
 	/** The binding of queue slot {@code slot} (from 0), for the Queue tab a later phase adds. */
 	public KeyBinding queueBinding(int slot) {
 		return queueKeys[slot];
+	}
+
+	public boolean queueKeyBound(int slot) {
+		return queueKeys[slot].getKeyCode() != Keyboard.KEY_NONE;
+	}
+
+	/** The bound key's own display name, for the queue tab's badge. */
+	public String queueKeyName(int slot) {
+		int code = queueKeys[slot].getKeyCode();
+		if (code < 0) {
+			return "Mouse";
+		}
+		// "NUMPAD1".."NUMPAD9" (LWJGL's own names) do not fit the queue tab's narrow badge; every
+		// default binding here is a numpad digit, so this alone covers what a player sees without a
+		// rebind — a genuinely rebound key still falls back to Keyboard.getKeyName's full name.
+		String name = Keyboard.getKeyName(code);
+		return name.startsWith("NUMPAD") ? "Num " + name.substring("NUMPAD".length()) : name;
+	}
+
+	/** The bindings the mod's own settings offer to change, in the order they are shown — mirrors 26.2's own curated list exactly. */
+	public List<KeyBinding> settingsMappings() {
+		String[] shown = {"open", "peek", "table", "profile_target", "send_target_team", "send_target_party",
+				"team_report", "party_report", "team_list", "party_list", "move_table", "refresh"};
+		List<KeyBinding> mappings = new ArrayList<KeyBinding>();
+		for (String name : shown) {
+			String id = "key.hypixelscout." + name;
+			for (Action action : actions) {
+				if (action.binding().getKeyDescription().equals(id)) {
+					mappings.add(action.binding());
+					break;
+				}
+			}
+		}
+		return mappings;
 	}
 
 	private void toggle(String label, boolean on) {

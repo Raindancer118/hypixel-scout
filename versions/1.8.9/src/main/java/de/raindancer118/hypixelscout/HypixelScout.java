@@ -93,7 +93,8 @@ import java.util.function.Consumer;
  */
 @Mod(modid = HypixelScout.MOD_ID, name = "Hypixel Scout", version = HypixelScout.VERSION,
 		clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]",
-		dependencies = "required-after:hypixel_mod_api")
+		dependencies = "required-after:hypixel_mod_api",
+		guiFactory = "de.raindancer118.hypixelscout.mc.ScoutGuiFactory")
 public final class HypixelScout {
 
 	public static final String MOD_ID = "hypixelscout";
@@ -261,8 +262,8 @@ public final class HypixelScout {
 	 * popups, the incoming-projectile warning, hazards and the suspects card. Kept in one small
 	 * method, called once from {@link #onInit}, since {@code game.Flights}/{@code game.Hazards}/
 	 * {@code game.CheatSensor} are being ported on this same branch at the same time as this method
-	 * — {@code TableEditorScreen}/{@code SuspectsEditorScreen} are a later phase's screens, not
-	 * wired in here.
+	 * — {@link #tableEditor}/{@link #suspectsEditor} (Phase 3) wire the screens that move these two
+	 * elements around, not this method.
 	 *
 	 * <p>Every element fires on {@link net.minecraftforge.client.event.RenderGameOverlayEvent.Post}
 	 * with {@code ElementType.ALL} except the tab list ({@code Pre}, {@code PLAYER_LIST}, cancelling
@@ -631,5 +632,23 @@ public final class HypixelScout {
 
 	public boolean isModApiPresent() {
 		return modApiPresent;
+	}
+
+	// --- screens (Phase 3 of this branch's port, see Project.md) --------------------------------
+
+	public net.minecraft.client.gui.GuiScreen settingsScreen(net.minecraft.client.gui.GuiScreen parent) {
+		return new de.raindancer118.hypixelscout.ui.screen.SettingsScreen(this, parent);
+	}
+
+	public net.minecraft.client.gui.GuiScreen profileScreen(String name, UUID uuid, net.minecraft.client.gui.GuiScreen parent) {
+		return new de.raindancer118.hypixelscout.ui.screen.ProfileScreen(this, name, uuid, parent);
+	}
+
+	public net.minecraft.client.gui.GuiScreen tableEditor(net.minecraft.client.gui.GuiScreen parent) {
+		return new de.raindancer118.hypixelscout.ui.hud.TableEditorScreen(this, parent);
+	}
+
+	public net.minecraft.client.gui.GuiScreen suspectsEditor(net.minecraft.client.gui.GuiScreen parent) {
+		return new de.raindancer118.hypixelscout.ui.hud.SuspectsEditorScreen(this, parent);
 	}
 }

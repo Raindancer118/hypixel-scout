@@ -77,14 +77,20 @@ public final class ScoutFeatureCheck implements StartupCheck {
 
 		TestCommandSender sender = new TestCommandSender();
 
+		// /scout (bare) now really opens the mod's own screen (Phase 3 of this branch's port, see
+		// Project.md) — closed straight back to the main menu so the world-entry step after this one
+		// still finds the screen it expects (none).
 		int result = ClientCommandHandler.instance.executeCommand(sender, "/scout");
-		if (result == 0 || sender.messages().isEmpty()) {
-			throw new IllegalStateException("/scout (bare) produced no feedback: " + sender.messages());
+		Minecraft client = Minecraft.getMinecraft();
+		if (result == 0 || !(client.currentScreen instanceof de.raindancer118.hypixelscout.ui.screen.ScoutScreen)) {
+			throw new IllegalStateException("/scout (bare) should open ScoutScreen, current screen is "
+					+ (client.currentScreen == null ? "null" : client.currentScreen.getClass().getSimpleName()));
 		}
-		if (!sender.messages().get(0).contains("Not available yet")) {
-			throw new IllegalStateException("/scout (bare) should say the screen is not available yet, said: "
-					+ sender.messages());
+		if (((de.raindancer118.hypixelscout.ui.screen.ScoutScreen) client.currentScreen).page()
+				!= de.raindancer118.hypixelscout.ui.screen.ScoutScreen.Page.GAME) {
+			throw new IllegalStateException("/scout (bare) should open on the GAME page");
 		}
+		client.displayGuiScreen(null);
 
 		sender.messages().clear();
 		ClientCommandHandler.instance.executeCommand(sender, "/scout status");

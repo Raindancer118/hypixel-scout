@@ -66,7 +66,11 @@ public final class SuspectsElement {
 		}
 	}
 
-	/** The suspects editor is a later phase's screen; nothing of that name exists yet to collide with. */
+	/**
+	 * By class name rather than {@code instanceof SuspectsEditorScreen}, so this HUD package (Phase
+	 * 2a of this branch's port) never has to depend on {@code ui.hud.SuspectsEditorScreen} (Phase 3):
+	 * the editor draws the same card itself, live, while it is open — this element would only double it.
+	 */
 	private static boolean isSuspectsEditorOpen(Minecraft client) {
 		return client.currentScreen != null
 				&& client.currentScreen.getClass().getSimpleName().equals("SuspectsEditorScreen");

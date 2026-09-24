@@ -8,6 +8,9 @@ import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.game.PartyReport;
 import de.raindancer118.hypixelscout.ui.Chat;
 import de.raindancer118.hypixelscout.ui.Suspects;
+import de.raindancer118.hypixelscout.ui.screen.ProfileScreen;
+import de.raindancer118.hypixelscout.ui.screen.ScoutScreen;
+import net.minecraft.client.Minecraft;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
@@ -34,14 +37,12 @@ import java.util.UUID;
  * argument tree 26.2 builds declaratively is dispatched here by hand, one {@code args[n]} at a
  * time — the same subcommand names and shape, just without the builder.
  *
- * <p>Subcommands whose only job in 26.2 is opening a screen ({@code game}/{@code teams}/{@code
- * lookup}/{@code queue}/{@code suspects}/bare {@code /scout}, {@code settings}, {@code move}, a bare
- * player name) or that depend on {@code game.CheatSensor}'s cheat-detection UI ({@code cheats} and
- * its children) stay registered — so they tab-complete and are recognised, exactly what a later
- * phase needs when it wires the screens/cheats-screen up — but answer with a plain "not available
- * yet" message instead of doing nothing silently. {@code table} is fully implemented (Phase 2a, the
- * HUD): it toggles {@link HypixelScout#table()} exactly as 26.2's own {@code table} subcommand does.
- * Everything else is fully implemented.
+ * <p>Every subcommand is fully implemented as of Phase 3 of this branch's port (see {@code
+ * Project.md}): the ones whose only job in 26.2 is opening a screen ({@code game}/{@code teams}/
+ * {@code lookup}/{@code queue}/{@code suspects}/bare {@code /scout}, {@code settings}, {@code move},
+ * a bare player name) now do, on top of {@code cheats} and its children ({@code game.CheatSensor}'s
+ * cheat-detection UI, Phase 2b) and {@code table} (Phase 2a, the HUD), which toggles
+ * {@link HypixelScout#table()} exactly as 26.2's own {@code table} subcommand does.
  */
 public final class ScoutCommands extends CommandBase {
 	private final HypixelScout mod;
@@ -78,24 +79,32 @@ public final class ScoutCommands extends CommandBase {
 	@Override
 	public void processCommand(ICommandSender sender, String[] args) throws CommandException {
 		if (args.length == 0) {
-			notAvailableYet(sender, "the Scout screen");
+			openScout(ScoutScreen.Page.GAME);
 			return;
 		}
 
 		String head = args[0].toLowerCase(Locale.ROOT);
 		switch (head) {
 			case "game":
+				openScout(ScoutScreen.Page.GAME);
+				return;
 			case "teams":
+				openScout(ScoutScreen.Page.TEAMS);
+				return;
 			case "lookup":
+				openScout(ScoutScreen.Page.LOOKUP);
+				return;
 			case "queue":
+				openScout(ScoutScreen.Page.QUEUE);
+				return;
 			case "suspects":
-				notAvailableYet(sender, "the Scout screen");
+				openScout(ScoutScreen.Page.CHEATS);
 				return;
 			case "settings":
-				notAvailableYet(sender, "the settings screen");
+				Minecraft.getMinecraft().displayGuiScreen(mod.settingsScreen(null));
 				return;
 			case "move":
-				notAvailableYet(sender, "the table editor screen");
+				Minecraft.getMinecraft().displayGuiScreen(mod.tableEditor(null));
 				return;
 			case "table":
 				boolean open = mod.table().toggle();
@@ -134,6 +143,10 @@ public final class ScoutCommands extends CommandBase {
 			default:
 				player(sender, args);
 		}
+	}
+
+	private void openScout(ScoutScreen.Page page) {
+		Minecraft.getMinecraft().displayGuiScreen(new ScoutScreen(mod, null, page));
 	}
 
 	private void requeue(ICommandSender sender, String[] args) throws CommandException {
@@ -293,7 +306,7 @@ public final class ScoutCommands extends CommandBase {
 		mod.checkKey(result -> Chat.say(describe(result)));
 	}
 
-	/** A bare player name — opens the profile screen, a later phase — or {@code <player> team|party}. */
+	/** A bare player name — opens the profile screen — or {@code <player> team|party}. */
 	private void player(ICommandSender sender, String[] args) throws CommandException {
 		String name = args[0];
 
@@ -305,12 +318,8 @@ public final class ScoutCommands extends CommandBase {
 			return;
 		}
 
-		notAvailableYet(sender, "the profile screen");
-	}
-
-	private void notAvailableYet(ICommandSender sender, String what) {
-		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GRAY + "Not available yet in this build: "
-				+ what + "."));
+		UUID uuid = mod.roster().uuidOf(name);
+		Minecraft.getMinecraft().displayGuiScreen(new ProfileScreen(mod, name, uuid, null));
 	}
 
 	private void feedback(ICommandSender sender, IChatComponent message) {
@@ -325,6 +334,12 @@ public final class ScoutCommands extends CommandBase {
 	static IChatComponent describe(KeyCheck.Result result) {
 		String key = "message.hypixelscout.key.result." + result.outcome().name().toLowerCase(Locale.ROOT);
 		return translated(key, result.detail());
+	}
+
+	/** The same line as {@link #describe}, as a plain string — for {@code SettingsScreen}'s status line. */
+	public static String describeLocal(KeyCheck.Result result) {
+		String key = "message.hypixelscout.key.result." + result.outcome().name().toLowerCase(Locale.ROOT);
+		return StatCollector.translateToLocalFormatted(key, result.detail());
 	}
 
 	@Override
