@@ -1035,4 +1035,390 @@ class CheatWatchTest {
 
 		assertThat(seen).isEmpty();
 	}
+
+	// --- autoclicker (Iustitia ClickStatisticsCheck.kt) -----------------------------------------------
+
+	@Test
+	void moreThanTwentySwingsASecondIsAutoClicker() {
+		put("Cheater", 0, 0, 0);
+		steps(4);
+		for (int i = 0; i < 25; i++) {
+			watch.swing("Cheater", tick + 1, (tick + 1) * 50_000_000L);
+			step();
+		}
+		assertThat(checks()).contains(Check.AUTOCLICKER);
+	}
+
+	@Test
+	void clickingEveryFewTicksIsFine() {
+		put("Legit", 0, 0, 0);
+		steps(4);
+		for (int i = 0; i < 25; i++) {
+			if (i % 3 == 0) {
+				watch.swing("Legit", tick + 1, (tick + 1) * 50_000_000L);
+			}
+			step();
+		}
+		assertThat(checks()).doesNotContain(Check.AUTOCLICKER);
+	}
+
+	@Test
+	void aSubTenMillisecondDoubleClickIsAutoClicker() {
+		put("Cheater", 0, 0, 0);
+		steps(4);
+		watch.swing("Cheater", tick + 1, 1_000_000_000L);
+		step();
+		watch.swing("Cheater", tick + 1, 1_000_000_000L + 40_000_000L);
+		step();
+		watch.swing("Cheater", tick + 1, 1_000_000_000L + 45_000_000L);
+		step();
+		assertThat(checks()).contains(Check.AUTOCLICKER);
+	}
+
+	@Test
+	void sameTickLagBatchedSwingsAreNotAutoClicker() {
+		put("Legit", 0, 0, 0);
+		steps(4);
+		watch.swing("Legit", tick + 1, 1_000_000_000L);
+		watch.swing("Legit", tick + 1, 1_000_000_000L + 1_000_000L);
+		steps(3);
+		assertThat(checks()).doesNotContain(Check.AUTOCLICKER);
+	}
+
+	@Test
+	void perfectlyEvenClickIntervalsAreAutoClicker() {
+		put("Cheater", 0, 0, 0);
+		steps(4);
+		// One swing every two ticks, well under the CPS cap, but a perfectly constant interval —
+		// stDev and kurtosis both catch a fixed-delay autoclicker that CPS alone would miss.
+		for (int i = 0; i < 45; i++) {
+			watch.swing("Cheater", tick + 1, (tick + 1) * 50_000_000L);
+			steps(2);
+		}
+		assertThat(checks()).contains(Check.AUTOCLICKER);
+	}
+
+	@Test
+	void humanJitterInClickIntervalsIsFine() {
+		put("Legit", 0, 0, 0);
+		steps(4);
+		int[] pattern = {4, 5, 4, 4, 5, 9, 4, 5, 4, 4, 5, 12, 4, 4, 5, 4, 9, 5, 4, 4};
+		for (int i = 0; i < 50; i++) {
+			watch.swing("Legit", tick + 1, (tick + 1) * 50_000_000L);
+			steps(pattern[i % pattern.length]);
+		}
+		assertThat(checks()).doesNotContain(Check.AUTOCLICKER);
+	}
+
+	// --- aimsnap (Iustitia AimWrapCheck.kt) ------------------------------------------------------------
+
+	@Test
+	void repeatedSnapsOutOfAStillAimAreAimSnap() {
+		Pose cheater = put("Cheater", 0, 0, 0);
+		steps(3);
+		for (int i = 0; i < 5; i++) {
+			cheater.yaw = (i % 2 == 0) ? 175 : -5;
+			step();
+			steps(3);
+		}
+		assertThat(checks()).contains(Check.AIMSNAP);
+	}
+
+	@Test
+	void aBoundaryCrossingTurnIsNotAimSnap() {
+		Pose player = put("Legit", 0, 0, 179);
+		steps(3);
+		for (int i = 0; i < 20; i++) {
+			// 179 -> -179 is a real turn of about 2 degrees, not 358.
+			player.yaw = player.yaw > 0 ? -179 : 179;
+			step();
+		}
+		assertThat(checks()).doesNotContain(Check.AIMSNAP);
+	}
+
+	@Test
+	void aContinuousFastTurnIsNotAimSnap() {
+		Pose player = put("Legit", 0, 0, 0);
+		steps(3);
+		for (int i = 0; i < 30; i++) {
+			player.yaw += 40;
+			if (player.yaw > 180) {
+				player.yaw -= 360;
+			}
+			step();
+		}
+		assertThat(checks()).doesNotContain(Check.AIMSNAP);
+	}
+
+	// --- aimtrack (Iustitia RotationTrackingCheck.kt) --------------------------------------------------
+
+	@Test
+	void aimAlwaysLockedOnANearbyTargetDuringCombatIsAimTrack() {
+		Pose cheater = put("Cheater", 0, 0, 0);
+		put("Victim", 4, 0, 0);
+		// yaw/pitch set exactly to the bearing from the attacker's eye to the victim's body centre,
+		// computed the same way the check does: atan2(-cx, cz) / atan2(-cy, horiz).
+		cheater.yaw = Math.toDegrees(Math.atan2(-4, 0));
+		cheater.pitch = Math.toDegrees(Math.atan2(-(0 + 0.9 - 1.62), 4));
+		steps(2);
+		watch.attack("Cheater", "Victim", tick + 1);
+		steps(65);
+		assertThat(checks()).contains(Check.AIMTRACK);
+	}
+
+	@Test
+	void aPerfectLockWithoutEverAttackingIsNotAimTrack() {
+		Pose cheater = put("Legit", 0, 0, 0);
+		put("Victim", 4, 0, 0);
+		cheater.yaw = Math.toDegrees(Math.atan2(-4, 0));
+		cheater.pitch = Math.toDegrees(Math.atan2(-(0 + 0.9 - 1.62), 4));
+		steps(65);
+		assertThat(checks()).doesNotContain(Check.AIMTRACK);
+	}
+
+	// --- triggerbot (Iustitia TriggerbotCheck.kt) ------------------------------------------------------
+
+	private void triggerbotCycle(double onYaw, double onPitch) {
+		Pose cheater = poses.get("Cheater");
+		cheater.yaw = 90;
+		cheater.pitch = 0;
+		steps(4);
+		cheater.yaw = onYaw;
+		cheater.pitch = onPitch;
+		step();
+		watch.attack("Cheater", "Victim", tick + 1);
+		step();
+	}
+
+	@Test
+	void handsFreeInstantHitsOnAimingOnTargetAreTriggerbot() {
+		Pose cheater = put("Cheater", 0, 0, 90);
+		put("Victim", 2, 0, 0);
+		double onYaw = Math.toDegrees(Math.atan2(-2, 0));
+		double onPitch = Math.toDegrees(Math.atan2(-(0 + 0.9 - 1.62), 2));
+		for (int i = 0; i < 5; i++) {
+			triggerbotCycle(onYaw, onPitch);
+		}
+		assertThat(checks()).contains(Check.TRIGGERBOT);
+	}
+
+	@Test
+	void hittingATargetThatWalksIntoAHeldCrosshairIsNotTriggerbot() {
+		double onYaw = Math.toDegrees(Math.atan2(-2, 0));
+		double onPitch = Math.toDegrees(Math.atan2(-(0 + 0.9 - 1.62), 2));
+		Pose cheater = put("Legit", 0, 0, 0);
+		cheater.yaw = onYaw;
+		cheater.pitch = onPitch;
+		Pose victim = put("Victim", 10, 0, 0);
+		steps(5);
+		for (int i = 0; i < 5; i++) {
+			victim.x = 2;
+			steps(2);
+			watch.attack("Legit", "Victim", tick + 1);
+			step();
+			victim.x = 10;
+			steps(3);
+		}
+		assertThat(checks()).doesNotContain(Check.TRIGGERBOT);
+	}
+
+	// --- hitflick (Iustitia HitFlickCheck.kt) ----------------------------------------------------------
+
+	@Test
+	void flickingOffTheTargetAtEveryHitAndSnappingBackIsHitFlick() {
+		Pose cheater = put("Cheater", 0, -3, 0);
+		put("Victim", 0, 0, 0);
+		steps(4);
+		for (int i = 0; i < 5; i++) {
+			cheater.yaw = 70;
+			watch.attack("Cheater", "Victim", tick + 1);
+			step();
+			cheater.yaw = 0;
+			step();
+		}
+		assertThat(checks()).contains(Check.HITFLICK);
+	}
+
+	@Test
+	void alwaysFacingTheTargetAtTheHitIsNotHitFlick() {
+		Pose cheater = put("Legit", 0, -3, 0);
+		put("Victim", 0, 0, 0);
+		steps(4);
+		for (int i = 0; i < 5; i++) {
+			watch.attack("Legit", "Victim", tick + 1);
+			steps(2);
+		}
+		assertThat(checks()).doesNotContain(Check.HITFLICK);
+	}
+
+	// --- multiaura 2-tick union window (Iustitia MultiTargetCheck.kt) ---------------------------------
+
+	@Test
+	void threeVictimsAcrossTwoTicksIsMultiAura() {
+		put("Cheater", 0, 0, 0);
+		put("VictimA", 1, 0, 0);
+		put("VictimB", -1, 0, 0);
+		put("VictimC", 0, 1, 0);
+		steps(4);
+		watch.attack("Cheater", "VictimA", tick + 1);
+		watch.attack("Cheater", "VictimB", tick + 1);
+		step();
+		watch.attack("Cheater", "VictimC", tick + 1);
+		step();
+		assertThat(checks()).contains(Check.MULTIAURA);
+	}
+
+	@Test
+	void twoSeparateSingleHitsTenTicksApartAreNotMultiAura() {
+		put("Cheater", 0, 0, 0);
+		put("VictimA", 1, 0, 0);
+		put("VictimB", -1, 0, 0);
+		steps(4);
+		watch.attack("Cheater", "VictimA", tick + 1);
+		steps(10);
+		watch.attack("Cheater", "VictimB", tick + 1);
+		steps(4);
+		assertThat(checks()).doesNotContain(Check.MULTIAURA);
+	}
+
+	// --- nofall (Iustitia NoFallDamageCheck.kt) --------------------------------------------------------
+
+	@Test
+	void fallingFarWithNoHurtIsNoFall() {
+		Pose victim = put("Victim", 0, 0, 0);
+		victim.y = 10;
+		victim.flying = true;
+		steps(2);
+		for (int i = 0; i < 7; i++) {
+			victim.y -= 1.4;
+			step();
+		}
+		victim.y = 0;
+		victim.flying = false;
+		step();
+		assertThat(checks()).contains(Check.NOFALL);
+	}
+
+	@Test
+	void fallingFarAndTakingTheHurtIsFine() {
+		Pose victim = put("Victim", 0, 0, 0);
+		victim.y = 10;
+		victim.flying = true;
+		steps(2);
+		for (int i = 0; i < 7; i++) {
+			victim.y -= 1.4;
+			step();
+		}
+		victim.y = 0;
+		victim.flying = false;
+		watch.hurt("Victim", tick + 1, CheatWatch.Hit.OTHER, null);
+		step();
+		assertThat(checks()).doesNotContain(Check.NOFALL);
+	}
+
+	// --- step (Iustitia StepHeightCheck.kt) ------------------------------------------------------------
+
+	@Test
+	void steppingUpMoreThanAJumpInOneTickIsStep() {
+		put("Cheater", 0, 0, 0);
+		steps(3);
+		blocks.add(List.of(0, 0, 0));
+		Pose cheater = poses.get("Cheater");
+		cheater.y = 1.0;
+		step();
+		assertThat(checks()).contains(Check.STEP);
+	}
+
+	@Test
+	void aSmallLedgeIsFine() {
+		put("Legit", 0, 0, 0);
+		steps(3);
+		blocks.add(List.of(0, 0, 0));
+		Pose player = poses.get("Legit");
+		player.y = 0.5;
+		step();
+		assertThat(checks()).doesNotContain(Check.STEP);
+	}
+
+	// --- blink (Iustitia PacketGapCheck.kt) ------------------------------------------------------------
+
+	@Test
+	void freezingThenSnappingIsBlink() {
+		put("Cheater", 0, 0, 0);
+		steps(6);
+		Pose cheater = poses.get("Cheater");
+		cheater.z += 5;
+		step();
+		assertThat(checks()).contains(Check.BLINK);
+	}
+
+	@Test
+	void aFreezeAndSnapDuringAServerHitchIsNotBlink() {
+		put("Legit", 0, 0, 0);
+		steps(6);
+		Pose player = poses.get("Legit");
+		watch.serverLag(tick + 1);
+		player.z += 5;
+		step();
+		assertThat(checks()).doesNotContain(Check.BLINK);
+	}
+
+	// --- criticals (Iustitia CriticalsCheck.kt) --------------------------------------------------------
+
+	@Test
+	void aFixedFallArcPhaseOnEveryHitIsCriticals() {
+		put("Cheater", 0, -3, 0);
+		put("Victim", 0, 0, 0);
+		Pose cheater = poses.get("Cheater");
+		for (int i = 0; i < 9; i++) {
+			cheater.y = 0;
+			step();
+			cheater.y = 0.1;
+			step();
+			watch.attack("Cheater", "Victim", tick + 1);
+			step();
+		}
+		assertThat(checks()).contains(Check.CRITICALS);
+	}
+
+	@Test
+	void varyingJumpTimingOnEveryHitIsFine() {
+		put("Legit", 0, -3, 0);
+		put("Victim", 0, 0, 0);
+		Pose player = poses.get("Legit");
+		double[] rises = {0.05, 0.25, 0.12, 0.28, 0.08, 0.2, 0.15, 0.03};
+		for (double rise : rises) {
+			player.y = 0;
+			step();
+			player.y = rise;
+			step();
+			watch.attack("Legit", "Victim", tick + 1);
+			step();
+		}
+		assertThat(checks()).doesNotContain(Check.CRITICALS);
+	}
+
+	// --- cooldown vs. Suspicion's fade: can every check realistically reach a flag? --------------------
+
+	/**
+	 * {@link Suspicion} fades a point every {@link Suspicion#TICKS_PER_POINT} ticks and flags at
+	 * {@link Suspicion#FLAG_AT}. A check whose weight cannot outpace that fade at its own minimum
+	 * re-trigger spacing ({@link Check#cooldownTicks()}, or one tick where there is none) could sight
+	 * a cheat forever and never flag them — this asserts every check clears the bar within a bounded,
+	 * realistic number of sightings.
+	 */
+	@Test
+	void everyCheckCanRealisticallyReachAFlag() {
+		for (Check check : Check.values()) {
+			Suspicion suspicion = new Suspicion();
+			long spacing = Math.max(1, check.cooldownTicks());
+			long tick = 0;
+			boolean flagged = false;
+			for (int i = 0; i < 200 && !flagged; i++) {
+				tick += spacing;
+				flagged = suspicion.record(new Violation("Cheater", check, "sighting", tick), 1.0).isPresent();
+			}
+			assertThat(flagged).as("%s should flag within 200 sightings spaced %d ticks apart", check, spacing).isTrue();
+		}
+	}
 }

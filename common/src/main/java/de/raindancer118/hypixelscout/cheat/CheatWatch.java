@@ -37,11 +37,15 @@ import java.util.function.Predicate;
  * <p>The player running the client ({@link #setSelf}) is never a suspect, but counts as a witness:
  * their own swing explains a hit, their own block explains a placement.
  *
- * <p>Several ideas here come from two open-source client-side detectors (both MIT): the
- * swing-then-push attribution, hits through walls, KeepSprint, backwards-bridging Scaffold and
- * reliefs from Alexdoru's HackerDetector (MegaWallsEnhancements); the split reach limit, multi-aura,
- * sprinting while sneaking, the invulnerability gap for knockback and the server-lag pause from
- * Iustitia.
+ * <p>Several ideas here were studied from two open-source client-side detectors, only one of which
+ * this project may copy from. Alexdoru's HackerDetector (MegaWallsEnhancements) is under its own
+ * custom, non-commercial licence, not MIT — the swing-then-push attribution, hits through walls,
+ * KeepSprint, backwards-bridging Scaffold and reliefs it inspired here were written fresh from
+ * studying its ideas, no code was copied from it. Iustitia (ThoriaDevelopment/Iustitia) is MIT, and
+ * both its ideas and its algorithms and thresholds — the split reach limit, multi-aura, sprinting
+ * while sneaking, the invulnerability gap for knockback, the server-lag pause, and the checks marked
+ * below as derived from it — are used here with attribution; see {@code THIRD_PARTY_NOTICES.md} in
+ * the repository root for the full licence text.
  */
 public final class CheatWatch {
 	/** The blocks of the world, as far as the checks care: solid or not. */
@@ -190,6 +194,81 @@ public final class CheatWatch {
 	/** Ticks both sprint and item use may overlap before it is no longer the flag catching up. */
 	private static final int SPRINT_USE_TICKS = 16;
 
+	// --- Iustitia-derived thresholds (MIT, see THIRD_PARTY_NOTICES.md) ---------------------------------
+
+	/** ClickStats: swings in this many ticks (~a second) over the CPS cap are an autoclicker. */
+	private static final int CLICK_CPS_WINDOW = 20;
+	private static final double CLICK_CPS_CAP = 20.0;
+	/** A nano-gap this short, right after one under 50ms, is a double-click no hand can do. */
+	private static final long CLICK_ROBOT_NANOS = 10_000_000L;
+	private static final long CLICK_ROBOT_PRIOR_NANOS = 50_000_000L;
+	/** Population stDev of the last 40 tick-intervals below this is too uniform for a hand. */
+	private static final int CLICK_STDEV_WINDOW = 40;
+	private static final double CLICK_STDEV_MIN = 0.45;
+	/** Excess kurtosis over 600 samples below this is a near-uniform, fixed-delay click stream. */
+	private static final int CLICK_KURTOSIS_WINDOW = 600;
+	private static final double CLICK_KURTOSIS_MIN = -0.7;
+	/** A dig relays the server's own swing clock; intervals this short cannot be that relay. */
+	private static final int DIG_RELAY_MIN_TICK_DELTA = 2;
+
+	/** AimWrap: a wrapped-yaw snap this large in one tick, out of a still aim, is a snap. */
+	private static final double AIMSNAP_THRESHOLD = 165.0;
+	/** The tick before a snap must itself be under this to count as "still". */
+	private static final double AIMSNAP_STILL = 30.0;
+	private static final int AIMSNAP_WINDOW = 8;
+	private static final int AIMSNAP_MIN = 3;
+
+	/** RotationTracking: nearby-player search radius, and the rolling match-rate window/threshold. */
+	private static final double AIMTRACK_RANGE = 6.0;
+	private static final int AIMTRACK_WINDOW = 60;
+	private static final double AIMTRACK_RATE = 0.92;
+	private static final int AIMTRACK_COMBAT_WINDOW = 60;
+
+	/** Triggerbot: melee look-reach, the fast-hit window, and the consistency gate over the window. */
+	private static final double TRIGGER_REACH = 3.0;
+	private static final double TRIGGER_RANGE = 5.0;
+	private static final int TRIGGER_MAX_REACTION_TICKS = 3;
+	private static final int TRIGGER_MIN_SAMPLES = 5;
+	private static final int TRIGGER_WINDOW = 24;
+	private static final double TRIGGER_RATIO = 0.75;
+	/** A held-aim opportunity only counts as a reaction when the attacker's own aim moved this
+	 * recently — otherwise the rising edge was the victim walking into a still crosshair. */
+	private static final double TRIGGER_AIM_TURN_EPS = 0.25;
+	private static final int TRIGGER_AIM_TURN_WINDOW = 3;
+
+	/** HitFlick: yaw off the hitbox at the hit, the return window, and the sustained-window gate. */
+	private static final double HITFLICK_THRESHOLD = 30.0;
+	private static final int HITFLICK_RETURN_TICKS = 2;
+	private static final double HITFLICK_RETURN_DEV = 5.0;
+	private static final int HITFLICK_WINDOW = 5;
+	private static final int HITFLICK_MIN = 3;
+
+	/** MultiTarget: victims across a 2-tick union window past this many is a lag-spread multi-aura. */
+	private static final int MULTIAURA_WINDOW_VICTIMS = 3;
+
+	/** NoFall: fell at least this far (blocks) with no hurt at touchdown. */
+	private static final double NOFALL_DISTANCE = 8.0;
+	private static final int NOFALL_HURT_GRACE = 5;
+
+	/** Step: a grounded rise in this range, in one tick, is higher than a leg climbs. */
+	private static final double STEP_MIN = 0.6;
+	private static final double STEP_MAX = 2.5;
+	/** Vanilla jump height, plus a buffer this mod cannot narrow: a remote player's Jump Boost
+	 * amplifier is not reliably visible, so the allowance is the same whatever the potion says. */
+	private static final double STEP_JUMP_ALLOWANCE = 0.52;
+
+	/** Blink: a freeze this many ticks (near motionless), then a jump past this many blocks. */
+	private static final int BLINK_FREEZE_TICKS = 5;
+	private static final double BLINK_FREEZE_EPSILON = 0.01;
+	private static final double BLINK_SNAP = 2.0;
+
+	/** Criticals: the attacker's small upward rise before a hit, and how many hits with how little
+	 * spread in that rise before a fixed fall-arc phase (a hack forcing crits) is called. */
+	private static final double CRIT_RISE_MIN = 0.02;
+	private static final double CRIT_RISE_MAX = 0.3;
+	private static final int CRIT_WINDOW = 8;
+	private static final double CRIT_STDEV_MAX = 0.05;
+
 	private static final class Track {
 		final ArrayDeque<Frame> frames = new ArrayDeque<>();
 		final ArrayDeque<Long> swings = new ArrayDeque<>();
@@ -202,6 +281,48 @@ public final class CheatWatch {
 		long lastBridgeFlag = Long.MIN_VALUE / 2;
 		Vec motion;
 		long motionTick = Long.MIN_VALUE / 2;
+		/** The last tick this player was resolved as an attacker; feeds AimTrack's combat gate. */
+		long lastAttackTick = Long.MIN_VALUE / 2;
+		/** This attacker's victims on {@link #recentVictimsTick}, for MultiAura's 2-tick union window. */
+		Set<String> recentVictims = new HashSet<>();
+		long recentVictimsTick = Long.MIN_VALUE / 2;
+
+		// --- ClickStats (AutoClicker) ---------------------------------------------------------------
+		long lastSwingTick = Long.MIN_VALUE / 2;
+		long lastSwingNano;
+		final ArrayDeque<Long> swingTicksCps = new ArrayDeque<>();
+		final ArrayDeque<Integer> clickTickIntervals = new ArrayDeque<>();
+		final ArrayDeque<Long> clickNanoIntervals = new ArrayDeque<>();
+		boolean digging;
+
+		// --- AimWrap (AimSnap) -----------------------------------------------------------------------
+		double lastWrappedDelta;
+		final ArrayDeque<Boolean> aimSnapWindow = new ArrayDeque<>();
+
+		// --- RotationTracking (AimTrack) -------------------------------------------------------------
+		final ArrayDeque<Boolean> aimTrackWindow = new ArrayDeque<>();
+
+		// --- Triggerbot ------------------------------------------------------------------------------
+		final Map<String, Boolean> onHitbox = new HashMap<>();
+		final Map<String, Long> engagementStart = new HashMap<>();
+		double triggerAimYaw = Double.NaN;
+		double triggerAimPitch = Double.NaN;
+		long lastAimMoveTick = Long.MIN_VALUE / 2;
+		final ArrayDeque<Boolean> triggerbotWindow = new ArrayDeque<>();
+
+		// --- HitFlick --------------------------------------------------------------------------------
+		long flickTick = Long.MIN_VALUE / 2;
+		String flickVictim;
+		final ArrayDeque<Boolean> hitFlickWindow = new ArrayDeque<>();
+
+		// --- NoFall / Step ---------------------------------------------------------------------------
+		double fallPeakY = Double.NaN;
+
+		// --- Blink -----------------------------------------------------------------------------------
+		int stillStreak;
+
+		// --- Criticals -------------------------------------------------------------------------------
+		final ArrayDeque<Double> critRiseWindow = new ArrayDeque<>();
 
 		Frame at(long tick) {
 			Iterator<Frame> newest = frames.descendingIterator();
@@ -589,6 +710,9 @@ public final class CheatWatch {
 	private final Map<BedDefense.Cell, Long> recentBlocks = new HashMap<>();
 	private final List<BedDefense.Cell> brokenBeds = new ArrayList<>();
 	private final List<Blast> blasts = new ArrayList<>();
+	/** ClickStats violations, found the instant a swing arrives rather than at the end of a tick;
+	 * drained into the tick's sightings by {@link #endTick}. */
+	private final List<Violation> autoDetected = new ArrayList<>();
 	private String self = "";
 	private long lastLag = Long.MIN_VALUE / 2;
 	private Predicate<Check> enabled = check -> true;
@@ -624,12 +748,145 @@ public final class CheatWatch {
 	}
 
 	public void swing(String player, long tick) {
+		swing(player, tick, tick * 50_000_000L);
+	}
+
+	/**
+	 * A swing, with the moment it arrived on the network in nanoseconds — the only clock fine enough
+	 * to catch a robot's sub-tick double-click. {@link #swing(String, long)} synthesises one tick of
+	 * 50ms exactly, which is fine for every other check but never triggers ClickStats' own signals on
+	 * its own (a perfectly even stream reads as human-fast, not as the sub-10ms/near-uniform patterns
+	 * those signals look for) — callers that mean to feed ClickStats real timing (the game side, off
+	 * {@code CheatSensor.arrived}) should call this overload with a real {@link System#nanoTime()}.
+	 *
+	 * <p>Derived from Iustitia (MIT), checks/combat/ClickStatisticsCheck.kt.
+	 */
+	public void swing(String player, long tick, long nanoTime) {
 		Track track = track(player);
 		track.swings.addLast(tick);
 		while (track.swings.size() > 40) {
 			track.swings.removeFirst();
 		}
 		swings.add(new Swing(player, tick));
+		evaluateClickStats(player, track, tick, nanoTime);
+	}
+
+	// --- autoclicker: swings too fast, too even or too smooth to be a hand -----------------------------
+
+	private void evaluateClickStats(String player, Track track, long tick, long nanoTime) {
+		pushCap(track.swingTicksCps, tick, 80);
+
+		boolean sameTickBatch = tick == track.lastSwingTick;
+		long tickDelta = tick - track.lastSwingTick;
+		// A digging player's swings are the server's own relay, not theirs (see DIG_RELAY_MIN_TICK_DELTA);
+		// this mod has no signal for "is digging" (no block-breaking packet is watched), so the carve-out
+		// Iustitia applies there cannot be reproduced — a known, documented gap, not silently dropped.
+		if (!sameTickBatch) {
+			if (track.lastSwingTick > Long.MIN_VALUE / 2 + 1 && tickDelta > 0) {
+				pushCap(track.clickTickIntervals, (int) Math.min(Integer.MAX_VALUE, tickDelta), CLICK_KURTOSIS_WINDOW);
+			}
+			long nanoDelta = nanoTime - track.lastSwingNano;
+			if (nanoDelta > 0) {
+				pushCap(track.clickNanoIntervals, nanoDelta, 500);
+			}
+			track.lastSwingTick = tick;
+			track.lastSwingNano = nanoTime;
+		}
+
+		if (player.equals(self) || !enabled.test(Check.AUTOCLICKER)) {
+			return;
+		}
+
+		long cps = track.swingTicksCps.stream().filter(t -> t >= tick - CLICK_CPS_WINDOW).count();
+		if (cps > CLICK_CPS_CAP) {
+			add(autoDetected, player, Check.AUTOCLICKER, cps + " swings/s", tick);
+		}
+
+		Iterator<Long> nanoIter = track.clickNanoIntervals.iterator();
+		if (nanoIter.hasNext()) {
+			long a = nanoIter.next();
+			if (nanoIter.hasNext()) {
+				long b = nanoIter.next();
+				if (a < CLICK_ROBOT_NANOS && b < CLICK_ROBOT_PRIOR_NANOS) {
+					add(autoDetected, player, Check.AUTOCLICKER,
+							String.format(Locale.ROOT, "%.1fms double-click", a / 1_000_000.0), tick);
+				}
+			}
+		}
+
+		if (track.clickTickIntervals.size() >= CLICK_STDEV_WINDOW) {
+			double stdev = populationStDev(newestInts(track.clickTickIntervals, CLICK_STDEV_WINDOW));
+			if (stdev < CLICK_STDEV_MIN) {
+				add(autoDetected, player, Check.AUTOCLICKER,
+						String.format(Locale.ROOT, "click intervals too uniform: stDev %.2f", stdev), tick);
+			}
+		}
+		if (track.clickTickIntervals.size() >= CLICK_KURTOSIS_WINDOW) {
+			double kurtosis = excessKurtosis(newestInts(track.clickTickIntervals, CLICK_KURTOSIS_WINDOW));
+			if (kurtosis < CLICK_KURTOSIS_MIN) {
+				add(autoDetected, player, Check.AUTOCLICKER,
+						String.format(Locale.ROOT, "near-uniform clicks: excess kurtosis %.2f", kurtosis), tick);
+			}
+		}
+	}
+
+	private static <T> void pushCap(ArrayDeque<T> deque, T value, int cap) {
+		deque.addFirst(value);
+		while (deque.size() > cap) {
+			deque.removeLast();
+		}
+	}
+
+	private static double[] newestInts(ArrayDeque<Integer> deque, int n) {
+		double[] values = new double[n];
+		int i = 0;
+		for (int value : deque) {
+			if (i >= n) {
+				break;
+			}
+			values[i++] = value;
+		}
+		return values;
+	}
+
+	/** Population standard deviation (divides by n, not n-1: the sample IS the whole window judged). */
+	private static double populationStDev(double[] values) {
+		double mean = 0;
+		for (double v : values) {
+			mean += v;
+		}
+		mean /= values.length;
+		double variance = 0;
+		for (double v : values) {
+			variance += (v - mean) * (v - mean);
+		}
+		variance /= values.length;
+		return Math.sqrt(variance);
+	}
+
+	/** Excess kurtosis (Fisher's definition, population moments): 0 for a normal distribution, -1.2
+	 * for a uniform one. A fixed-delay autoclicker's intervals cluster near-uniform. */
+	private static double excessKurtosis(double[] values) {
+		double mean = 0;
+		for (double v : values) {
+			mean += v;
+		}
+		mean /= values.length;
+		double m2 = 0;
+		double m4 = 0;
+		for (double v : values) {
+			double d = v - mean;
+			double d2 = d * d;
+			m2 += d2;
+			m4 += d2 * d2;
+		}
+		m2 /= values.length;
+		m4 /= values.length;
+		if (m2 < 1e-12) {
+			// Every interval identical: as uniform as a distribution gets, well past the strict bar.
+			return CLICK_KURTOSIS_MIN - 1;
+		}
+		return m4 / (m2 * m2) - 3;
 	}
 
 	/**
@@ -712,6 +969,16 @@ public final class CheatWatch {
 	public List<Violation> endTick(long tick, Terrain terrain) {
 		List<Violation> found = new ArrayList<>();
 		boolean lagging = tick - lastLag <= LAG_WINDOW;
+
+		found.addAll(autoDetected);
+		autoDetected.clear();
+		if (lagging) {
+			// A server hitch is not anybody's clicking; reset the streak instead of judging catch-up
+			// swings against it.
+			for (Track track : tracks.values()) {
+				track.stillStreak = 0;
+			}
+		}
 
 		judgeSwings(tick, found);
 		mergeAttacks(found);
@@ -817,9 +1084,25 @@ public final class CheatWatch {
 		}
 		for (Attack attack : attacks) {
 			Set<String> victims = victimsOf.remove(attack.attacker() + "\n" + attack.tick());
-			if (victims != null && victims.size() >= 2) {
-				add(found, attack.attacker(), Check.MULTIAURA, "hit " + victims.size() + " players in one tick", attack.tick());
+			if (victims == null) {
+				continue;
 			}
+			Track track = track(attack.attacker());
+			if (victims.size() >= 2) {
+				add(found, attack.attacker(), Check.MULTIAURA, "hit " + victims.size() + " players in one tick", attack.tick());
+			} else if (track.recentVictimsTick == attack.tick() - 1) {
+				// Lag-absorb (Iustitia's MultiTargetCheck): a multi-aura spread across two ticks — e.g.
+				// two victims last tick and one now — sums to a multi-aura even when no single tick
+				// reached two on its own. Only where the same-tick flag above did not already cover it.
+				Set<String> union = new HashSet<>(victims);
+				union.addAll(track.recentVictims);
+				if (union.size() >= MULTIAURA_WINDOW_VICTIMS) {
+					add(found, attack.attacker(), Check.MULTIAURA,
+							"hit " + union.size() + " players across two ticks", attack.tick());
+				}
+			}
+			track.recentVictims = victims;
+			track.recentVictimsTick = attack.tick();
 		}
 		attacks.clear();
 	}
@@ -879,6 +1162,14 @@ public final class CheatWatch {
 		}
 
 		Track track = tracks.get(attacker);
+		track.lastAttackTick = hurt.tick();
+		judgeTriggerbotHit(attacker, track, hurt.victim(), hurt.tick(), found);
+		judgeCriticals(attacker, track, hurt.tick(), found);
+		Frame attackerNow = track.at(hurt.tick());
+		Frame victimNow = victim.at(hurt.tick());
+		if (attackerNow != null && victimNow != null) {
+			judgeHitFlickHit(attacker, track, hurt.victim(), attackerNow, victimNow, hurt.tick(), found);
+		}
 		double distance = reachDistance(track, victim, hurt.tick());
 		double limit = track.still(hurt.tick()) && victim.still(hurt.tick()) ? tuning.reachStanding() : tuning.reachMoving();
 		if (distance > limit && distance <= ATTACK_RANGE) {
@@ -1398,6 +1689,14 @@ public final class CheatWatch {
 	// --- speed, fly, noslow, sprint, backwards bridging: movement over the last ticks -----------------------
 
 	private void judgeMovement(String player, Track track, long tick, List<Violation> found) {
+		judgeAimSnap(player, track, tick, found);
+		judgeAimTrack(player, track, tick, found);
+		judgeTriggerbotTick(track, tick);
+		judgeHitFlickTick(player, track, tick, found);
+		judgeNoFall(player, track, tick, found);
+		judgeStep(player, track, tick, found);
+		judgeBlink(player, track, tick, found);
+
 		boolean calm = track.lastShove < tick - 40;
 
 		List<Frame> using = track.run(tick - 9, tick);
@@ -1451,6 +1750,376 @@ public final class CheatWatch {
 		List<Frame> air = track.run(tick - 30, tick);
 		if (air != null && track.lastShove < tick - 60 && hovering(air)) {
 			add(found, player, Check.FLY, "moved in mid-air without falling", tick);
+		}
+	}
+
+	// --- aimsnap: a rotation snap out of a still aim ----------------------------------------------------
+
+	/**
+	 * Shortest-path yaw rotation this tick past {@link #AIMSNAP_THRESHOLD}, out of a tick that was
+	 * itself near-still (so a legitimate turn already in progress is not judged twice — once on the
+	 * way out, once on the way back). A boundary crossing (179° → -179°) wraps to a tiny delta, not a
+	 * near-360° one, so it never false-flags.
+	 *
+	 * <p>Derived from Iustitia (MIT), checks/movement/AimWrapCheck.kt.
+	 */
+	private void judgeAimSnap(String player, Track track, long tick, List<Violation> found) {
+		Frame now = track.at(tick);
+		Frame before = track.at(tick - 1);
+		if (now == null || before == null) {
+			return;
+		}
+		double wrapped = wrapDegrees(now.yaw() - before.yaw());
+		boolean exempt = tick - track.lastShove < 5 || tick - track.lastHurt < 3;
+		if (!exempt && Math.abs(track.lastWrappedDelta) < AIMSNAP_STILL) {
+			boolean snapped = Math.abs(wrapped) > AIMSNAP_THRESHOLD;
+			pushCap(track.aimSnapWindow, snapped, AIMSNAP_WINDOW);
+			long snaps = track.aimSnapWindow.stream().filter(b -> b).count();
+			if (snapped && snaps >= AIMSNAP_MIN) {
+				add(found, player, Check.AIMSNAP,
+						String.format(Locale.ROOT, "snapped %.0f° out of a still aim", Math.abs(wrapped)), tick);
+			}
+		}
+		track.lastWrappedDelta = wrapped;
+	}
+
+	/** The shortest signed angular distance in degrees, in [-180, 180). */
+	private static double wrapDegrees(double delta) {
+		double wrapped = delta % 360.0;
+		if (wrapped >= 180.0) {
+			wrapped -= 360.0;
+		} else if (wrapped < -180.0) {
+			wrapped += 360.0;
+		}
+		return wrapped;
+	}
+
+	// --- aimtrack: an aim that keeps pointing at one nearby player -------------------------------------
+
+	/**
+	 * Whether this player's broadcast yaw/pitch lands within tolerance of the bearing to the nearest
+	 * other tracked player, this tick; judged over a rolling window while the player has attacked
+	 * recently (idle "looking at a teammate" never feeds the window). A sustained near-perfect match
+	 * rate is a silent aim: a real player's look wanders even while fighting.
+	 *
+	 * <p>Skipped from Iustitia's original: the pitch-GCD "too-clean mouse step" sub-signal, which
+	 * needs a full-float-look / mouse-sensitivity substrate this mod has no way to observe (1.8.9 and
+	 * 26.2 both broadcast quantised yaw/pitch with no sensitivity telemetry).
+	 *
+	 * <p>Derived from Iustitia (MIT), checks/movement/RotationTrackingCheck.kt.
+	 */
+	private void judgeAimTrack(String player, Track track, long tick, List<Violation> found) {
+		if (tick - track.lastAttackTick > AIMTRACK_COMBAT_WINDOW) {
+			return;
+		}
+		Frame now = track.at(tick);
+		if (now == null) {
+			return;
+		}
+		Track bestTrack = null;
+		double bestDistance = AIMTRACK_RANGE;
+		Frame bestFrame = null;
+		for (Map.Entry<String, Track> entry : tracks.entrySet()) {
+			if (entry.getKey().equals(player) || entry.getValue() == track) {
+				continue;
+			}
+			Frame otherFrame = entry.getValue().at(tick);
+			if (otherFrame == null || otherFrame.riding()) {
+				continue;
+			}
+			double distance = now.feet().distanceTo(otherFrame.feet());
+			if (distance < bestDistance) {
+				bestDistance = distance;
+				bestTrack = entry.getValue();
+				bestFrame = otherFrame;
+			}
+		}
+		if (bestTrack == null) {
+			pushCap(track.aimTrackWindow, false, AIMTRACK_WINDOW);
+			return;
+		}
+
+		double tcenter = bestFrame.sneaking() ? 0.75 : 0.9;
+		Vec eye = now.eye();
+		double cx = bestFrame.feet().x() - eye.x();
+		double cy = bestFrame.feet().y() + tcenter - eye.y();
+		double cz = bestFrame.feet().z() - eye.z();
+		double horiz = Math.hypot(cx, cz);
+		if (horiz < 0.3) {
+			pushCap(track.aimTrackWindow, false, AIMTRACK_WINDOW);
+			return;
+		}
+		double expectedYaw = Math.toDegrees(Math.atan2(-cx, cz));
+		double expectedPitch = Math.toDegrees(Math.atan2(-cy, horiz));
+		double yawDiff = Math.abs(wrapDegrees(now.yaw() - expectedYaw));
+		double pitchDiff = Math.abs(now.pitch() - expectedPitch);
+		boolean match = horiz < 2.0 ? yawDiff < 3.0 && pitchDiff < 4.0 : yawDiff < 8.0 && pitchDiff < 10.0;
+		pushCap(track.aimTrackWindow, match, AIMTRACK_WINDOW);
+
+		if (track.aimTrackWindow.size() >= AIMTRACK_WINDOW) {
+			long matches = track.aimTrackWindow.stream().filter(b -> b).count();
+			double rate = (double) matches / track.aimTrackWindow.size();
+			if (rate > AIMTRACK_RATE) {
+				add(found, player, Check.AIMTRACK,
+						String.format(Locale.ROOT, "locked on a target %.0f%% of the time", rate * 100), tick);
+			}
+		}
+	}
+
+	// --- triggerbot: hits within a tick or two of the crosshair reaching the victim --------------------
+
+	/**
+	 * Per tick: raycasts this player's eye/look against every nearby victim's hitbox (vanilla melee
+	 * reach) and records the tick the crosshair FIRST reached each one — but only when this player's
+	 * own aim moved recently enough to have caused that edge (the held-aim discriminator: a target
+	 * walking into a held crosshair is legitimate play, not a reaction).
+	 *
+	 * <p>Derived from Iustitia (MIT), checks/combat/TriggerbotCheck.kt.
+	 */
+	private void judgeTriggerbotTick(Track track, long tick) {
+		Frame now = track.at(tick);
+		if (now == null || now.riding()) {
+			return;
+		}
+		if (Double.isNaN(track.triggerAimYaw)) {
+			track.triggerAimYaw = now.yaw();
+			track.triggerAimPitch = now.pitch();
+		} else {
+			double moved = Math.max(Math.abs(wrapDegrees(now.yaw() - track.triggerAimYaw)),
+					Math.abs(now.pitch() - track.triggerAimPitch));
+			track.triggerAimYaw = now.yaw();
+			track.triggerAimPitch = now.pitch();
+			if (moved >= TRIGGER_AIM_TURN_EPS) {
+				track.lastAimMoveTick = tick;
+			}
+		}
+
+		Vec eye = now.eye();
+		Vec end = eye.add(now.look().scale(TRIGGER_REACH + 1.0));
+		Set<String> nearby = new HashSet<>();
+		for (Map.Entry<String, Track> entry : tracks.entrySet()) {
+			if (entry.getValue() == track) {
+				continue;
+			}
+			Frame victimFrame = entry.getValue().at(tick);
+			if (victimFrame == null || now.feet().distanceTo(victimFrame.feet()) > TRIGGER_RANGE) {
+				continue;
+			}
+			nearby.add(entry.getKey());
+			boolean onNow = victimFrame.box().inflate(HITBOX_BORDER).entry(eye, end) >= 0;
+			boolean prev = track.onHitbox.getOrDefault(entry.getKey(), false);
+			if (onNow && !prev) {
+				if (tick - track.lastAimMoveTick <= TRIGGER_AIM_TURN_WINDOW) {
+					track.engagementStart.put(entry.getKey(), tick);
+				} else {
+					track.engagementStart.remove(entry.getKey());
+				}
+			} else if (!onNow) {
+				track.engagementStart.remove(entry.getKey());
+			}
+			track.onHitbox.put(entry.getKey(), onNow);
+		}
+		track.onHitbox.keySet().retainAll(nearby);
+		track.engagementStart.keySet().retainAll(nearby);
+	}
+
+	/** Called once an attack's attacker is resolved: was the hit within reaction range of the crosshair
+	 * first reaching the victim, and has that happened consistently across recent hits? */
+	private void judgeTriggerbotHit(String attacker, Track track, String victim, long tick, List<Violation> found) {
+		Long start = track.engagementStart.get(victim);
+		boolean fast = start != null && tick - start >= 0 && tick - start <= TRIGGER_MAX_REACTION_TICKS;
+		pushCap(track.triggerbotWindow, fast, TRIGGER_WINDOW);
+
+		int total = track.triggerbotWindow.size();
+		long fastCount = track.triggerbotWindow.stream().filter(b -> b).count();
+		double ratio = total > 0 ? (double) fastCount / total : 0;
+		if (total >= TRIGGER_MIN_SAMPLES && ratio >= TRIGGER_RATIO) {
+			add(found, attacker, Check.TRIGGERBOT,
+					String.format(Locale.ROOT, "%d of %d hits within %d ticks of aiming on", fastCount, total,
+							TRIGGER_MAX_REACTION_TICKS), tick);
+		}
+	}
+
+	// --- hitflick: the aim flicks off the victim at the hit and snaps back -----------------------------
+
+	/** Called once an attack's attacker is resolved: the yaw error to the victim's hitbox at the hit. */
+	private void judgeHitFlickHit(String attacker, Track track, String victim, Frame attackerFrame,
+			Frame victimFrame, long tick, List<Violation> found) {
+		double dev = yawErrorToHitbox(attackerFrame, victimFrame);
+		if (dev > HITFLICK_THRESHOLD) {
+			track.flickTick = tick;
+			track.flickVictim = victim;
+		} else {
+			judgeHitFlickPattern(attacker, track, tick, found, false);
+		}
+	}
+
+	/** Called every tick: watches the short return window after a flick for the snap back onto the
+	 * victim's hitbox, and times a flick out if it never returns. */
+	private void judgeHitFlickTick(String player, Track track, long tick, List<Violation> found) {
+		if (track.flickTick <= Long.MIN_VALUE / 2 || track.flickVictim == null) {
+			return;
+		}
+		if (tick - track.flickTick > HITFLICK_RETURN_TICKS) {
+			track.flickTick = Long.MIN_VALUE / 2;
+			judgeHitFlickPattern(player, track, tick, found, false);
+			return;
+		}
+		Track victim = tracks.get(track.flickVictim);
+		Frame now = track.at(tick);
+		Frame victimFrame = victim == null ? null : victim.at(tick);
+		if (now == null || victimFrame == null) {
+			return;
+		}
+		if (yawErrorToHitbox(now, victimFrame) <= HITFLICK_RETURN_DEV) {
+			track.flickTick = Long.MIN_VALUE / 2;
+			judgeHitFlickPattern(player, track, tick, found, true);
+		}
+	}
+
+	private void judgeHitFlickPattern(String player, Track track, long tick, List<Violation> found, boolean flicked) {
+		pushCap(track.hitFlickWindow, flicked, HITFLICK_WINDOW);
+		long flicks = track.hitFlickWindow.stream().filter(b -> b).count();
+		if (flicked && flicks >= HITFLICK_MIN) {
+			add(found, player, Check.HITFLICK,
+					String.format(Locale.ROOT, "snapped off the target and back within %d ticks on %d of the last %d hits",
+							HITFLICK_RETURN_TICKS, flicks, track.hitFlickWindow.size()), tick);
+		}
+	}
+
+	/** How far the attacker's yaw is, horizontally, past the near edge of the victim's hitbox. */
+	private static double yawErrorToHitbox(Frame attacker, Frame victim) {
+		Box box = victim.box().inflate(HITBOX_BORDER);
+		double dx = victim.centre().x() - attacker.eye().x();
+		double dz = victim.centre().z() - attacker.eye().z();
+		double distance = Math.hypot(dx, dz);
+		if (distance < 1e-6) {
+			return 0;
+		}
+		double bearing = Math.toDegrees(Math.atan2(-dx, dz));
+		double halfWidth = Math.max(box.maxX() - box.minX(), box.maxZ() - box.minZ()) / 2;
+		double edge = Math.toDegrees(Math.atan2(halfWidth, distance));
+		return Math.max(0, Math.abs(wrapDegrees(attacker.yaw() - bearing)) - edge);
+	}
+
+	// --- nofall: fell far enough to hurt, and did not -------------------------------------------------
+
+	/**
+	 * Tracks the highest feet-y since this player was last {@linkplain Frame#supported() supported} —
+	 * not since the server last said {@code onGround}, which a NoFall cheat spoofs; {@code supported}
+	 * is computed straight from the terrain under their feet and cannot be lied about. Touchdown (a
+	 * tick where they are supported again) past {@link #NOFALL_DISTANCE} blocks of fall with no hurt
+	 * nearby is NoFall.
+	 *
+	 * <p>Derived from Iustitia (MIT), checks/movement/NoFallDamageCheck.kt.
+	 */
+	private void judgeNoFall(String player, Track track, long tick, List<Violation> found) {
+		Frame now = track.at(tick);
+		if (now == null) {
+			return;
+		}
+		boolean airborne = !now.supported() && !now.assisted() && !now.riding();
+		if (airborne) {
+			if (Double.isNaN(track.fallPeakY) || now.feet().y() > track.fallPeakY) {
+				track.fallPeakY = now.feet().y();
+			}
+			return;
+		}
+		if (!Double.isNaN(track.fallPeakY)) {
+			double fallDistance = track.fallPeakY - now.feet().y();
+			if (fallDistance >= NOFALL_DISTANCE && tick - track.lastHurt > NOFALL_HURT_GRACE) {
+				add(found, player, Check.NOFALL,
+						String.format(Locale.ROOT, "fell %.1f blocks and took no fall damage", fallDistance), tick);
+			}
+		}
+		track.fallPeakY = Double.NaN;
+	}
+
+	// --- step: a rise higher than a jump lets a leg climb -----------------------------------------------
+
+	/**
+	 * A grounded-to-grounded rise in one tick past what a jump explains. Vanilla's jump gives about
+	 * 0.42 blocks of ground clearance; the allowance here is a little wider because a remote player's
+	 * Jump Boost amplifier is not reliably visible to this client, so it cannot be subtracted out —
+	 * left conservative on purpose (a real StepHeight cheat's climb is well past this either way).
+	 *
+	 * <p>Derived from Iustitia (MIT), checks/movement/StepHeightCheck.kt.
+	 */
+	private void judgeStep(String player, Track track, long tick, List<Violation> found) {
+		Frame now = track.at(tick);
+		Frame before = track.at(tick - 1);
+		if (now == null || before == null || !now.supported() || !before.supported()
+				|| now.assisted() || now.riding() || before.assisted() || before.riding()) {
+			return;
+		}
+		double dy = now.feet().y() - before.feet().y();
+		if (dy > Math.max(STEP_MIN, STEP_JUMP_ALLOWANCE) && dy <= STEP_MAX) {
+			add(found, player, Check.STEP, String.format(Locale.ROOT, "stepped up %.2f blocks", dy), tick);
+		}
+	}
+
+	// --- blink: froze, then snapped several blocks -------------------------------------------------------
+
+	/**
+	 * A freeze (near-zero movement) held for {@link #BLINK_FREEZE_TICKS} or more, immediately followed
+	 * by a jump past {@link #BLINK_SNAP} blocks: packets held back and released in a burst. A
+	 * server-wide hitch is already excluded — {@link #endTick} skips every movement judge, this one
+	 * included, for {@link #LAG_WINDOW} ticks after {@link #serverLag}, and resets the freeze streak
+	 * itself so it cannot carry suspicion across the gap into this player's next real freeze.
+	 *
+	 * <p>Derived from Iustitia (MIT), checks/movement/PacketGapCheck.kt.
+	 */
+	private void judgeBlink(String player, Track track, long tick, List<Violation> found) {
+		Frame now = track.at(tick);
+		Frame before = track.at(tick - 1);
+		if (now == null || before == null) {
+			track.stillStreak = 0;
+			return;
+		}
+		double moved = now.horizontalFrom(before) + Math.abs(now.feet().y() - before.feet().y());
+		if (moved < BLINK_FREEZE_EPSILON) {
+			track.stillStreak++;
+			return;
+		}
+		if (track.stillStreak >= BLINK_FREEZE_TICKS && moved > BLINK_SNAP) {
+			add(found, player, Check.BLINK,
+					String.format(Locale.ROOT, "froze %d ticks then jumped %.1f blocks", track.stillStreak, moved), tick);
+		}
+		track.stillStreak = 0;
+	}
+
+	// --- criticals: every hit on the same fixed fall-arc phase -----------------------------------------
+
+	/**
+	 * Called once an attack's attacker is resolved: the attacker's small upward rise in the tick
+	 * before the hit — real criticals come from however high a jump happened to be timed, which varies
+	 * hit to hit; a criticals-forcing hack reproduces the same phase almost exactly every time, so its
+	 * spread over several hits is far tighter than a hand's.
+	 *
+	 * <p>Derived from Iustitia (MIT), checks/combat/CriticalsCheck.kt.
+	 */
+	private void judgeCriticals(String attacker, Track track, long tick, List<Violation> found) {
+		Frame hitTick = track.at(tick - 1);
+		Frame beforeThat = track.at(tick - 2);
+		if (hitTick == null || beforeThat == null || hitTick.riding() || hitTick.assisted()) {
+			return;
+		}
+		double rise = hitTick.feet().y() - beforeThat.feet().y();
+		if (rise < CRIT_RISE_MIN || rise > CRIT_RISE_MAX) {
+			return;
+		}
+		pushCap(track.critRiseWindow, rise, CRIT_WINDOW);
+		if (track.critRiseWindow.size() >= CRIT_WINDOW) {
+			double[] values = new double[track.critRiseWindow.size()];
+			int i = 0;
+			for (double v : track.critRiseWindow) {
+				values[i++] = v;
+			}
+			double stdev = populationStDev(values);
+			if (stdev < CRIT_STDEV_MAX) {
+				add(found, attacker, Check.CRITICALS,
+						String.format(Locale.ROOT, "same %.3f-block rise on every hit (stDev %.3f)", rise, stdev), tick);
+			}
 		}
 	}
 

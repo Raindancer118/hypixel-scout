@@ -179,6 +179,11 @@ tasks.register('mrpack', Zip) {
 	}
 }
 
+// Parts of the cheat checks derive from MIT-licensed code, whose notice has to travel with the mod.
+jar {
+	from(rootProject.file('../../THIRD_PARTY_NOTICES.md'))
+}
+
 // OpenAL Soft's null device: the game test keeps its sound system but plays nothing out loud.
 tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	environment 'ALSOFT_DRIVERS', 'null'

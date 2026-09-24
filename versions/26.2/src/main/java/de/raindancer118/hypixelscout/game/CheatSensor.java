@@ -62,6 +62,10 @@ public final class CheatSensor {
 	private int networkSwinger = -1;
 	private long networkSwingAt;
 	private long lastGameTime = Long.MIN_VALUE;
+	/** Every swing's real arrival time, entity id to nanoTime — the only clock fine enough for
+	 * ClickStats' robot/stDev/kurtosis signals (a client tick is too coarse). Read once, on the
+	 * render thread, by {@link #onSwing}; written on the network thread by {@link #arrived}. */
+	private final Map<Integer, Long> swingNanoTime = new java.util.concurrent.ConcurrentHashMap<>();
 
 	/**
 	 * A server sends one melee hit as the attacker's swing followed at once by the victim's push,
@@ -101,6 +105,9 @@ public final class CheatSensor {
 			return;
 		}
 		long now = System.nanoTime();
+		if (swing) {
+			sensor.swingNanoTime.put(entityId, now);
+		}
 		synchronized (sensor.network) {
 			if (swing) {
 				sensor.networkSwinger = entityId;
@@ -190,6 +197,7 @@ public final class CheatSensor {
 		suspicion.clear();
 		hurtAt.clear();
 		arrivedAttacks.clear();
+		swingNanoTime.clear();
 		lastGameTime = Long.MIN_VALUE;
 	}
 
@@ -214,7 +222,8 @@ public final class CheatSensor {
 		if (sensor != null && sensor.active()) {
 			String name = sensor.watched(Minecraft.getInstance().level.getEntity(entityId));
 			if (name != null) {
-				sensor.watch.swing(name, sensor.tick + 1);
+				Long nanoTime = sensor.swingNanoTime.remove(entityId);
+				sensor.watch.swing(name, sensor.tick + 1, nanoTime != null ? nanoTime : System.nanoTime());
 			}
 		}
 	}
@@ -318,6 +327,7 @@ public final class CheatSensor {
 	public void tick(Minecraft client) {
 		if (!active()) {
 			arrivedAttacks.clear();
+			swingNanoTime.clear();
 			return;
 		}
 		ClientLevel level = client.level;
