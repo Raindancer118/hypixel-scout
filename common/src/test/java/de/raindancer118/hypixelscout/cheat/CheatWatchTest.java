@@ -63,16 +63,22 @@ class CheatWatchTest {
 	}
 
 	private void step() {
+		step(terrain);
+	}
+
+	/** Same as {@link #step()}, but against a different terrain — for tests of {@code solidAt}. */
+	private void step(CheatWatch.Terrain customTerrain) {
 		tick++;
 		for (Map.Entry<String, Pose> entry : poses.entrySet()) {
 			Pose p = entry.getValue();
 			Vec feet = new Vec(p.x, p.y, p.z);
-			boolean supported = p.y <= 0.001 || terrain.solid((int) Math.floor(p.x), (int) Math.floor(p.y - 0.1), (int) Math.floor(p.z));
+			boolean supported = p.y <= 0.001
+					|| customTerrain.solid((int) Math.floor(p.x), (int) Math.floor(p.y - 0.1), (int) Math.floor(p.z));
 			watch.frame(entry.getKey(), new Frame(tick, feet, feet.add(new Vec(0, 1.62, 0)),
 					new Box(p.x - 0.3, p.y, p.z - 0.3, p.x + 0.3, p.y + 1.8, p.z + 0.3), p.yaw, p.pitch,
 					supported && !p.flying, supported && !p.flying, p.sprinting, p.using, false, false, p.sneaking, p.held));
 		}
-		for (Violation violation : watch.endTick(tick, terrain)) {
+		for (Violation violation : watch.endTick(tick, customTerrain)) {
 			(violation.relief() ? reliefs : seen).add(violation);
 		}
 	}
@@ -385,13 +391,88 @@ class CheatWatchTest {
 		put("Victim", 0.5, -0.5, 0);
 		put("Cheater", 0.5, 2.5, 180);
 		steps(6);
-		for (int hit = 0; hit < 3; hit++) {
+		// WALL_MIN is now four, not three: every hit stays fully occluded the whole aligned window.
+		for (int hit = 0; hit < 4; hit++) {
 			watch.swing("Cheater", tick + 1);
 			watch.attack("Cheater", "Victim", tick + 1);
 			steps(12);
 		}
 
 		assertThat(seen).anyMatch(v -> v.check() == Check.KILLAURA && v.detail().contains("wall"));
+	}
+
+	@Test
+	void aHitThatOnlyLooksOccludedAtTheLatestLaggedFrameIsNotThroughWall() {
+		// Positions lag: the attacker's current, aligned-to-the-hit frame looks blocked, but a frame
+		// from just a tick earlier — still within the aligned window — had a clear line. The most
+		// favourable of the aligned ticks is what counts, so this must never build a wall pattern.
+		wallBetween();
+		put("Victim", 0.5, -0.5, 0);
+		// Far enough off to the side that the wall (only x -2..2) no longer crosses the line of sight.
+		Pose cheater = put("Cheater", 6.0, 2.5, 180);
+		for (int hit = 0; hit < 4; hit++) {
+			steps(6);
+			cheater.x = 0.5; // this tick alone looks occluded
+			watch.swing("Cheater", tick + 1);
+			watch.attack("Cheater", "Victim", tick + 1);
+			step();
+			cheater.x = 6.0; // back to the clear spot before the next swing
+		}
+
+		assertThat(seen).noneMatch(v -> v.check() == Check.KILLAURA && v.detail().contains("wall"));
+	}
+
+	@Test
+	void aClearLineToOneCornerOfTheHitboxIsNotThroughWall() {
+		// A single pillar sits directly on the eye/centre/feet line, but the far corner of the
+		// victim's hitbox peeks around it — a clear line to any one sample point says "not occluded".
+		for (int y = 0; y <= 3; y++) {
+			blocks.add(List.of(0, y, 1));
+		}
+		put("Victim", 0.9, -0.5, 0);
+		// Far enough away that x has already crossed well past the pillar's edge by the time the ray
+		// enters its z-slab, so the corner ray clears the pillar throughout, not just at one instant.
+		put("Cheater", 0.9, 10, 180);
+		steps(6);
+		for (int hit = 0; hit < 4; hit++) {
+			watch.swing("Cheater", tick + 1);
+			watch.attack("Cheater", "Victim", tick + 1);
+			steps(12);
+		}
+
+		assertThat(seen).noneMatch(v -> v.check() == Check.KILLAURA && v.detail().contains("wall"));
+	}
+
+	@Test
+	void blockedBetweenUsesTheExactPointNotTheWholeCell() {
+		// Every check but through-walls would treat this cell as a full, solid cube; its real
+		// collision shape (a thin pane, say) does not actually reach the sight line's sample points.
+		wallBetween();
+		CheatWatch.Terrain thinShapes = new CheatWatch.Terrain() {
+			@Override
+			public boolean solid(int x, int y, int z) {
+				return terrain.solid(x, y, z);
+			}
+
+			@Override
+			public boolean solidAt(double x, double y, double z) {
+				return false;
+			}
+		};
+		put("Victim", 0.5, -0.5, 0);
+		put("Cheater", 0.5, 2.5, 180);
+		for (int i = 0; i < 6; i++) {
+			step(thinShapes);
+		}
+		for (int hit = 0; hit < 4; hit++) {
+			watch.swing("Cheater", tick + 1);
+			watch.attack("Cheater", "Victim", tick + 1);
+			for (int i = 0; i < 12; i++) {
+				step(thinShapes);
+			}
+		}
+
+		assertThat(seen).noneMatch(v -> v.check() == Check.KILLAURA && v.detail().contains("wall"));
 	}
 
 	@Test
@@ -639,12 +720,15 @@ class CheatWatchTest {
 
 	@Test
 	void aBlockPlacedWhereTheyAreNotLookingIsScaffold() {
-		// Walking backwards along -z, looking straight ahead at the horizon, blocks appear behind.
+		// Facing forward but the block lands off to the side of the look ray - within the wide 60°
+		// attribution cone (so they are plausibly the one who placed it) yet clearly missing even the
+		// widened lookedAt box: a real scaffold placed without properly aiming.
 		put("Cheater", 0.5, 0.5, 0);
 		steps(4);
 		watch.swing("Cheater", tick + 1);
-		watch.placed(new BedDefense.Cell(0, -1, -1), tick + 1, false);
+		watch.placed(new BedDefense.Cell(2, 1, 4), tick + 1, false);
 		step();
+		steps(15); // let the deferred judgement resolve
 
 		assertThat(checks()).containsExactly(Check.SCAFFOLD);
 	}
@@ -658,8 +742,59 @@ class CheatWatchTest {
 		watch.swing("Legit", tick + 1);
 		watch.placed(new BedDefense.Cell(0, -1, -1), tick + 1, false);
 		step();
+		steps(15);
 
 		assertThat(seen).isEmpty();
+	}
+
+	@Test
+	void aLookArrivingAfterThePlacementStillCountsAsBridging() {
+		// A remote player's rotation packet arrives later than the block update: the pitch that would
+		// prove they were looking down at the bridge only lands two ticks after the placement.
+		Pose player = put("Legit", 0.5, 0.5, 0);
+		player.yaw = 180;
+		steps(4);
+		watch.swing("Legit", tick + 1);
+		watch.placed(new BedDefense.Cell(0, -1, -1), tick + 1, false);
+		step(); // the placement tick - still not looking down yet
+		player.pitch = 78;
+		steps(2); // the rotation catches up
+		steps(15);
+
+		assertThat(seen).isEmpty();
+	}
+
+	@Test
+	void aGlanceJustBeyondTheOldToleranceStillCountsAsLookingAtTheBlock() {
+		// Looking straight ahead, the ray only grazes the cell once its box is inflated by half a
+		// block rather than the old 0.35 - a rotation-quantisation near miss, not a real scaffold.
+		put("Legit", 5, 1.4, 90);
+		steps(4);
+		watch.swing("Legit", tick + 1);
+		watch.placed(new BedDefense.Cell(0, 1, 0), tick + 1, false);
+		step();
+		steps(15);
+
+		assertThat(seen).isEmpty();
+	}
+
+	@Test
+	void aSteadyLineOfBlocksBehindALegitLookingCheaterIsStillScaffold() {
+		// A real scaffold hack: one block every couple of ticks, always right behind their own feet as
+		// they walk backwards, looking forward the whole time - never at the blocks. Spread out (not a
+		// same-tick or same-spot burst) so the structure filter must not swallow it either.
+		Pose cheater = put("Cheater", 0.5, 4.5, 0);
+		steps(4);
+		for (int i = 0; i < 4; i++) {
+			int cellZ = (int) Math.floor(cheater.z) - 1;
+			watch.swing("Cheater", tick + 1);
+			watch.placed(new BedDefense.Cell(0, -1, cellZ), tick + 1, false);
+			steps(2);
+			cheater.z -= 1.0;
+		}
+		steps(15);
+
+		assertThat(seen).anyMatch(v -> v.check() == Check.SCAFFOLD && v.detail().contains("not looking"));
 	}
 
 	@Test
@@ -682,6 +817,35 @@ class CheatWatchTest {
 			watch.placed(new BedDefense.Cell(2, y, 2), tick + 1, false);
 		}
 		step();
+
+		assertThat(seen).isEmpty();
+	}
+
+	@Test
+	void aPopUpTowerRisingOneBlockATickIsNobodysScaffoldOrFastPlace() {
+		// A Hypixel pop-up tower or a bridge egg's line: a 3x3 ring plus a short ladder column, one
+		// block landing a tick, over more than a second. Nobody aims each of the ~10 blocks as they
+		// appear, and no single tick has more than one — the old same-tick structure filter alone would
+		// miss this; the burst filter (spread over the window, many distinct cells nearby) must catch
+		// it instead, for both Scaffold and FastPlace.
+		put("Bystander", 4.5, 1.0, 180);
+		steps(4);
+		int[][] ring = {
+				{3, 3}, {4, 3}, {5, 3},
+				{3, 4}, {5, 4},
+				{3, 5}, {4, 5}, {5, 5},
+		};
+		for (int[] xz : ring) {
+			watch.swing("Bystander", tick + 1);
+			watch.placed(new BedDefense.Cell(xz[0], 0, xz[1]), tick + 1, false);
+			step();
+		}
+		for (int y = 1; y <= 2; y++) {
+			watch.swing("Bystander", tick + 1);
+			watch.placed(new BedDefense.Cell(4, y, 4), tick + 1, false);
+			step();
+		}
+		steps(20);
 
 		assertThat(seen).isEmpty();
 	}
@@ -713,6 +877,9 @@ class CheatWatchTest {
 
 	@Test
 	void placingFasterThanAnyoneCanClickIsFastPlace() {
+		// FastPlace is judged the same way Scaffold now is - only once each placement's window has
+		// resolved - so the deque of confirmed placements needs the extra ticks below to build up past
+		// the limit.
 		Pose cheater = put("Cheater", 0.5, 0.5, 0);
 		cheater.yaw = 180;
 		cheater.pitch = 78;
@@ -722,6 +889,7 @@ class CheatWatchTest {
 			watch.placed(new BedDefense.Cell(0, -1, -1), tick + 1, false);
 			step();
 		}
+		steps(20);
 		assertThat(checks()).contains(Check.FASTPLACE).doesNotContain(Check.SCAFFOLD);
 	}
 

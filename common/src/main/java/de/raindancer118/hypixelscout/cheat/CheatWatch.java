@@ -48,6 +48,17 @@ public final class CheatWatch {
 	@FunctionalInterface
 	public interface Terrain {
 		boolean solid(int x, int y, int z);
+
+		/**
+		 * The same block, but at the exact point rather than the whole cell: a slab, a stair, a bed, a
+		 * carpet, a fence or a snow layer do not fill their cell everywhere {@link #solid} says so.
+		 * Callers that only need the coarse, whole-cell answer (knockback's wall and ceiling, the bed
+		 * check) keep using {@link #solid}; only a sight line needs to know exactly where a shape is.
+		 * The default falls back to the coarse cell, for terrains — tests, mostly — with nothing finer.
+		 */
+		default boolean solidAt(double x, double y, double z) {
+			return solid((int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(z));
+		}
 	}
 
 	/** What hurt somebody, as far as the client can tell. */
@@ -139,9 +150,11 @@ public final class CheatWatch {
 	private static final double AURA_ANGLE = 75.0;
 	/** For a hurt of unknown cause, a swinging player further off their look than this did not do it. */
 	private static final double UNSURE_ANGLE = 45.0;
-	/** The last hits per attacker the through-walls rate is taken over, and how many it needs. */
+	/** The last hits per attacker the through-walls rate is taken over, and how many it needs: four,
+	 * not three, so a single lagging frame that only looks occluded near a doorway or a corner is not,
+	 * on its own, half of a window of two. */
 	private static final int WALL_WINDOW = 12;
-	private static final int WALL_MIN = 3;
+	private static final int WALL_MIN = 4;
 	/** Hits per attacker the KeepSprint pattern is taken over, and how many must keep full speed. */
 	private static final int KEEPSPRINT_WINDOW = 4;
 	private static final int KEEPSPRINT_MIN = 3;
@@ -156,6 +169,20 @@ public final class CheatWatch {
 	private static final double BED_REACH = 6.5;
 	/** Blocks in one tick, close together: a pop-up tower or some other placed structure. */
 	private static final int STRUCTURE_BLOCKS = 4;
+	/**
+	 * A Hypixel pop-up tower or a bridge-egg lays many blocks in a burst that no hand matches, but
+	 * spread over more than one tick — a ring going up over ten to fifteen ticks, say. Ticks either
+	 * side of a placement, and blocks around it, counted as close enough in time and space to belong
+	 * to the same burst.
+	 */
+	private static final int STRUCTURE_WINDOW = 15;
+	private static final double STRUCTURE_RADIUS = 3.0;
+	/** Two different cells landing in the very same tick, near each other: no single hand does that. */
+	private static final int STRUCTURE_SAME_TICK_CELLS = 2;
+	/** This many different cells within this many ticks, near each other, go up faster than clicking
+	 * allows — a tower or a ring, not a hand-placed bridge (which is one new cell every tick or two). */
+	private static final int STRUCTURE_BURST_TICKS = 6;
+	private static final int STRUCTURE_BURST_CELLS = 5;
 	/** A move this long in one tick is a teleport — a pearl, a respawn — not running. */
 	private static final double TELEPORT = 4.0;
 	/** Ticks after a server lag in which nothing is judged: its catch-up is not anybody's movement. */
@@ -487,6 +514,31 @@ public final class CheatWatch {
 		}
 	}
 
+	/** A placement with its candidate placer, waiting for its burst-and-look window to fill in. */
+	private static final class PendingPlacement {
+		private final String placer;
+		private final BedDefense.Cell cell;
+		private final long tick;
+
+		PendingPlacement(String placer, BedDefense.Cell cell, long tick) {
+			this.placer = placer;
+			this.cell = cell;
+			this.tick = tick;
+		}
+
+		String placer() {
+			return placer;
+		}
+
+		BedDefense.Cell cell() {
+			return cell;
+		}
+
+		long tick() {
+			return tick;
+		}
+	}
+
 	private static final class Blast {
 		private final Vec centre;
 		private final long tick;
@@ -530,6 +582,10 @@ public final class CheatWatch {
 	private final List<Knockback> knockbacks = new ArrayList<>();
 	private final List<SprintHit> sprintHits = new ArrayList<>();
 	private final List<Placement> placements = new ArrayList<>();
+	/** Every placement seen recently, whoever placed it or whether anybody could be blamed at all:
+	 * kept only so a later placement can tell whether it was part of a burst. */
+	private final List<Placement> placementHistory = new ArrayList<>();
+	private final List<PendingPlacement> pendingPlacements = new ArrayList<>();
 	private final Map<BedDefense.Cell, Long> recentBlocks = new HashMap<>();
 	private final List<BedDefense.Cell> brokenBeds = new ArrayList<>();
 	private final List<Blast> blasts = new ArrayList<>();
@@ -644,6 +700,8 @@ public final class CheatWatch {
 		knockbacks.clear();
 		sprintHits.clear();
 		placements.clear();
+		placementHistory.clear();
+		pendingPlacements.clear();
 		recentBlocks.clear();
 		brokenBeds.clear();
 		blasts.clear();
@@ -904,28 +962,68 @@ public final class CheatWatch {
 
 	/**
 	 * Whether this hit, with the attacker's recent ones, makes a pattern of hits through a wall: at
-	 * least half of the last few, with no line from the eyes to the victim's head, middle or feet.
-	 * One such hit is a corner or a lag spike; a pattern is an aura that does not care about walls.
+	 * least half of the last few, with no line from the eyes to any of the victim's sample points at
+	 * ANY of the aligned ticks back — positions lag, so the most favourable of them is what counts,
+	 * the same as {@link #reachDistance} and {@link #offAngle}. One such hit is a corner or a lag
+	 * spike; a pattern is an aura that does not care about walls.
 	 */
 	private boolean throughWall(Track attacker, Track victim, long tick, Terrain terrain) {
-		Frame a = attacker.at(tick);
-		Frame v = victim.at(tick);
-		if (a == null || v == null) {
-			return false;
-		}
-		boolean occluded = true;
-		for (Vec target : new Vec[] {v.eye(), v.centre(), v.feet().add(new Vec(0, 0.2, 0))}) {
-			if (!blockedBetween(terrain, a.eye(), target)) {
-				occluded = false;
+		Boolean occludedEveryAlignedTick = null;
+		for (int back = 0; back <= LAG_TICKS; back++) {
+			Frame a = attacker.at(tick - back);
+			Frame v = victim.at(tick - back);
+			if (a == null || v == null) {
+				continue;
+			}
+			if (!allSamplesBlocked(terrain, a.eye(), v)) {
+				// A clear line at even one aligned tick is the most favourable reading: not occluded.
+				occludedEveryAlignedTick = false;
 				break;
 			}
+			occludedEveryAlignedTick = true;
 		}
+		boolean occluded = Boolean.TRUE.equals(occludedEveryAlignedTick);
+
 		attacker.wallHits.addLast(occluded);
 		while (attacker.wallHits.size() > WALL_WINDOW) {
 			attacker.wallHits.removeFirst();
 		}
 		long through = attacker.wallHits.stream().filter(hit -> hit).count();
 		return occluded && attacker.wallHits.size() >= WALL_MIN && through * 2 >= attacker.wallHits.size();
+	}
+
+	/**
+	 * Whether every one of the victim's sample points — eye, centre, feet, and the eight corners of
+	 * their hitbox — is blocked from the attacker's eye. A clear line to any single one says the
+	 * attacker could have seen them there, whatever the rest says: a hand or a foot poking past an
+	 * edge is still a view of the player.
+	 */
+	private boolean allSamplesBlocked(Terrain terrain, Vec eye, Frame victim) {
+		for (Vec target : wallSamplePoints(victim)) {
+			if (!blockedBetween(terrain, eye, target)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** Eye, centre, feet, and the victim's hitbox corners, inflated by {@link #HITBOX_BORDER} and
+	 * pulled back in by a hair so a ray does not end exactly on a block face. */
+	private static List<Vec> wallSamplePoints(Frame victim) {
+		List<Vec> points = new ArrayList<>(11);
+		points.add(victim.eye());
+		points.add(victim.centre());
+		points.add(victim.feet().add(new Vec(0, 0.2, 0)));
+		Box box = victim.box().inflate(HITBOX_BORDER);
+		double pull = 0.05;
+		for (double x : new double[] {box.minX() + pull, box.maxX() - pull}) {
+			for (double y : new double[] {box.minY() + pull, box.maxY() - pull}) {
+				for (double z : new double[] {box.minZ() + pull, box.maxZ() - pull}) {
+					points.add(new Vec(x, y, z));
+				}
+			}
+		}
+		return points;
 	}
 
 	/** A solid block — not one placed just now, which may postdate the hit — on the line between two points. */
@@ -940,7 +1038,7 @@ public final class CheatWatch {
 			if (cell.equals(start) || cell.equals(end) || recentBlocks.containsKey(cell)) {
 				continue;
 			}
-			if (terrain.solid(cell.x(), cell.y(), cell.z())) {
+			if (terrain.solidAt(at.x(), at.y(), at.z())) {
 				return true;
 			}
 		}
@@ -1116,6 +1214,7 @@ public final class CheatWatch {
 		}
 
 		for (Placement placement : now) {
+			placementHistory.add(placement);
 			if (placement.thrown() || partOfStructure(placement, now)) {
 				continue;
 			}
@@ -1141,18 +1240,43 @@ public final class CheatWatch {
 				continue;
 			}
 
-			Track track = tracks.get(placer);
-			track.placements.addLast(placement.tick());
-			while (!track.placements.isEmpty() && track.placements.peekFirst() <= placement.tick() - 20) {
-				track.placements.removeFirst();
-			}
-			if (track.placements.size() > tuning.fastPlaceLimit()) {
-				add(found, placer, Check.FASTPLACE, track.placements.size() + " blocks a second", placement.tick());
-			}
+			pendingPlacements.add(new PendingPlacement(placer, placement.cell(), placement.tick()));
+		}
+		placementHistory.removeIf(p -> p.tick() < tick - STRUCTURE_WINDOW * 2);
 
-			if (!lookedAt(track, placement)) {
-				add(found, placer, Check.SCAFFOLD, "placed a block they were not looking at", placement.tick());
+		// Judged only once the burst window around each placement, and the look window past it, are
+		// both fully known — a pop-up tower needs its later blocks to tell it apart from a hand.
+		Iterator<PendingPlacement> deferred = pendingPlacements.iterator();
+		while (deferred.hasNext()) {
+			PendingPlacement pendingPlacement = deferred.next();
+			if (pendingPlacement.tick() + STRUCTURE_WINDOW > tick) {
+				continue;
 			}
+			deferred.remove();
+			judgeConfirmedPlacement(pendingPlacement, found);
+		}
+	}
+
+	private void judgeConfirmedPlacement(PendingPlacement placement, List<Violation> found) {
+		if (isStructure(placement, placementHistory)) {
+			// A machine-built structure, not a hand: nobody is blamed for any block of it.
+			return;
+		}
+		Track track = tracks.get(placement.placer());
+		if (track == null) {
+			return;
+		}
+
+		track.placements.addLast(placement.tick());
+		while (!track.placements.isEmpty() && track.placements.peekFirst() <= placement.tick() - 20) {
+			track.placements.removeFirst();
+		}
+		if (track.placements.size() > tuning.fastPlaceLimit()) {
+			add(found, placement.placer(), Check.FASTPLACE, track.placements.size() + " blocks a second", placement.tick());
+		}
+
+		if (!lookedAt(track, placement.cell(), placement.tick())) {
+			add(found, placement.placer(), Check.SCAFFOLD, "placed a block they were not looking at", placement.tick());
 		}
 	}
 
@@ -1166,12 +1290,50 @@ public final class CheatWatch {
 		return close >= STRUCTURE_BLOCKS;
 	}
 
-	/** Whether the placer's look passed by the new block at any of the ticks up to the placement. */
-	private static boolean lookedAt(Track track, Placement placement) {
-		BedDefense.Cell cell = placement.cell();
-		Box box = new Box(cell.x(), cell.y(), cell.z(), cell.x() + 1, cell.y() + 1, cell.z() + 1).inflate(0.35);
-		for (int back = 0; back <= 3; back++) {
-			Frame at = track.at(placement.tick() - back);
+	/**
+	 * Whether this placement, with the others seen recently nearby, makes a burst that goes up faster
+	 * than a hand can click — a pop-up tower's ring or a bridge egg's line, spread over several ticks
+	 * rather than landing all in one. {@link #partOfStructure} already catches the same-tick case
+	 * quickly; this catches the same pattern stretched across the window.
+	 */
+	private static boolean isStructure(PendingPlacement placement, List<Placement> history) {
+		Vec centre = centre(placement.cell());
+		List<Placement> cluster = new ArrayList<>();
+		for (Placement other : history) {
+			if (Math.abs(other.tick() - placement.tick()) <= STRUCTURE_WINDOW
+					&& centre(other.cell()).distanceTo(centre) <= STRUCTURE_RADIUS) {
+				cluster.add(other);
+			}
+		}
+		long sameTickCells = cluster.stream().filter(p -> p.tick() == placement.tick())
+				.map(Placement::cell).distinct().count();
+		if (sameTickCells >= STRUCTURE_SAME_TICK_CELLS) {
+			return true;
+		}
+		// A sliding window exactly STRUCTURE_BURST_TICKS wide, not centred either side of an anchor —
+		// that would double it — so a hand's one-block-every-couple-of-ticks bridge (which still puts
+		// several blocks within a wider, symmetric window) does not read as a burst.
+		for (Placement start : cluster) {
+			long burstCells = cluster.stream()
+					.filter(p -> p.tick() >= start.tick() && p.tick() < start.tick() + STRUCTURE_BURST_TICKS)
+					.map(Placement::cell).distinct().count();
+			if (burstCells >= STRUCTURE_BURST_CELLS) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Whether the placer's look passed by the new block at any frame from three ticks before the
+	 * placement to two after: a remote player's rotation arrives later, and coarser, than the block
+	 * update that placed it, so the look is allowed to catch up. The cell is inflated by half a block,
+	 * wider than the hitbox border elsewhere, to cover rotation quantisation as well as lag.
+	 */
+	private static boolean lookedAt(Track track, BedDefense.Cell cell, long placementTick) {
+		Box box = new Box(cell.x(), cell.y(), cell.z(), cell.x() + 1, cell.y() + 1, cell.z() + 1).inflate(0.5);
+		for (long t = placementTick - 3; t <= placementTick + 2; t++) {
+			Frame at = track.at(t);
 			if (at != null && box.entry(at.eye(), at.eye().add(at.look().scale(PLACE_REACH + 1))) >= 0) {
 				return true;
 			}
