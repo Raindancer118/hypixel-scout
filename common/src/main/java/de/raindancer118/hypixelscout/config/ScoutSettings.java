@@ -244,6 +244,19 @@ public final class ScoutSettings {
 		public boolean mark = true;
 		/** Percent: 100 as designed, higher flags on fewer sightings. */
 		public int sensitivity = 100;
+		/** The checks switched off, one by one; everything else is watched. */
+		public List<de.raindancer118.hypixelscout.cheat.Check> off = new ArrayList<>();
+
+		public boolean isOn(de.raindancer118.hypixelscout.cheat.Check check) {
+			return !off.contains(check);
+		}
+
+		public void set(de.raindancer118.hypixelscout.cheat.Check check, boolean on) {
+			off.remove(check);
+			if (!on) {
+				off.add(check);
+			}
+		}
 	}
 
 	/** Messages on hotkeys, filled in with whoever is aimed at ({@link de.raindancer118.hypixelscout.core.Callout}). */
@@ -378,6 +391,9 @@ public final class ScoutSettings {
 
 		cheats = cheats == null ? new Cheats() : cheats;
 		cheats.sensitivity = Math.clamp(cheats.sensitivity, MIN_CHEAT_SENSITIVITY, MAX_CHEAT_SENSITIVITY);
+		// A check name this version does not know reads as null; a hand-edited list may repeat one.
+		cheats.off = cheats.off == null ? new ArrayList<>()
+				: new ArrayList<>(new java.util.LinkedHashSet<>(cheats.off.stream().filter(java.util.Objects::nonNull).toList()));
 
 		callouts = callouts == null ? new Callouts() : callouts;
 		String[] messages = callouts.messages == null ? new String[0] : callouts.messages;

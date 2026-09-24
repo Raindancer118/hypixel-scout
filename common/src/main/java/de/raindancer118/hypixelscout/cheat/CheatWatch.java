@@ -8,28 +8,39 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Watches the other players for what only a cheat makes possible, from nothing but what the client
- * is told anyway: where everybody is and looks, who swings, who gets hurt, which blocks appear and
+ * is told anyway: where everybody is and looks, who swings, who hits whom, which blocks appear and
  * which beds vanish.
  *
- * <p>Fed in the order a client tick has it: the packets first ({@link #swing}, {@link #hurt},
- * {@link #placed}, …), then a {@link #frame} for every player in sight, then {@link #endTick}, which
- * judges whatever there is enough of to judge and returns the sightings. Some judgements wait a few
+ * <p>Fed in the order a client tick has it: the packets first ({@link #swing}, {@link #attack},
+ * {@link #hurt}, {@link #placed}, …), then a {@link #frame} for every player in sight, then
+ * {@link #endTick}, which judges whatever there is enough of to judge and returns the sightings —
+ * and the reliefs, where somebody did the legit thing a check looks for. Some judgements wait a few
  * ticks — knockback needs to be seen landing — so a sighting can come a little after the fact.
  *
  * <p>Every check leans towards silence. Positions arrive twenty times a second and a little late,
- * so distances are measured at the most favourable of several aligned ticks; anything with a second
- * explanation — a blast, a hit, somebody else close by, the player themselves — is left alone. What
- * is left is still only a sighting: {@link Suspicion} decides when sightings make a flag.
+ * so distances are measured at the most favourable of several aligned ticks, and a moving pair gets
+ * more room than a standing one; anything with a second explanation — a blast, a hit, somebody else
+ * close by, the player themselves, a lagging server — is left alone. What is left is still only a
+ * sighting: {@link Suspicion} decides when sightings make a flag.
  *
  * <p>The player running the client ({@link #setSelf}) is never a suspect, but counts as a witness:
  * their own swing explains a hit, their own block explains a placement.
+ *
+ * <p>Several ideas here come from two open-source client-side detectors (both MIT): the
+ * swing-then-push attribution, hits through walls, KeepSprint, backwards-bridging Scaffold and
+ * reliefs from Alexdoru's HackerDetector (MegaWallsEnhancements); the split reach limit, multi-aura,
+ * sprinting while sneaking, the invulnerability gap for knockback and the server-lag pause from
+ * Iustitia.
  */
 public final class CheatWatch {
 	/** The blocks of the world, as far as the checks care: solid or not. */
@@ -50,8 +61,15 @@ public final class CheatWatch {
 
 	/** Frames kept per player: three seconds. */
 	private static final int HISTORY = 60;
-	/** A melee hit reaches three blocks from the eyes to the hitbox grown by 0.1; this is on top. */
-	static final double REACH_LIMIT = 3.3;
+	/**
+	 * Eyes to the hitbox grown by 0.1, for a pair that stood still: the client's positions are the
+	 * server's then, so only the margin is allowed on top of three blocks.
+	 */
+	static final double REACH_STANDING = 3.2;
+	/** For a pair on the move, whose positions the client sees up to about 0.7 late. */
+	static final double REACH_MOVING = 3.8;
+	/** A hit this close is plainly within reach, and speaks for the attacker. */
+	private static final double REACH_FAIR = 3.0;
 	private static final double HITBOX_BORDER = 0.1;
 	/** Further than this from the victim a swing was aimed at somebody else. */
 	private static final double ATTACK_RANGE = 6.0;
@@ -61,7 +79,15 @@ public final class CheatWatch {
 	private static final double AURA_ANGLE = 75.0;
 	/** For a hurt of unknown cause, a swinging player further off their look than this did not do it. */
 	private static final double UNSURE_ANGLE = 45.0;
+	/** The last hits per attacker the through-walls rate is taken over, and how many it needs. */
+	private static final int WALL_WINDOW = 12;
+	private static final int WALL_MIN = 3;
+	/** Hits per attacker the KeepSprint pattern is taken over, and how many must keep full speed. */
+	private static final int KEEPSPRINT_WINDOW = 4;
+	private static final int KEEPSPRINT_MIN = 3;
 	private static final int KNOCKBACK_TICKS = 6;
+	/** A hit this soon after the last one lands inside its invulnerability and pushes less. */
+	private static final int INVULNERABLE_TICKS = 10;
 	/** The push a 1.8 hit gives when the server does not say. */
 	private static final double DEFAULT_KNOCKBACK = 0.4;
 	/** An explosion this close shoves a player, or opens a bed. */
@@ -76,14 +102,21 @@ public final class CheatWatch {
 	private static final double SPEED_LIMIT = 0.62;
 	/** A move this long in one tick is a teleport — a pearl, a respawn — not running. */
 	private static final double TELEPORT = 4.0;
+	/** Ticks after a server lag in which nothing is judged: its catch-up is not anybody's movement. */
+	private static final int LAG_WINDOW = 8;
+	/** Ticks both sprint and item use may overlap before it is no longer the flag catching up. */
+	private static final int SPRINT_USE_TICKS = 16;
 
 	private static final class Track {
 		final ArrayDeque<Frame> frames = new ArrayDeque<>();
 		final ArrayDeque<Long> swings = new ArrayDeque<>();
 		final ArrayDeque<Long> placements = new ArrayDeque<>();
+		final ArrayDeque<Boolean> wallHits = new ArrayDeque<>();
+		final ArrayDeque<Boolean> fullSpeedHits = new ArrayDeque<>();
 		final Map<Check, Long> lastSeen = new EnumMap<>(Check.class);
 		long lastShove = Long.MIN_VALUE / 2;
 		long lastHurt = Long.MIN_VALUE / 2;
+		long lastBridgeFlag = Long.MIN_VALUE / 2;
 		Vec motion;
 		long motionTick = Long.MIN_VALUE / 2;
 
@@ -122,15 +155,32 @@ public final class CheatWatch {
 			}
 			return run;
 		}
+
+		/** Barely moved over the last ticks up to {@code tick}: its position is what the server has. */
+		boolean still(long tick) {
+			Frame now = at(tick);
+			Frame before = at(tick - LAG_TICKS);
+			return now != null && before != null && now.horizontalFrom(before) < 0.1
+					&& Math.abs(now.feet().y() - before.feet().y()) < 0.1;
+		}
 	}
 
 	private record Swing(String player, long tick) {
 	}
 
-	private record Hurt(String victim, long tick, Hit hit, String cause) {
+	/**
+	 * @param prevHurt when the victim was hurt before this, for the invulnerability gap
+	 */
+	private record Hurt(String victim, long tick, Hit hit, String cause, long prevHurt) {
 	}
 
-	private record Knockback(String victim, String attacker, long tick) {
+	private record Attack(String attacker, String victim, long tick) {
+	}
+
+	private record Knockback(String victim, String attacker, long tick, long prevHurt) {
+	}
+
+	private record SprintHit(String attacker, long tick) {
 	}
 
 	private record Placement(BedDefense.Cell cell, long tick, boolean thrown) {
@@ -142,15 +192,25 @@ public final class CheatWatch {
 	private final Map<String, Track> tracks = new HashMap<>();
 	private final List<Swing> swings = new ArrayList<>();
 	private final List<Hurt> hurts = new ArrayList<>();
+	private final List<Attack> attacks = new ArrayList<>();
 	private final List<Knockback> knockbacks = new ArrayList<>();
+	private final List<SprintHit> sprintHits = new ArrayList<>();
 	private final List<Placement> placements = new ArrayList<>();
+	private final Map<BedDefense.Cell, Long> recentBlocks = new HashMap<>();
 	private final List<BedDefense.Cell> brokenBeds = new ArrayList<>();
 	private final List<Blast> blasts = new ArrayList<>();
 	private String self = "";
+	private long lastLag = Long.MIN_VALUE / 2;
+	private Predicate<Check> enabled = check -> true;
 
 	/** The player running the client: a witness, never a suspect. */
 	public void setSelf(String name) {
 		self = name == null ? "" : name;
+	}
+
+	/** Which checks may report; the others are skipped, sightings and reliefs alike. */
+	public void setEnabled(Predicate<Check> which) {
+		enabled = which == null ? check -> true : which;
 	}
 
 	public void frame(String player, Frame frame) {
@@ -184,9 +244,19 @@ public final class CheatWatch {
 	 */
 	public void hurt(String victim, long tick, Hit hit, String cause) {
 		Track track = track(victim);
+		long prev = track.lastHurt;
 		track.lastShove = tick;
 		track.lastHurt = tick;
-		hurts.add(new Hurt(victim, tick, hit, cause));
+		hurts.add(new Hurt(victim, tick, hit, cause, prev));
+	}
+
+	/**
+	 * A melee attack known for certain: the attacker's swing and the victim's push, hurt or crit
+	 * arrived together, the way a server sends one hit. Names the attacker even in a crowd, and
+	 * counts as the hurt when no hurt came.
+	 */
+	public void attack(String attacker, String victim, long tick) {
+		attacks.add(new Attack(attacker, victim, tick));
 	}
 
 	/** The server set somebody's velocity: knockback, a blast, a launch pad. */
@@ -206,6 +276,11 @@ public final class CheatWatch {
 		}
 	}
 
+	/** The server fell behind or caught up: for a moment nobody's movement or hits are their own. */
+	public void serverLag(long tick) {
+		lastLag = tick;
+	}
+
 	/**
 	 * A block appeared where there was none.
 	 *
@@ -213,6 +288,7 @@ public final class CheatWatch {
 	 */
 	public void placed(BedDefense.Cell cell, long tick, boolean thrown) {
 		placements.add(new Placement(cell, tick, thrown));
+		recentBlocks.put(cell, tick);
 	}
 
 	/** Half a bed vanished. */
@@ -225,28 +301,44 @@ public final class CheatWatch {
 		tracks.clear();
 		swings.clear();
 		hurts.clear();
+		attacks.clear();
 		knockbacks.clear();
+		sprintHits.clear();
 		placements.clear();
+		recentBlocks.clear();
 		brokenBeds.clear();
 		blasts.clear();
+		lastLag = Long.MIN_VALUE / 2;
 	}
 
 	/** Judges what can be judged now; call after this tick's frames. */
 	public List<Violation> endTick(long tick, Terrain terrain) {
 		List<Violation> found = new ArrayList<>();
+		boolean lagging = tick - lastLag <= LAG_WINDOW;
 
 		judgeSwings(tick, found);
-		judgeHurts(found);
-		judgeKnockbacks(tick, terrain, found);
+		mergeAttacks(found);
+		if (lagging) {
+			hurts.clear();
+			knockbacks.removeIf(hit -> hit.tick() + KNOCKBACK_TICKS <= tick);
+			sprintHits.removeIf(hit -> hit.tick() + 1 <= tick);
+		} else {
+			judgeHurts(terrain, found);
+			judgeKnockbacks(tick, terrain, found);
+			judgeSprintHits(tick, found);
+		}
 		judgePlacements(tick, found);
 		judgeBeds(tick, terrain, found);
-		for (Map.Entry<String, Track> entry : tracks.entrySet()) {
-			if (!entry.getKey().equals(self)) {
-				judgeMovement(entry.getKey(), entry.getValue(), tick, found);
+		if (!lagging) {
+			for (Map.Entry<String, Track> entry : tracks.entrySet()) {
+				if (!entry.getKey().equals(self)) {
+					judgeMovement(entry.getKey(), entry.getValue(), tick, found);
+				}
 			}
 		}
 
 		blasts.removeIf(blast -> blast.tick() < tick - 100);
+		recentBlocks.values().removeIf(placed -> placed < tick - 40);
 		tracks.values().removeIf(track -> track.frames.isEmpty() ? track.lastHurt < tick - 100
 				: track.frames.peekLast().tick() < tick - HISTORY);
 		return found;
@@ -257,7 +349,7 @@ public final class CheatWatch {
 	}
 
 	private void add(List<Violation> found, String player, Check check, String detail, long tick) {
-		if (player.equals(self)) {
+		if (player.equals(self) || !enabled.test(check)) {
 			return;
 		}
 		Track track = track(player);
@@ -269,7 +361,13 @@ public final class CheatWatch {
 		found.add(new Violation(player, check, detail, tick));
 	}
 
-	// --- autoblock: a swing in the middle of using an item ------------------------------------------
+	private void relieve(List<Violation> found, String player, Check check, long tick) {
+		if (!player.equals(self) && enabled.test(check)) {
+			found.add(Violation.relief(player, check, tick));
+		}
+	}
+
+	// --- autoblock: a swing in the middle of blocking -------------------------------------------------
 
 	private void judgeSwings(long tick, List<Violation> found) {
 		Iterator<Swing> pending = swings.iterator();
@@ -282,24 +380,63 @@ public final class CheatWatch {
 
 			Track track = tracks.get(swing.player());
 			List<Frame> around = track == null ? null : track.run(swing.tick() - 3, swing.tick() + 1);
-			if (around != null && around.stream().allMatch(Frame::usingItem)) {
-				add(found, swing.player(), Check.AUTOBLOCK, "swung while using an item", swing.tick());
+			// A sword only: eating or drawing a bow shows its swings when they hit something, below.
+			if (around == null || around.stream().anyMatch(f -> f.held() != Frame.Held.SWORD)) {
+				continue;
+			}
+			if (around.stream().allMatch(Frame::usingItem)) {
+				add(found, swing.player(), Check.AUTOBLOCK, "swung while blocking", swing.tick());
+			} else if (around.stream().noneMatch(Frame::usingItem)) {
+				relieve(found, swing.player(), Check.AUTOBLOCK, swing.tick());
 			}
 		}
 	}
 
-	// --- reach, killaura: who hit whom, from where ----------------------------------------------------
+	// --- reach, killaura, multi-aura: who hit whom, from where ---------------------------------------------
 
-	private void judgeHurts(List<Violation> found) {
+	/**
+	 * Certain attacks name the attacker of their hurt, or stand in for it where none came; an
+	 * attacker with two victims in one tick is a multi-aura.
+	 */
+	private void mergeAttacks(List<Violation> found) {
+		Map<String, Set<String>> victimsOf = new HashMap<>();
+		for (Attack attack : attacks) {
+			if (attack.attacker().equals(attack.victim())) {
+				continue;
+			}
+			victimsOf.computeIfAbsent(attack.attacker() + "\n" + attack.tick(), key -> new HashSet<>()).add(attack.victim());
+
+			boolean named = false;
+			for (int i = 0; i < hurts.size(); i++) {
+				Hurt hurt = hurts.get(i);
+				if (hurt.victim().equals(attack.victim()) && hurt.tick() >= attack.tick() - 1 && hurt.tick() <= attack.tick() + 1) {
+					hurts.set(i, new Hurt(hurt.victim(), hurt.tick(), Hit.MELEE, attack.attacker(), hurt.prevHurt()));
+					named = true;
+				}
+			}
+			if (!named) {
+				hurt(attack.victim(), attack.tick(), Hit.MELEE, attack.attacker());
+			}
+		}
+		for (Attack attack : attacks) {
+			Set<String> victims = victimsOf.remove(attack.attacker() + "\n" + attack.tick());
+			if (victims != null && victims.size() >= 2) {
+				add(found, attack.attacker(), Check.MULTIAURA, "hit " + victims.size() + " players in one tick", attack.tick());
+			}
+		}
+		attacks.clear();
+	}
+
+	private void judgeHurts(Terrain terrain, List<Violation> found) {
 		for (Hurt hurt : hurts) {
 			if (hurt.hit() != Hit.OTHER) {
-				judgeHit(hurt, found);
+				judgeHit(hurt, terrain, found);
 			}
 		}
 		hurts.clear();
 	}
 
-	private void judgeHit(Hurt hurt, List<Violation> found) {
+	private void judgeHit(Hurt hurt, Terrain terrain, List<Violation> found) {
 		Track victim = tracks.get(hurt.victim());
 		if (victim == null) {
 			return;
@@ -309,50 +446,48 @@ public final class CheatWatch {
 			return;
 		}
 
-		List<String> candidates = new ArrayList<>();
-		boolean selfHit = false;
-		for (Map.Entry<String, Track> entry : tracks.entrySet()) {
-			String name = entry.getKey();
-			if (name.equals(hurt.victim())) {
-				continue;
+		String attacker = hurt.cause() != null && tracks.containsKey(hurt.cause()) ? hurt.cause() : null;
+		if (attacker == null) {
+			List<String> candidates = new ArrayList<>();
+			for (Map.Entry<String, Track> entry : tracks.entrySet()) {
+				String name = entry.getKey();
+				if (name.equals(hurt.victim()) || !entry.getValue().swungWithin(hurt.tick() - 2, hurt.tick())) {
+					continue;
+				}
+				double distance = reachDistance(entry.getValue(), victim, hurt.tick());
+				if (distance > ATTACK_RANGE) {
+					continue;
+				}
+				// Without the server saying it was a punch, only somebody facing the victim fits.
+				if (unsure && !name.equals(self) && offAngle(entry.getValue(), victim, hurt.tick()) > UNSURE_ANGLE) {
+					continue;
+				}
+				if (name.equals(self) && distance <= REACH_MOVING + 0.7) {
+					// The player's own hit explains it; their knockback on the victim is still worth watching.
+					knockbacks.add(new Knockback(hurt.victim(), self, hurt.tick(), hurt.prevHurt()));
+					return;
+				}
+				if (!name.equals(self)) {
+					candidates.add(name);
+				}
 			}
-			boolean named = name.equals(hurt.cause());
-			if (!named && !entry.getValue().swungWithin(hurt.tick() - 2, hurt.tick())) {
-				continue;
+			if (candidates.size() != 1) {
+				return;
 			}
-			double distance = reachDistance(entry.getValue(), victim, hurt.tick());
-			if (distance > ATTACK_RANGE && !named) {
-				continue;
-			}
-			// Without the server saying it was a punch, only somebody facing the victim fits.
-			if (unsure && !name.equals(self) && offAngle(entry.getValue(), victim, hurt.tick()) > UNSURE_ANGLE) {
-				continue;
-			}
-			if (name.equals(self)) {
-				selfHit = distance <= REACH_LIMIT + 1.2;
-				continue;
-			}
-			candidates.add(name);
-			if (named) {
-				candidates = new ArrayList<>(List.of(name));
-				break;
-			}
+			attacker = candidates.getFirst();
 		}
-
-		if (selfHit) {
-			// The player's own hit explains it; their knockback on the victim is still worth watching.
-			knockbacks.add(new Knockback(hurt.victim(), self, hurt.tick()));
-			return;
-		}
-		if (candidates.size() != 1) {
+		if (attacker.equals(self)) {
+			knockbacks.add(new Knockback(hurt.victim(), self, hurt.tick(), hurt.prevHurt()));
 			return;
 		}
 
-		String attacker = candidates.getFirst();
 		Track track = tracks.get(attacker);
 		double distance = reachDistance(track, victim, hurt.tick());
-		if (distance > REACH_LIMIT && distance <= ATTACK_RANGE) {
+		double limit = track.still(hurt.tick()) && victim.still(hurt.tick()) ? REACH_STANDING : REACH_MOVING;
+		if (distance > limit && distance <= ATTACK_RANGE) {
 			add(found, attacker, Check.REACH, String.format(Locale.ROOT, "%.1f blocks", distance), hurt.tick());
+		} else if (distance <= REACH_FAIR) {
+			relieve(found, attacker, Check.REACH, hurt.tick());
 		}
 
 		double angle = offAngle(track, victim, hurt.tick());
@@ -360,8 +495,18 @@ public final class CheatWatch {
 			add(found, attacker, Check.KILLAURA, String.format(Locale.ROOT, "hit %.0f° outside their view", angle),
 					hurt.tick());
 		}
+		List<Frame> eating = track.run(hurt.tick() - 6, hurt.tick());
+		if (eating != null && eating.stream().allMatch(f -> f.usingItem() && f.held() != Frame.Held.SWORD)) {
+			add(found, attacker, Check.KILLAURA, "hit while using an item", hurt.tick());
+		}
+		if (throughWall(track, victim, hurt.tick(), terrain)) {
+			add(found, attacker, Check.KILLAURA, "hit through a wall", hurt.tick());
+		}
 
-		knockbacks.add(new Knockback(hurt.victim(), attacker, hurt.tick()));
+		knockbacks.add(new Knockback(hurt.victim(), attacker, hurt.tick(), hurt.prevHurt()));
+		if (hurt.cause() != null) {
+			sprintHits.add(new SprintHit(attacker, hurt.tick()));
+		}
 	}
 
 	/** Came down three blocks or more in the last three quarters of a second: fall damage. */
@@ -418,6 +563,89 @@ public final class CheatWatch {
 		return best;
 	}
 
+	/**
+	 * Whether this hit, with the attacker's recent ones, makes a pattern of hits through a wall: at
+	 * least half of the last few, with no line from the eyes to the victim's head, middle or feet.
+	 * One such hit is a corner or a lag spike; a pattern is an aura that does not care about walls.
+	 */
+	private boolean throughWall(Track attacker, Track victim, long tick, Terrain terrain) {
+		Frame a = attacker.at(tick);
+		Frame v = victim.at(tick);
+		if (a == null || v == null) {
+			return false;
+		}
+		boolean occluded = true;
+		for (Vec target : new Vec[] {v.eye(), v.centre(), v.feet().add(new Vec(0, 0.2, 0))}) {
+			if (!blockedBetween(terrain, a.eye(), target)) {
+				occluded = false;
+				break;
+			}
+		}
+		attacker.wallHits.addLast(occluded);
+		while (attacker.wallHits.size() > WALL_WINDOW) {
+			attacker.wallHits.removeFirst();
+		}
+		long through = attacker.wallHits.stream().filter(hit -> hit).count();
+		return occluded && attacker.wallHits.size() >= WALL_MIN && through * 2 >= attacker.wallHits.size();
+	}
+
+	/** A solid block — not one placed just now, which may postdate the hit — on the line between two points. */
+	private boolean blockedBetween(Terrain terrain, Vec from, Vec to) {
+		double length = from.distanceTo(to);
+		int steps = Math.max(1, (int) Math.ceil(length / 0.1));
+		BedDefense.Cell start = cell(from);
+		BedDefense.Cell end = cell(to);
+		for (int i = 1; i < steps; i++) {
+			Vec at = from.add(to.subtract(from).scale((double) i / steps));
+			BedDefense.Cell cell = cell(at);
+			if (cell.equals(start) || cell.equals(end) || recentBlocks.containsKey(cell)) {
+				continue;
+			}
+			if (terrain.solid(cell.x(), cell.y(), cell.z())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// --- keepsprint: no slowdown from a sprint-hit -------------------------------------------------------
+
+	private void judgeSprintHits(long tick, List<Violation> found) {
+		Iterator<SprintHit> pending = sprintHits.iterator();
+		while (pending.hasNext()) {
+			SprintHit hit = pending.next();
+			if (hit.tick() + 1 > tick) {
+				continue;
+			}
+			pending.remove();
+
+			Track track = tracks.get(hit.attacker());
+			List<Frame> around = track == null ? null : track.run(hit.tick() - 1, hit.tick() + 1);
+			if (around == null) {
+				continue;
+			}
+			Frame before = around.get(0);
+			double pre = around.get(1).horizontalFrom(before);
+			double post = around.get(2).horizontalFrom(around.get(1));
+			// Only a sprint-hit on the ground slows the attacker; anything else says nothing.
+			if (!before.sprinting() || !before.supported() || pre < 0.2 || before.assisted() || before.riding()) {
+				continue;
+			}
+			boolean fullSpeed = post >= 0.9 * pre;
+			track.fullSpeedHits.addLast(fullSpeed);
+			while (track.fullSpeedHits.size() > KEEPSPRINT_WINDOW) {
+				track.fullSpeedHits.removeFirst();
+			}
+			long kept = track.fullSpeedHits.stream().filter(kept1 -> kept1).count();
+			if (fullSpeed && kept >= KEEPSPRINT_MIN) {
+				add(found, hit.attacker(), Check.KEEPSPRINT,
+						String.format(Locale.ROOT, "kept %.0f%% of their speed through a sprint-hit", 100 * post / pre), hit.tick());
+			} else if (!fullSpeed) {
+				relieve(found, hit.attacker(), Check.KEEPSPRINT, hit.tick());
+			}
+		}
+	}
+
 	// --- anti-knockback: hit, and nothing happened -----------------------------------------------------
 
 	private void judgeKnockbacks(long tick, Terrain terrain, List<Violation> found) {
@@ -428,19 +656,25 @@ public final class CheatWatch {
 				continue;
 			}
 			pending.remove();
-			if (hit.victim().equals(self)) {
+			if (hit.victim().equals(self) || hit.tick() - hit.prevHurt() < INVULNERABLE_TICKS) {
+				// A hit inside the last one's invulnerability pushes less: nothing to hold them to.
 				continue;
 			}
 
-			String detail = knockbackDetail(hit, terrain);
-			if (detail != null) {
-				add(found, hit.victim(), Check.VELOCITY, detail, hit.tick());
+			Boolean took = tookKnockback(hit, terrain);
+			if (took == null) {
+				continue;
+			}
+			if (took) {
+				relieve(found, hit.victim(), Check.VELOCITY, hit.tick());
+			} else {
+				add(found, hit.victim(), Check.VELOCITY, "barely moved from a hit", hit.tick());
 			}
 		}
 	}
 
-	/** What is wrong with the victim's knockback, or {@code null} when nothing is (or nothing is sure). */
-	private String knockbackDetail(Knockback hit, Terrain terrain) {
+	/** Whether the victim took the hit's knockback; {@code null} when there is no telling. */
+	private Boolean tookKnockback(Knockback hit, Terrain terrain) {
 		Track victim = tracks.get(hit.victim());
 		Track attacker = tracks.get(hit.attacker());
 		if (victim == null || attacker == null) {
@@ -485,9 +719,9 @@ public final class CheatWatch {
 		boolean stayed = wall || along < Math.min(0.45, expected * 4.8 * 0.25);
 		boolean grounded = ceiling || rise < 0.15;
 		if (stayed && grounded) {
-			return String.format(Locale.ROOT, "moved %.2f blocks from a hit", Math.max(0, along));
+			return false;
 		}
-		return null;
+		return !wall && along >= expected * 4.8 * 0.5 || !ceiling && rise >= 0.3 ? Boolean.TRUE : null;
 	}
 
 	private boolean shovedBetween(Track victim, Knockback hit) {
@@ -660,7 +894,7 @@ public final class CheatWatch {
 		}
 	}
 
-	// --- speed, fly, noslow, omni-sprint: movement over the last ticks ---------------------------------------
+	// --- speed, fly, noslow, sprint, backwards bridging: movement over the last ticks -----------------------
 
 	private void judgeMovement(String player, Track track, long tick, List<Violation> found) {
 		boolean calm = track.lastShove < tick - 40;
@@ -669,17 +903,36 @@ public final class CheatWatch {
 		if (using != null && track.lastShove < tick - 20 && using.stream().allMatch(Frame::usingItem)
 				&& using.stream().noneMatch(f -> f.assisted() || f.riding())) {
 			double speed = using.getLast().horizontalFrom(using.get(using.size() - 6)) / 5;
+			List<Frame> meal = track.run(tick - SPRINT_USE_TICKS + 1, tick);
 			if (speed > 0.18) {
 				add(found, player, Check.NOSLOW,
 						String.format(Locale.ROOT, "%.1f blocks/s while using an item", speed * 20), tick);
-			} else if (using.stream().allMatch(Frame::sprinting)) {
+			} else if (meal != null && meal.stream().allMatch(f -> f.usingItem() && f.sprinting())) {
+				// The flag may lag the first bites; a whole meal at a sprint is no lag.
 				add(found, player, Check.NOSLOW, "sprinted while using an item", tick);
+			} else if (speed < 0.1 && using.stream().noneMatch(Frame::sprinting) && tick % 10 == 0) {
+				relieve(found, player, Check.NOSLOW, tick);
 			}
+		}
+
+		List<Frame> sneak = track.run(tick - 3, tick);
+		if (sneak != null && track.lastHurt < tick - 10 && sneak.stream().allMatch(f -> f.sprinting() && f.sneaking())) {
+			add(found, player, Check.SPRINT, "sprinted while sneaking", tick);
 		}
 
 		List<Frame> sprint = track.run(tick - 10, tick);
 		if (sprint != null && track.lastShove < tick - 20 && omniSprint(sprint)) {
 			add(found, player, Check.SPRINT, "sprinted backwards", tick);
+		}
+
+		List<Frame> bridge = track.run(tick - 4, tick);
+		if (bridge != null && track.lastShove < tick - 10 && tick - track.lastBridgeFlag >= 20
+				&& track.swungWithin(tick - 3, tick)) {
+			String detail = backwardsBridge(bridge);
+			if (detail != null) {
+				track.lastBridgeFlag = tick;
+				add(found, player, Check.SCAFFOLD, detail, tick);
+			}
 		}
 
 		List<Frame> second = track.run(tick - 20, tick);
@@ -698,6 +951,40 @@ public final class CheatWatch {
 		if (air != null && track.lastShove < tick - 60 && hovering(air)) {
 			add(found, player, Check.FLY, "moved in mid-air without falling", tick);
 		}
+	}
+
+	/**
+	 * Looking down at the bridge and moving straight away from where they look, blocks in hand and
+	 * swinging: backwards bridging. Legs do that at up to about 4 blocks a second on the flat; past 5
+	 * — or rising a tower while going sideways — it is a scaffold, whatever the rotation says.
+	 */
+	private static String backwardsBridge(List<Frame> frames) {
+		Frame first = frames.getFirst();
+		Frame last = frames.getLast();
+		if (frames.stream().anyMatch(f -> f.held() != Frame.Held.BLOCK || f.assisted() || f.riding()) || last.pitch() < 50) {
+			return null;
+		}
+		double dx = last.feet().x() - first.feet().x();
+		double dz = last.feet().z() - first.feet().z();
+		double ticks = frames.size() - 1;
+		double speed = Math.hypot(dx, dz) / ticks;
+		double rise = (last.feet().y() - first.feet().y()) / ticks;
+		Vec look = last.look();
+		double lookLength = Math.hypot(look.x(), look.z());
+		if (speed < 1e-3 || lookLength < 1e-3) {
+			return null;
+		}
+		double cos = (dx * look.x() + dz * look.z()) / (Math.hypot(dx, dz) * lookLength);
+		if (cos > Math.cos(Math.toRadians(165)) || speed > 0.5) {
+			return null;
+		}
+		if (Math.abs(rise) < 0.05 && speed > 0.25) {
+			return String.format(Locale.ROOT, "bridged backwards at %.1f blocks/s", speed * 20);
+		}
+		if (rise > 0.2 && rise < 0.75 && speed > 0.15) {
+			return String.format(Locale.ROOT, "towered up while bridging backwards at %.1f blocks/s", speed * 20);
+		}
+		return null;
 	}
 
 	private static boolean omniSprint(List<Frame> frames) {
@@ -740,6 +1027,10 @@ public final class CheatWatch {
 		}
 		// A frozen, lagging player hangs in the air too; somebody flying goes somewhere.
 		return travelled > 1.0;
+	}
+
+	private static BedDefense.Cell cell(Vec at) {
+		return new BedDefense.Cell(floor(at.x()), floor(at.y()), floor(at.z()));
 	}
 
 	private static Vec centre(BedDefense.Cell cell) {

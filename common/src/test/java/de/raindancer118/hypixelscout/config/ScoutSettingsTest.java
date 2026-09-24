@@ -78,6 +78,8 @@ class ScoutSettingsTest {
 		assertThat(settings.cheats.chatAlerts).isTrue();
 		assertThat(settings.cheats.mark).isTrue();
 		assertThat(settings.cheats.sensitivity).isEqualTo(100);
+		assertThat(settings.cheats.off).isEmpty();
+		assertThat(settings.cheats.isOn(de.raindancer118.hypixelscout.cheat.Check.REACH)).isTrue();
 		// Six callouts, the first the classic, all into team chat.
 		assertThat(settings.callouts.messages).hasSize(ScoutSettings.CALLOUTS);
 		assertThat(settings.callouts.messages[0]).isEqualTo("{team} inc");
@@ -153,6 +155,14 @@ class ScoutSettingsTest {
 				{ "cheats": { "sensitivity": 9000 } }
 				""", StandardCharsets.UTF_8);
 		assertThat(ScoutSettings.load(file).cheats.sensitivity).isEqualTo(ScoutSettings.MAX_CHEAT_SENSITIVITY);
+		Files.writeString(file, """
+				{ "cheats": { "off": ["REACH", "NOT_A_CHECK", "REACH", "FLY"] } }
+				""", StandardCharsets.UTF_8);
+		ScoutSettings checks = ScoutSettings.load(file);
+		assertThat(checks.cheats.off).containsExactly(de.raindancer118.hypixelscout.cheat.Check.REACH,
+				de.raindancer118.hypixelscout.cheat.Check.FLY);
+		assertThat(checks.cheats.isOn(de.raindancer118.hypixelscout.cheat.Check.REACH)).isFalse();
+		assertThat(checks.cheats.isOn(de.raindancer118.hypixelscout.cheat.Check.SPEED)).isTrue();
 		Files.writeString(file, """
 				{ "cheats": null }
 				""", StandardCharsets.UTF_8);

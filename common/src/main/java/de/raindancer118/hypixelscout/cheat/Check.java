@@ -16,15 +16,22 @@ public enum Check {
 	AUTOBLOCK("AutoBlock", 2.5, 0, 0.25),
 	/** Walking at full speed while eating, blocking or drawing a bow, or sprinting while doing it. */
 	NOSLOW("NoSlow", 2.0, 20, 0.2),
-	/** Sprinting backwards or sideways. */
+	/** Sprinting backwards or sideways, or while sneaking. */
 	SPRINT("Omni-sprint", 2.0, 40, 0.2),
 	/** A melee hit from further than an arm reaches. */
 	REACH("Reach", 3.0, 0, 0.3),
 	/** Hit, and neither pushed back nor lifted. */
 	VELOCITY("Anti-knockback", 3.0, 0, 0.25),
-	/** A melee hit on somebody well outside the attacker's view. */
+	/**
+	 * A melee hit on somebody well outside the attacker's view, through a wall again and again, or
+	 * while eating or drawing a bow.
+	 */
 	KILLAURA("KillAura", 4.0, 0, 0.35),
-	/** A block placed where the placer was not looking. */
+	/** Hitting two players in the same tick. */
+	MULTIAURA("Multi-aura", 5.0, 0, 0.5),
+	/** Going on at full speed through sprint-hits, which slow a legit attacker to about 0.6. */
+	KEEPSPRINT("KeepSprint", 4.0, 0, 0.3),
+	/** A block placed where the placer was not looking, or bridging backwards faster than legs can. */
 	SCAFFOLD("Scaffold", 1.5, 0, 0.12),
 	/** More blocks a second than anybody can click. */
 	FASTPLACE("FastPlace", 5.0, 20, 0.35),

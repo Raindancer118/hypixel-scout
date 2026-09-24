@@ -914,6 +914,39 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 		});
 
+		// A swing and a push arriving together off the network name the attacker without any damage
+		// event: sent from another thread, the way the network thread hands packets to the client.
+		int reachBefore = mod.cheats().suspicion().count("Sundial", de.raindancer118.hypixelscout.cheat.Check.REACH);
+		context.runOnClient(client -> {
+			var connection = client.getConnection();
+			var sundial = client.level.getEntity(424_242);
+			Thread network = new Thread(() -> {
+				for (Runnable packet : new Runnable[] {
+						() -> connection.handleAnimate(new net.minecraft.network.protocol.game.ClientboundAnimatePacket(sundial, 0)),
+						() -> connection.handleSetEntityMotion(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(
+								424_243, new net.minecraft.world.phys.Vec3(0.4, 0.36, 0)))}) {
+					try {
+						packet.run();
+					} catch (RuntimeException rescheduled) {
+						// The handler re-queues itself for the render thread and throws; that is its job.
+					}
+				}
+			});
+			network.start();
+			try {
+				network.join();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		});
+		context.waitTicks(4);
+		context.runOnClient(client -> {
+			int reachAfter = mod.cheats().suspicion().count("Sundial", de.raindancer118.hypixelscout.cheat.Check.REACH);
+			if (reachAfter <= reachBefore) {
+				throw new AssertionError("A swing and push arriving together did not count as Sundial's hit: " + reachAfter);
+			}
+		});
+
 		// Blocks appearing behind him, one a tick, while he looks straight ahead.
 		for (int i = 0; i < 8; i++) {
 			int z = base[2] - 3 + i;
@@ -931,6 +964,21 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			if (!flags.contains(de.raindancer118.hypixelscout.cheat.Check.SCAFFOLD)) {
 				throw new AssertionError("Blocks placed behind somebody looking away are not Scaffold: " + flags);
 			}
+			// A check switched off forgets what it saw, flags and all; on again, it watches afresh.
+			mod.settings().cheats.set(de.raindancer118.hypixelscout.cheat.Check.SCAFFOLD, false);
+		});
+		context.waitTicks(2);
+		context.runOnClient(client -> {
+			if (mod.cheats().flags("Sundial").stream().anyMatch(f -> f.check() == de.raindancer118.hypixelscout.cheat.Check.SCAFFOLD)) {
+				throw new AssertionError("A switched-off check still shows its flag");
+			}
+			mod.settings().cheats.set(de.raindancer118.hypixelscout.cheat.Check.SCAFFOLD, true);
+		});
+		context.setScreen(() -> new de.raindancer118.hypixelscout.ui.screen.CheatChecksScreen(mod, null));
+		context.waitTicks(3);
+		context.takeScreenshot("scout_cheat_checks");
+		context.setScreen(() -> null);
+		context.runOnClient(client -> {
 			client.player.connection.sendCommand("scout cheats");
 
 			// Reported to the party only when asked: one plain line per flagged player, surest first.
@@ -938,7 +986,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			var lines = mod.partyReport().pendingLines();
 			int sure = (int) Math.round(mod.cheats().confidence("Sundial") * 100);
 			if (lines.stream().noneMatch(line -> line.startsWith("CHEATER? YELLOW Sundial " + sure + "% sure - ")
-					&& line.contains("Reach x") && line.contains("Scaffold x"))) {
+					&& line.contains("Reach x"))) {
 				throw new AssertionError("No cheat report line for Sundial: " + lines);
 			}
 			if (sure <= 50 || sure >= 100) {

@@ -25,6 +25,8 @@ public final class Suspicion {
 	public static final double FLAG_AT = 10.0;
 	/** Twenty seconds for a point to fade. */
 	public static final long TICKS_PER_POINT = 400;
+	/** The share of a sighting one legit observation takes back. */
+	public static final double RELIEF = 0.4;
 
 	/**
 	 * A flagged check: how often it was seen, the latest evidence, and how sure this check alone
@@ -59,6 +61,10 @@ public final class Suspicion {
 	 * @return the flag, the one time it is newly raised
 	 */
 	public synchronized Optional<Flag> record(Violation violation, double sensitivity) {
+		if (violation.relief()) {
+			relieve(violation);
+			return Optional.empty();
+		}
 		Score score = scores.computeIfAbsent(violation.player(), name -> new LinkedHashMap<>())
 				.computeIfAbsent(violation.check(), check -> new Score());
 
@@ -74,6 +80,22 @@ public final class Suspicion {
 			return Optional.of(flag(violation.player(), violation.check(), score));
 		}
 		return Optional.empty();
+	}
+
+	/**
+	 * The legit thing seen where the check looks: takes {@link #RELIEF} of a sighting back, from the
+	 * score and from the confidence. Never below nothing; a flag already raised stays.
+	 */
+	private void relieve(Violation relief) {
+		Score score = scores.getOrDefault(relief.player(), Map.of()).get(relief.check());
+		if (score == null) {
+			return;
+		}
+		double weight = relief.check().weight();
+		long elapsed = Math.max(0, relief.tick() - score.tick);
+		score.points = Math.max(0, score.points - (double) elapsed / TICKS_PER_POINT - RELIEF * weight);
+		score.tick = Math.max(score.tick, relief.tick());
+		score.peak = Math.max(score.points / weight, score.peak - RELIEF);
 	}
 
 	/** This player's flags, the surest first. */
@@ -113,6 +135,13 @@ public final class Suspicion {
 	public synchronized int count(String player, Check check) {
 		Score score = scores.getOrDefault(player, Map.of()).get(check);
 		return score == null ? 0 : score.count;
+	}
+
+	/** A check switched off: its sightings and flags go, for everybody. */
+	public synchronized void forget(Check check) {
+		for (Map<Check, Score> byCheck : scores.values()) {
+			byCheck.remove(check);
+		}
 	}
 
 	public synchronized void clear() {

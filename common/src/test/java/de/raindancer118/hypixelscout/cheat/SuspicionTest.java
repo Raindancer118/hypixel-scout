@@ -93,6 +93,39 @@ class SuspicionTest {
 	}
 
 	@Test
+	void legitBehaviourTakesSightingsBack() {
+		for (int i = 0; i < 3; i++) {
+			suspicion.record(reach(i), 1.0);
+		}
+		double before = suspicion.confidence("Cheater");
+		for (int i = 0; i < 3; i++) {
+			suspicion.record(Violation.relief("Cheater", Check.REACH, 3 + i), 1.0);
+		}
+		// Three sightings would have flagged with a fourth; after the reliefs a fourth does not.
+		assertThat(suspicion.record(reach(10), 1.0)).isEmpty();
+		assertThat(suspicion.confidence("Cheater")).isLessThan(before);
+		assertThat(suspicion.count("Cheater", Check.REACH)).isEqualTo(4);
+	}
+
+	@Test
+	void aReliefForSomebodyNeverSeenIsNothing() {
+		assertThat(suspicion.record(Violation.relief("Nobody", Check.REACH, 1), 1.0)).isEmpty();
+		assertThat(suspicion.confidence("Nobody")).isZero();
+		assertThat(suspicion.count("Nobody", Check.REACH)).isZero();
+	}
+
+	@Test
+	void aCheckSwitchedOffIsForgottenWithItsFlags() {
+		suspicion.record(new Violation("Cheater", Check.NUKER, "", 1), 1.0);
+		suspicion.record(reach(2), 1.0);
+		suspicion.forget(Check.NUKER);
+
+		assertThat(suspicion.flags("Cheater")).isEmpty();
+		assertThat(suspicion.count("Cheater", Check.NUKER)).isZero();
+		assertThat(suspicion.confidence("Cheater")).isCloseTo(Check.REACH.sureness(), org.assertj.core.data.Offset.offset(0.001));
+	}
+
+	@Test
 	void everyFlagOfTheRoundAndAClearSlate() {
 		suspicion.record(new Violation("A", Check.NUKER, "", 1), 1.0);
 		suspicion.record(new Violation("B", Check.NUKER, "", 1), 1.0);

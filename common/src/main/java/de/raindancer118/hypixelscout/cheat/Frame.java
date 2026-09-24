@@ -14,9 +14,16 @@ import de.raindancer118.hypixelscout.flight.Vec;
  * @param usingItem blocking, eating, drinking or drawing a bow
  * @param assisted  climbing, in water or lava, or in cobweb: movement that plain physics do not cover
  * @param riding    on something
+ * @param held      what is in their main hand, as far as the checks care
  */
 public record Frame(long tick, Vec feet, Vec eye, Box box, double yaw, double pitch, boolean onGround,
-		boolean supported, boolean sprinting, boolean usingItem, boolean assisted, boolean riding) {
+		boolean supported, boolean sprinting, boolean usingItem, boolean assisted, boolean riding,
+		boolean sneaking, Held held) {
+
+	/** A sword blocks, a block builds; everything else is eaten, drunk or drawn. */
+	public enum Held {
+		SWORD, BLOCK, OTHER, NOTHING
+	}
 
 	/** Where they look, at length one — Minecraft's own view vector. */
 	public Vec look() {

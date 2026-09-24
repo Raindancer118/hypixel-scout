@@ -20,7 +20,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * changes — before the client applies them.
  *
  * <p>Each handler runs twice: first on the network thread, where it only re-queues itself, then on
- * the render thread. Only the second call is passed on, and at the head, so a block update is seen
+ * the render thread. The first call gives the arrival time, which pairs an attacker's swing with the
+ * push on their victim ({@link CheatSensor#arrived}); the second, at the head, gives everything else
  * while the old block is still in place. Reading only; nothing is changed or sent.
  */
 @Mixin(ClientPacketListener.class)
@@ -31,29 +32,44 @@ public abstract class ClientPacketListenerMixin {
 
 	@Inject(method = "handleAnimate", at = @At("HEAD"))
 	private void hypixelscout$swing(ClientboundAnimatePacket packet, CallbackInfo ci) {
-		if (hypixelscout$onRenderThread() && (packet.getAction() == ClientboundAnimatePacket.SWING_MAIN_HAND
-				|| packet.getAction() == ClientboundAnimatePacket.SWING_OFF_HAND)) {
+		boolean swing = packet.getAction() == ClientboundAnimatePacket.SWING_MAIN_HAND
+				|| packet.getAction() == ClientboundAnimatePacket.SWING_OFF_HAND;
+		// 4 and 5 are the crit and enchanted-hit particles on the one hit.
+		boolean crit = packet.getAction() == 4 || packet.getAction() == 5;
+		if (!hypixelscout$onRenderThread()) {
+			if (swing || crit) {
+				CheatSensor.arrived(swing, packet.getId());
+			}
+		} else if (swing) {
 			CheatSensor.onSwing(packet.getId());
 		}
 	}
 
 	@Inject(method = "handleDamageEvent", at = @At("HEAD"))
 	private void hypixelscout$damage(ClientboundDamageEventPacket packet, CallbackInfo ci) {
-		if (hypixelscout$onRenderThread()) {
+		if (!hypixelscout$onRenderThread()) {
+			CheatSensor.arrived(false, packet.entityId());
+		} else {
 			CheatSensor.onDamage(packet);
 		}
 	}
 
 	@Inject(method = "handleHurtAnimation", at = @At("HEAD"))
 	private void hypixelscout$hurt(ClientboundHurtAnimationPacket packet, CallbackInfo ci) {
-		if (hypixelscout$onRenderThread()) {
+		if (!hypixelscout$onRenderThread()) {
+			CheatSensor.arrived(false, packet.id());
+		} else {
 			CheatSensor.onHurtAnimation(packet.id());
 		}
 	}
 
 	@Inject(method = "handleSetEntityMotion", at = @At("HEAD"))
 	private void hypixelscout$motion(ClientboundSetEntityMotionPacket packet, CallbackInfo ci) {
-		if (hypixelscout$onRenderThread()) {
+		if (!hypixelscout$onRenderThread()) {
+			if (packet.movement().lengthSqr() > 1e-6) {
+				CheatSensor.arrived(false, packet.id());
+			}
+		} else {
 			CheatSensor.onMotion(packet.id(), packet.movement());
 		}
 	}

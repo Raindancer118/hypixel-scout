@@ -54,10 +54,47 @@ public final class CheatSensor {
 	private long tick;
 	private final Map<Integer, Long> hurtAt = new HashMap<>();
 
+	/** A swing and a push that arrived together on the network thread: entity ids, attacker first. */
+	private final java.util.concurrent.ConcurrentLinkedQueue<int[]> arrivedAttacks = new java.util.concurrent.ConcurrentLinkedQueue<>();
+	private final Object network = new Object();
+	private int networkSwinger = -1;
+	private long networkSwingAt;
+	private long lastGameTime = Long.MIN_VALUE;
+
+	/**
+	 * A server sends one melee hit as the attacker's swing followed at once by the victim's push,
+	 * hurt or crit; on the network thread they arrive within a millisecond or two of each other.
+	 * Packets further apart than this belong to different things.
+	 */
+	private static final long TOGETHER_NANOS = 2_000_000;
+
 	public CheatSensor(Roster roster, Supplier<ScoutSettings> settings) {
 		this.roster = roster;
 		this.settings = settings;
+		watch.setEnabled(check -> settings.get().cheats.isOn(check));
 		instance = this;
+	}
+
+	/**
+	 * A swing ({@code swing}) or a push, hurt or crit on an entity, as it comes off the network —
+	 * before the render thread gets to it and while its arrival time still means something. Pairs a
+	 * swing with whatever lands on somebody else right after it: that is who hit whom.
+	 */
+	public static void arrived(boolean swing, int entityId) {
+		CheatSensor sensor = instance;
+		if (sensor == null) {
+			return;
+		}
+		long now = System.nanoTime();
+		synchronized (sensor.network) {
+			if (swing) {
+				sensor.networkSwinger = entityId;
+				sensor.networkSwingAt = now;
+			} else if (sensor.networkSwinger >= 0 && entityId != sensor.networkSwinger
+					&& now - sensor.networkSwingAt < TOGETHER_NANOS) {
+				sensor.arrivedAttacks.add(new int[] {sensor.networkSwinger, entityId});
+			}
+		}
 	}
 
 	public static CheatSensor get() {
@@ -83,6 +120,8 @@ public final class CheatSensor {
 		watch.clear();
 		suspicion.clear();
 		hurtAt.clear();
+		arrivedAttacks.clear();
+		lastGameTime = Long.MIN_VALUE;
 	}
 
 	private boolean active() {
@@ -205,11 +244,17 @@ public final class CheatSensor {
 
 	public void tick(Minecraft client) {
 		if (!active()) {
+			arrivedAttacks.clear();
 			return;
 		}
-		tick++;
 		ClientLevel level = client.level;
 		watch.setSelf(client.player.getScoreboardName());
+		for (var check : settings.get().cheats.off) {
+			suspicion.forget(check);
+		}
+		takeArrivedAttacks(level);
+		noticeServerLag(level);
+		tick++;
 
 		for (Player player : level.players()) {
 			String name = watched(player);
@@ -223,6 +268,39 @@ public final class CheatSensor {
 			suspicion.record(violation, sensitivity).ifPresent(this::announce);
 		}
 		hurtAt.values().removeIf(at -> at < tick - 20);
+	}
+
+	/** The swing-and-push pairs from the network, as attacks between players of different teams. */
+	private void takeArrivedAttacks(ClientLevel level) {
+		int[] pair;
+		while ((pair = arrivedAttacks.poll()) != null) {
+			String attacker = watched(level.getEntity(pair[0]));
+			String victim = watched(level.getEntity(pair[1]));
+			if (attacker == null || victim == null) {
+				continue;
+			}
+			Teams.Team team = Teams.of(attacker);
+			// Teammates cannot hurt each other in Bedwars: a swing beside a push on one is chance.
+			if (team != Teams.NONE && team.equals(Teams.of(victim))) {
+				continue;
+			}
+			watch.attack(attacker, victim, tick + 1);
+		}
+	}
+
+	/**
+	 * The world's clock runs on with the client and is corrected by the server: a correction by
+	 * more than a tick either way means the server fell behind or caught up in a burst.
+	 */
+	private void noticeServerLag(ClientLevel level) {
+		long gameTime = level.getGameTime();
+		if (lastGameTime != Long.MIN_VALUE) {
+			long step = gameTime - lastGameTime;
+			if (step <= -2 || step >= 3) {
+				watch.serverLag(tick + 1);
+			}
+		}
+		lastGameTime = gameTime;
 	}
 
 	private Frame frame(ClientLevel level, Player player) {
@@ -241,7 +319,18 @@ public final class CheatSensor {
 
 		return new Frame(tick, Flights.vec(feet), Flights.vec(feet.add(0, player.getEyeHeight(), 0)), Flights.box(box),
 				player.getYHeadRot(), pitch, player.onGround(), !level.noCollision(below), player.isSprinting(),
-				player.isUsingItem(), assisted, player.isPassenger());
+				player.isUsingItem(), assisted, player.isPassenger(), player.isShiftKeyDown(), held(player));
+	}
+
+	private static Frame.Held held(Player player) {
+		net.minecraft.world.item.ItemStack stack = player.getMainHandItem();
+		if (stack.isEmpty()) {
+			return Frame.Held.NOTHING;
+		}
+		if (stack.is(net.minecraft.tags.ItemTags.SWORDS)) {
+			return Frame.Held.SWORD;
+		}
+		return stack.getItem() instanceof net.minecraft.world.item.BlockItem ? Frame.Held.BLOCK : Frame.Held.OTHER;
 	}
 
 	private static boolean inWeb(ClientLevel level, AABB box) {
