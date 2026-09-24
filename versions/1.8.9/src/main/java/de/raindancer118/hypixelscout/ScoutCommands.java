@@ -1,10 +1,13 @@
 package de.raindancer118.hypixelscout;
 
+import de.raindancer118.hypixelscout.cheat.Check;
+import de.raindancer118.hypixelscout.cheat.Suspicion;
 import de.raindancer118.hypixelscout.core.HypixelClient;
 import de.raindancer118.hypixelscout.core.KeyCheck;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.game.PartyReport;
 import de.raindancer118.hypixelscout.ui.Chat;
+import de.raindancer118.hypixelscout.ui.Suspects;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
@@ -32,11 +35,13 @@ import java.util.UUID;
  * time — the same subcommand names and shape, just without the builder.
  *
  * <p>Subcommands whose only job in 26.2 is opening a screen ({@code game}/{@code teams}/{@code
- * lookup}/{@code queue}/{@code suspects}/bare {@code /scout}, {@code settings}, {@code move},
- * {@code table}, a bare player name) or that depend on {@code game.CheatSensor} ({@code cheats} and
+ * lookup}/{@code queue}/{@code suspects}/bare {@code /scout}, {@code settings}, {@code move}, a bare
+ * player name) or that depend on {@code game.CheatSensor}'s cheat-detection UI ({@code cheats} and
  * its children) stay registered — so they tab-complete and are recognised, exactly what a later
- * phase needs when it wires the screens/cheats up — but answer with a plain "not available yet"
- * message instead of doing nothing silently. Everything else is fully implemented.
+ * phase needs when it wires the screens/cheats-screen up — but answer with a plain "not available
+ * yet" message instead of doing nothing silently. {@code table} is fully implemented (Phase 2a, the
+ * HUD): it toggles {@link HypixelScout#table()} exactly as 26.2's own {@code table} subcommand does.
+ * Everything else is fully implemented.
  */
 public final class ScoutCommands extends CommandBase {
 	private final HypixelScout mod;
@@ -93,7 +98,9 @@ public final class ScoutCommands extends CommandBase {
 				notAvailableYet(sender, "the table editor screen");
 				return;
 			case "table":
-				notAvailableYet(sender, "the HUD table");
+				boolean open = mod.table().toggle();
+				feedback(sender, translated(open ? "message.hypixelscout.table.opened"
+						: "message.hypixelscout.table.closed"));
 				return;
 			case "party":
 				mod.partyReport().send(PartyReport.Channel.PARTY);
@@ -115,7 +122,7 @@ public final class ScoutCommands extends CommandBase {
 				status(sender);
 				return;
 			case "cheats":
-				notAvailableYet(sender, "cheat detection");
+				cheats(sender, args);
 				return;
 			case "testkey":
 				feedback(sender, translated("message.hypixelscout.key.checking"));
@@ -147,6 +154,103 @@ public final class ScoutCommands extends CommandBase {
 			mod.partyReport().sendAll(PartyReport.Channel.PARTY);
 		} else {
 			throw new WrongUsageException("/scout list <team|party>");
+		}
+	}
+
+	/**
+	 * {@code /scout cheats} (list), {@code /scout cheats party|team} (report) and
+	 * {@code /scout cheats wrong|right <player> [check]} (verdict). Ported from 26.2's own
+	 * {@code cheats}/{@code verdict} command handlers, dispatched by hand the way every subcommand
+	 * here is on 1.8.9's pre-Brigadier command API.
+	 */
+	private void cheats(ICommandSender sender, String[] args) throws CommandException {
+		if (args.length < 2) {
+			listFlags(sender);
+			return;
+		}
+		String sub = args[1].toLowerCase(Locale.ROOT);
+		if ("party".equals(sub)) {
+			mod.partyReport().sendCheats(PartyReport.Channel.PARTY, mod.cheats().suspicion());
+		} else if ("team".equals(sub)) {
+			mod.partyReport().sendCheats(PartyReport.Channel.TEAM, mod.cheats().suspicion());
+		} else if ("wrong".equals(sub) || "right".equals(sub)) {
+			verdict(sender, args, "right".equals(sub));
+		} else {
+			throw new WrongUsageException("/scout cheats [party|team|wrong <player> [check]|right <player>]");
+		}
+	}
+
+	/** Everybody flagged this round, one line per player with each check, how often and the latest evidence. */
+	private void listFlags(ICommandSender sender) {
+		if (!mod.settings().cheats.enabled) {
+			feedback(sender, translated("message.hypixelscout.cheat.off"));
+			return;
+		}
+		List<Suspicion.Flag> flags = mod.cheats().suspicion().flagged();
+		if (flags.isEmpty()) {
+			feedback(sender, translated("message.hypixelscout.cheat.none"));
+			return;
+		}
+		java.util.Map<String, List<Suspicion.Flag>> byPlayer = new java.util.LinkedHashMap<String, List<Suspicion.Flag>>();
+		for (Suspicion.Flag flag : flags) {
+			List<Suspicion.Flag> forPlayer = byPlayer.get(flag.player());
+			if (forPlayer == null) {
+				forPlayer = new ArrayList<Suspicion.Flag>();
+				byPlayer.put(flag.player(), forPlayer);
+			}
+			forPlayer.add(flag);
+		}
+		List<String> players = new ArrayList<String>(byPlayer.keySet());
+		java.util.Collections.sort(players, new java.util.Comparator<String>() {
+			@Override
+			public int compare(String a, String b) {
+				return Double.compare(mod.cheats().confidence(b), mod.cheats().confidence(a));
+			}
+		});
+		for (String player : players) {
+			StringBuilder line = new StringBuilder("§c⚠ §f").append(player).append(" ")
+					.append(Suspects.percent(mod.cheats().confidence(player))).append("§7:");
+			for (Suspicion.Flag flag : byPlayer.get(player)) {
+				line.append(" §c").append(flag.check().label()).append(" §7×").append(flag.count())
+						.append(" §8(").append(flag.detail()).append(", ").append(flag.percent()).append("%)");
+			}
+			feedback(sender, new ChatComponentText(line.toString()));
+		}
+		sender.addChatMessage(de.raindancer118.hypixelscout.game.CheatSensor.reportLinks());
+	}
+
+	/** {@code /scout cheats wrong <player> [check]} and {@code /scout cheats right <player>}. */
+	private void verdict(ICommandSender sender, String[] args, boolean cheating) throws CommandException {
+		if (args.length < 3) {
+			throw new WrongUsageException("/scout cheats " + args[1] + " <player> [check]");
+		}
+		String player = args[2];
+		Check check = null;
+		if (args.length >= 4) {
+			try {
+				check = Check.valueOf(args[3].toUpperCase(Locale.ROOT));
+			} catch (IllegalArgumentException e) {
+				feedback(sender, translated("message.hypixelscout.cheat.unknown_check", args[3]));
+				return;
+			}
+		}
+
+		List<Suspicion.Flag> flags = mod.cheats().verdict(player, check, cheating);
+		if (flags.isEmpty()) {
+			feedback(sender, translated("message.hypixelscout.cheat.not_flagged", player));
+		} else {
+			StringBuilder checks = new StringBuilder();
+			for (Suspicion.Flag flag : flags) {
+				if (checks.length() > 0) {
+					checks.append(", ");
+				}
+				checks.append(flag.check().label());
+			}
+			feedback(sender, translated(cheating ? "message.hypixelscout.cheat.confirmed"
+					: "message.hypixelscout.cheat.cleared", player, checks.toString()));
+		}
+		if (!mod.settings().cheats.log) {
+			feedback(sender, translated("message.hypixelscout.cheat.not_logged"));
 		}
 	}
 
@@ -240,13 +344,35 @@ public final class ScoutCommands extends CommandBase {
 			if ("requeue".equals(head)) {
 				return getListOfStringsMatchingLastWord(args, "cancel");
 			}
-			if ("list".equals(head) || "cheats".equals(head)) {
+			if ("list".equals(head)) {
 				return getListOfStringsMatchingLastWord(args, "team", "party");
+			}
+			if ("cheats".equals(head)) {
+				return getListOfStringsMatchingLastWord(args, "team", "party", "wrong", "right");
 			}
 			if (!isKnownSubcommand(head)) {
 				// A player name in the first slot: the second slot is which channel to send to.
 				return getListOfStringsMatchingLastWord(args, "team", "party");
 			}
+		}
+
+		if (args.length == 3 && "cheats".equals(args[0].toLowerCase(Locale.ROOT))
+				&& ("wrong".equalsIgnoreCase(args[1]) || "right".equalsIgnoreCase(args[1]))) {
+			List<String> flagged = new ArrayList<String>();
+			for (Suspicion.Flag flag : mod.cheats().suspicion().flagged()) {
+				if (!flagged.contains(flag.player())) {
+					flagged.add(flag.player());
+				}
+			}
+			return getListOfStringsMatchingLastWord(args, flagged.toArray(new String[0]));
+		}
+
+		if (args.length == 4 && "cheats".equals(args[0].toLowerCase(Locale.ROOT)) && "wrong".equalsIgnoreCase(args[1])) {
+			List<String> names = new ArrayList<String>();
+			for (Check check : Check.values()) {
+				names.add(check.name().toLowerCase(Locale.ROOT));
+			}
+			return getListOfStringsMatchingLastWord(args, names.toArray(new String[0]));
 		}
 
 		return super.addTabCompletionOptions(sender, args, pos);

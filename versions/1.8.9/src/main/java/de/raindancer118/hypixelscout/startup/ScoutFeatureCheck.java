@@ -98,12 +98,14 @@ public final class ScoutFeatureCheck implements StartupCheck {
 			throw new IllegalStateException("/scout key <malformed> produced no feedback");
 		}
 
+		// Cheat detection is real from here (Phase 2b, see Project.md): no game is running yet at
+		// this point in the test (WorldEntryCheck has not created a world), so nobody is flagged —
+		// but the command itself must actually run, not fall back to a "not available yet" placeholder.
 		sender.messages().clear();
 		int cheatsResult = ClientCommandHandler.instance.executeCommand(sender, "/scout cheats");
-		if (cheatsResult == 0 || sender.messages().isEmpty()
-				|| !sender.messages().get(0).contains("Not available yet")) {
-			throw new IllegalStateException("/scout cheats should be a graceful not-available-yet "
-					+ "placeholder (cheat detection is a later phase), got: " + sender.messages());
+		if (cheatsResult == 0 || sender.messages().isEmpty() || sender.messages().get(0).contains("Not available yet")) {
+			throw new IllegalStateException("/scout cheats should run cheat detection's own feedback, got: "
+					+ sender.messages());
 		}
 	}
 

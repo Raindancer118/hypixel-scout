@@ -91,7 +91,10 @@ public final class StartupTestRunner {
 		try {
 			File file = resultFile;
 			file.getParentFile().mkdirs();
-			Files.write(file.toPath(), content.getBytes(StandardCharsets.UTF_8));
+			// First line: the id Gradle handed this launch, so a result left over from an earlier
+			// run is never mistaken for this one's.
+			String runId = System.getProperty("hypixelscout.startupTest.runId", "unknown");
+			Files.write(file.toPath(), ("run " + runId + "\n" + content).getBytes(StandardCharsets.UTF_8));
 		} catch (IOException e) {
 			// The exit code alone still tells the Gradle task pass/fail; the missing file just
 			// loses the reason, which is only ever read by a human debugging a red build.

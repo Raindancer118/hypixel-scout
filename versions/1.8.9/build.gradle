@@ -55,6 +55,13 @@ tasks.withType(JavaCompile).configureEach {
 	it.options.compilerArgs << '-Xlint:-options'
 }
 
+// Other mods for the dev client only, remapped to MCP names by unimined.minecraft.mods below. On
+// the classpath rather than in mods/: FML finds mods on the dev classpath by their mcmod.info.
+configurations {
+	devMods
+	runtimeOnly.extendsFrom devMods
+}
+
 unimined.minecraft {
 	version project.minecraft_version
 
@@ -65,6 +72,14 @@ unimined.minecraft {
 
 	minecraftForge {
 		loader project.forge_version
+	}
+
+	// Jars from the mod ecosystem are built with searge names (func_149169_c), the dev client runs
+	// with MCP names (getChannelName). Unremapped, the Hypixel Mod API's packet handler throws
+	// NoSuchMethodError on the first custom payload, the client drops the connection, and joining
+	// any world ends in an NPE in handleJoinGame. Unimined remaps these jars to the dev names.
+	mods {
+		remap(configurations.devMods)
 	}
 }
 
@@ -81,11 +96,6 @@ configurations {
 	runtimeOnly.extendsFrom shade
 }
 
-// Where the Mixin annotation processor writes the refmap for this module. Written outside
-// src/main/resources so `clean` and `processResources` do not fight over it; added to the jar's
-// inputs explicitly below.
-def mixinRefmapDir = layout.buildDirectory.dir('mixinRefmap')
-def mixinRefmapFile = 'hypixelscout.mixins.refmap.json'
 
 // A source file with a compile-time-constant VERSION field. `@Mod(version = ...)` must be a
 // constant expression, so it cannot be read from a filtered resource at runtime — Forge inspects
@@ -121,12 +131,6 @@ sourceSets {
 
 compileJava {
 	dependsOn tasks.named('generateVersion')
-	doFirst {
-		mixinRefmapDir.get().asFile.mkdirs()
-	}
-	options.compilerArgs += [
-			"-AoutRefMapFile=${mixinRefmapDir.get().asFile}/${mixinRefmapFile}"
-	]
 }
 
 dependencies {
@@ -151,7 +155,6 @@ dependencies {
 		exclude module: 'commons-io'
 		exclude module: 'log4j-core'
 	}
-	annotationProcessor "org.spongepowered:mixin:${mixin_version}"
 
 	testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
 	testImplementation "org.assertj:assertj-core:${assertj_version}"
@@ -184,7 +187,6 @@ tasks.named('processResources').configure {
 // among the shaded configurations above, so it never ends up in here.
 jar {
 	dependsOn tasks.named('compileJava')
-	from(mixinRefmapDir)
 	from({
 		configurations.shade.collect { it.isDirectory() ? it : zipTree(it) }
 	}) {
@@ -231,31 +233,20 @@ tasks.named('runClient', JavaExec).configure {
 // just pointed at the normal dev run directory instead of the isolated startup-test one.
 def startupTestRequested = gradle.startParameter.taskNames.any { it.contains('runClientStartupTest') }
 
-// The Hypixel Mod API is a separate mod the player installs — required-after, so the dev client
-// (and the startup test, which loads the same mod set) needs it physically in the mods folder,
-// not just on the compile classpath. Fetched by Gradle from Modrinth's maven, never committed.
-configurations {
-	hypixelModApiRuntime
-}
-
+// The Hypixel Mod API is a separate mod the player installs (required-after), so the dev client
+// needs it too: fetched from Modrinth's maven, never committed, remapped to MCP names (devMods).
 dependencies {
-	hypixelModApiRuntime "maven.modrinth:hypixel-mod-api:${hypixel_mod_api_version}"
+	devMods "maven.modrinth:hypixel-mod-api:${hypixel_mod_api_version}"
 }
 
-def devRunModsDir = startupTestRequested
-		? layout.buildDirectory.dir('run/startupTest/mods')
-		: layout.projectDirectory.dir('run/client/mods')
-
-tasks.register('installHypixelModApi', Copy) {
-	group = 'hypixelscout'
-	description = 'Downloads the Hypixel Mod API Forge 1.8.9 jar into the dev client mods folder ' +
-			'(never committed — see gradle.properties for the pinned version).'
-	from configurations.hypixelModApiRuntime
-	into devRunModsDir
-}
-
-tasks.named('runClient').configure {
-	dependsOn tasks.named('installHypixelModApi')
+tasks.named('runClient', JavaExec).configure {
+	doFirst {
+		// Earlier builds copied the searge-named jar into mods/; next to the remapped one it is a
+		// duplicate mod, and on its own it breaks every world join.
+		project.delete(fileTree(new File(workingDir, 'mods')).matching {
+			include 'hypixel-mod-api*.jar', 'HypixelModAPI*.jar'
+		})
+	}
 }
 
 // Own client-startup smoke test: Forge 1.8.9 has no client-gametest API, so this drives a real dev
@@ -268,13 +259,23 @@ tasks.named('runClient').configure {
 // tokens like `${game_directory}` from its own `workingDir` property at execution time, so a copy
 // taken at configuration time carries the literal, unresolved `${...}` placeholders instead — the
 // dev client then fails immediately trying to use a directory literally named `${game_directory}`.
+def startupTestRunId = UUID.randomUUID().toString()
+
 if (startupTestRequested) {
 	tasks.named('runClient', JavaExec).configure {
 		def runDir = layout.buildDirectory.dir('run/startupTest').get().asFile
 		workingDir = runDir
 		ignoreExitValue = true
-		timeout.set(Duration.ofMinutes(5))
+		// Longer than the in-game watchdog (5 minutes of ticks after boot), so a hung step still
+		// writes its own FAIL reason before Gradle has to kill the JVM.
+		timeout.set(Duration.ofMinutes(8))
 		systemProperty 'hypixelscout.startupTest', 'true'
+		// The result file has to carry this id, so a PASS left over from an earlier run can never
+		// count for this one.
+		systemProperty 'hypixelscout.startupTest.runId', startupTestRunId
+		// OpenAL Soft's null device: the client still runs its whole sound system, but the menu
+		// music of a test nobody can see does not come out of the speakers.
+		environment 'ALSOFT_DRIVERS', 'null'
 		// LWJGL2 on a headless/software-rendered Linux X server needs to be told not to insist
 		// on a real GPU context.
 		jvmArgs += [
@@ -283,7 +284,17 @@ if (startupTestRequested) {
 				'-Djava.awt.headless=false'
 		]
 		doFirst {
+			// A fresh world every run: a save left from the last one spawns the player elsewhere and
+			// brings back its entities.
+			delete new File(runDir, 'startupTest'), new File(runDir, 'screenshots'),
+					new File(runDir, 'saves/hypixelscout-startup-test')
 			runDir.mkdirs()
+			// Silent even if OpenAL ignores ALSOFT_DRIVERS: every sound category at zero.
+			def options = new File(runDir, 'options.txt')
+			def lines = options.exists() ? options.readLines().findAll { !it.startsWith('soundCategory_') } : []
+			lines += ['master', 'music', 'record', 'weather', 'block', 'hostile', 'neutral', 'player',
+					'ambient'].collect { "soundCategory_${it}:0.0".toString() }
+			options.text = lines.join('\n') + '\n'
 		}
 	}
 }
@@ -306,11 +317,25 @@ tasks.register('runClientStartupTest') {
 			throw new GradleException("runClientStartupTest: no result file at ${resultFile} " +
 					"— the client exited 0 without the startup test hook ever running")
 		}
-		def content = resultFile.text.trim()
+		def lines = resultFile.readLines()
+		if (lines.isEmpty() || lines[0] != "run ${startupTestRunId}".toString()) {
+			throw new GradleException("runClientStartupTest: ${resultFile} is not from this run — " +
+					"the client never reached the end of the test")
+		}
+		def content = lines.drop(1).join('\n').trim()
 		if (!content.startsWith('PASS')) {
 			throw new GradleException("runClientStartupTest: ${content}")
 		}
 		logger.lifecycle("runClientStartupTest: ${content}")
+	}
+}
+
+// The mixins name their targets with MCP names (handleAnimation, initGui); the game runs with
+// searge names (func_147279_a). Unimined writes the refmap that translates one into the other
+// while it remaps the jar, so the shipped mixins find their targets in a real Forge client.
+tasks.named('remapJar').configure {
+	mixinRemap {
+		enableBaseMixin()
 	}
 }
 

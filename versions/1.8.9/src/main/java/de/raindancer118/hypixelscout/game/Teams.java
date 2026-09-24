@@ -19,7 +19,7 @@ public final class Teams {
 		private final String name;
 		private final int rgb;
 
-		Team(String name, int rgb) {
+		public Team(String name, int rgb) {
 			this.name = name;
 			this.rgb = rgb;
 		}

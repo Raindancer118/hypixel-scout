@@ -18,6 +18,9 @@ import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.game.AutoRequeue;
 import de.raindancer118.hypixelscout.game.Callouts;
 import de.raindancer118.hypixelscout.game.ChatHover;
+import de.raindancer118.hypixelscout.game.CheatSensor;
+import de.raindancer118.hypixelscout.game.Flights;
+import de.raindancer118.hypixelscout.game.Hazards;
 import de.raindancer118.hypixelscout.game.LocationBridge;
 import de.raindancer118.hypixelscout.game.Nametags;
 import de.raindancer118.hypixelscout.game.PartyReport;
@@ -30,7 +33,17 @@ import de.raindancer118.hypixelscout.startup.StartupTestListener;
 import de.raindancer118.hypixelscout.ui.Chat;
 import de.raindancer118.hypixelscout.ui.ProfileView;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
+import de.raindancer118.hypixelscout.ui.Suspects;
 import de.raindancer118.hypixelscout.ui.Threats;
+import de.raindancer118.hypixelscout.ui.hud.HazardElement;
+import de.raindancer118.hypixelscout.ui.hud.IncomingElement;
+import de.raindancer118.hypixelscout.ui.hud.LookTooltipElement;
+import de.raindancer118.hypixelscout.ui.hud.PeekElement;
+import de.raindancer118.hypixelscout.ui.hud.ProximityElement;
+import de.raindancer118.hypixelscout.ui.hud.SuspectsElement;
+import de.raindancer118.hypixelscout.ui.hud.TabStatsElement;
+import de.raindancer118.hypixelscout.ui.hud.TableHud;
+import de.raindancer118.hypixelscout.ui.hud.TableHudElement;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -54,6 +67,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
@@ -124,6 +138,13 @@ public final class HypixelScout {
 	private Callouts callouts;
 	private ScoutKeys keys;
 	private ChatHover hover;
+	private TableHud tableHud;
+	private TableHudElement table;
+	private PeekElement peek;
+	private ProximityElement proximityElement;
+	private Flights flights;
+	private Hazards hazards;
+	private CheatSensor cheats;
 	private boolean modApiPresent;
 	private int scanTicks;
 	/** Whether the scoreboard shows real Bedwars teams, checked with the roster every second. */
@@ -214,6 +235,8 @@ public final class HypixelScout {
 		hover = new ChatHover(roster, stats, settingsSupplier());
 		MinecraftForge.EVENT_BUS.register(hover);
 
+		registerHudElements();
+
 		keys = new ScoutKeys(this);
 		keys.register();
 		ScoutCommands.register(this);
@@ -230,6 +253,71 @@ public final class HypixelScout {
 		}
 
 		LOGGER.info("Hypixel Scout ready ({} API key)", client.hasApiKey() ? "with" : "without an");
+	}
+
+	/**
+	 * Phase 2a of this branch's port (see {@code Project.md}): everything drawn on the HUD — the
+	 * in-game table, the peek overlay, the look tooltip, the tab list replacement, proximity
+	 * popups, the incoming-projectile warning, hazards and the suspects card. Kept in one small
+	 * method, called once from {@link #onInit}, since {@code game.Flights}/{@code game.Hazards}/
+	 * {@code game.CheatSensor} are being ported on this same branch at the same time as this method
+	 * — {@code TableEditorScreen}/{@code SuspectsEditorScreen} are a later phase's screens, not
+	 * wired in here.
+	 *
+	 * <p>Every element fires on {@link net.minecraftforge.client.event.RenderGameOverlayEvent.Post}
+	 * with {@code ElementType.ALL} except the tab list ({@code Pre}, {@code PLAYER_LIST}, cancelling
+	 * vanilla's own) and the look tooltip ({@code Post}, {@code CROSSHAIRS}) — the same three event
+	 * shapes the old {@code 1.8.9-support} branch's overlays already used.
+	 */
+	private void registerHudElements() {
+		tableHud = new TableHud(roster, stats, settingsSupplier(), new BooleanSupplier() {
+			@Override
+			public boolean getAsBoolean() {
+				return client.hasApiKey();
+			}
+		});
+		table = new TableHudElement(tableHud, settingsSupplier(), roster);
+		MinecraftForge.EVENT_BUS.register(table);
+
+		peek = new PeekElement(roster, stats, tableHud, settingsSupplier());
+		BooleanSupplier peekHeld = new BooleanSupplier() {
+			@Override
+			public boolean getAsBoolean() {
+				return peek.isHeld();
+			}
+		};
+		table.hideWhile(peekHeld);
+		// Last of all, so the peek sits above the table, the tooltip and vanilla's HUD.
+		MinecraftForge.EVENT_BUS.register(peek);
+
+		MinecraftForge.EVENT_BUS.register(new LookTooltipElement(roster, stats, settingsSupplier()).hideWhile(peekHeld));
+
+		proximityElement = new ProximityElement(proximity, stats, settingsSupplier()).hideWhile(peekHeld);
+		MinecraftForge.EVENT_BUS.register(proximityElement);
+
+		flights = new Flights(roster, settingsSupplier());
+		MinecraftForge.EVENT_BUS.register(new IncomingElement(flights, settingsSupplier()));
+		new de.raindancer118.hypixelscout.ui.world.FlightLines(flights, settingsSupplier()).register();
+
+		hazards = new Hazards(roster, settingsSupplier());
+		MinecraftForge.EVENT_BUS.register(new HazardElement(hazards, settingsSupplier()));
+		new de.raindancer118.hypixelscout.ui.world.HazardLines(hazards).register();
+
+		cheats = new CheatSensor(roster, settingsSupplier());
+		Suspects.use(new java.util.function.Function<String, java.util.List<de.raindancer118.hypixelscout.cheat.Suspicion.Flag>>() {
+			@Override
+			public java.util.List<de.raindancer118.hypixelscout.cheat.Suspicion.Flag> apply(String name) {
+				return settings.cheats.mark ? cheats.flags(name) : java.util.Collections.<de.raindancer118.hypixelscout.cheat.Suspicion.Flag>emptyList();
+			}
+		}, new java.util.function.ToDoubleFunction<String>() {
+			@Override
+			public double applyAsDouble(String name) {
+				return cheats.confidence(name);
+			}
+		});
+		MinecraftForge.EVENT_BUS.register(new SuspectsElement(cheats, settingsSupplier(), roster).hideWhile(peekHeld));
+
+		MinecraftForge.EVENT_BUS.register(new TabStatsElement(roster, stats, settingsSupplier()));
 	}
 
 	private java.util.function.Supplier<ScoutSettings> settingsSupplier() {
@@ -249,8 +337,13 @@ public final class HypixelScout {
 
 		Minecraft minecraft = Minecraft.getMinecraft();
 		keys.tick(minecraft);
+		table.setKeyHeld(keys.isTableHeld());
+		peek.setHeld(keys.isPeekHeld());
 		partyReport.tick();
 		proximity.tick();
+		flights.tick(minecraft);
+		hazards.tick(minecraft);
+		cheats.tick(minecraft);
 		requeue.tick();
 
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
@@ -341,9 +434,13 @@ public final class HypixelScout {
 	/** A new game server: the waiting lobby, which is not yet the match. */
 	private void gameJoined() {
 		alerts.reset();
+		table.close();
 		// Anybody who failed last game — a hiccup, a throttle — deserves another try in this one.
 		stats.clearFailures();
 		proximity.reset();
+		flights.reset();
+		hazards.newRound();
+		cheats.newRound();
 		teamsReady = false;
 		requeue.gameJoined();
 		scanTicks = 0;
@@ -362,8 +459,12 @@ public final class HypixelScout {
 	/** Leaving the server ends the game as surely as the location packet would. */
 	private void leftServer() {
 		roster.onLocationChanged(false, null, null);
+		table.close();
 		alerts.reset();
 		proximity.reset();
+		flights.reset();
+		hazards.reset();
+		cheats.endRound();
 		teamsReady = false;
 		requeue.reset();
 		partyReport.cancel();
@@ -473,9 +574,43 @@ public final class HypixelScout {
 		return requeue;
 	}
 
-	/** The enemies around the player, for a later phase's HUD popup. */
+	/** The enemies around the player, drawn by {@link #proximityElement()}. */
 	public ProximityAlerts proximity() {
 		return proximity;
+	}
+
+	/** The in-game table's layout and drawing, shared with a later phase's table editor screen. */
+	public TableHud tableHud() {
+		return tableHud;
+	}
+
+	/** The in-game table's HUD element: open/closed state and the key that toggles it. */
+	public TableHudElement table() {
+		return table;
+	}
+
+	/** The peek overlay: held state, and what it is currently showing (for the client startup test). */
+	public PeekElement peek() {
+		return peek;
+	}
+
+	public ProximityElement proximityElement() {
+		return proximityElement;
+	}
+
+	/** Arrows and fireballs in the air, for the incoming-projectile warning and the world's gizmo lines. */
+	public Flights flights() {
+		return flights;
+	}
+
+	/** TNT, falls, beds and off-screen enemies, for the hazard HUD and the world's hazard lines. */
+	public Hazards hazards() {
+		return hazards;
+	}
+
+	/** Cheat detection: everybody flagged this round, and how sure the mod is. */
+	public CheatSensor cheats() {
+		return cheats;
 	}
 
 	public ChatHover chatHover() {

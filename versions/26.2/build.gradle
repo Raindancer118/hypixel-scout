@@ -178,3 +178,8 @@ tasks.register('mrpack', Zip) {
 		]))
 	}
 }
+
+// OpenAL Soft's null device: the game test keeps its sound system but plays nothing out loud.
+tasks.matching { it.name == 'runClientGameTest' }.configureEach {
+	environment 'ALSOFT_DRIVERS', 'null'
+}

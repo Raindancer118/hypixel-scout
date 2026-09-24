@@ -28,11 +28,13 @@ import java.util.UUID;
  * that quietly claims a dozen more breaks somebody's muscle memory. The exceptions — the mod's
  * screen, the table and the queue slots on the number pad — sit on keys vanilla leaves free.
  *
- * <p>This phase has no screens or HUD elements yet (see {@code Project.md}), so every key whose
- * 26.2 action opens a screen, or reads/drives a HUD element's held state, is registered here (so the
- * controls screen already lists it and later phases do not have to touch this class to bind it) but
- * left unwired — see the {@code // not wired yet} comments below. Everything else — settings
- * toggles, sort cycling, party/team reports, callouts, queue slots, the key check — is fully live.
+ * <p>Phase 2a of this branch's port (see {@code Project.md}) wires up the table and peek keys: the
+ * HUD they drive ({@code ui.hud.TableHudElement}/{@code PeekElement}) now exists. Every key whose
+ * 26.2 action instead opens a screen (this branch's screens are a later phase) is still registered
+ * here — so the controls screen already lists it and that later phase does not have to touch this
+ * class to bind it — but left unwired, see the {@code // not wired yet} comments below. Everything
+ * else — settings toggles, sort cycling, party/team reports, callouts, queue slots, the key check —
+ * is fully live.
  */
 public final class ScoutKeys {
 	/** Standard Forge convention: {@code key.categories.<name>} is what {@code GuiControls} looks up. */
@@ -61,9 +63,9 @@ public final class ScoutKeys {
 	private final List<Action> actions = new ArrayList<Action>();
 	private final KeyBinding[] queueKeys = new KeyBinding[ScoutSettings.QUEUE_SLOTS];
 	private final KeyBinding[] calloutKeys = new KeyBinding[ScoutSettings.CALLOUTS];
-	/** Held, not pressed: the table stays up exactly as long as this is down (later phase). */
+	/** One press toggles {@code ui.hud.TableHudElement}; also read held each tick for HudMode.HOLD. */
 	private KeyBinding tableKey;
-	/** Held, not pressed: the peek stats are up exactly as long as this is down (later phase). */
+	/** Held, not pressed: the peek stats are up exactly as long as this is down. */
 	private KeyBinding peekKey;
 
 	public ScoutKeys(HypixelScout mod) {
@@ -73,11 +75,16 @@ public final class ScoutKeys {
 	public void register() {
 		// opens ScoutScreen once ui/screen is ported (later phase)
 		add("open", Keyboard.KEY_K, NOOP);
-		// Held mode, read in tick(): the HUD table isn't ported yet, so this only tracks the key
-		// itself for now (see isTableHeld()) — no action fires on press either.
-		tableKey = add("table", Keyboard.KEY_Y, NOOP);
-		// Held, not pressed: see isPeekHeld() — the peek HUD element isn't ported yet.
-		peekKey = add("peek", Keyboard.KEY_NONE, NOOP);
+		// One press toggles it open/closed (HudMode.TOGGLE); tick() also feeds the raw key state to
+		// the table for HudMode.HOLD, exactly as 26.2's own table key does.
+		tableKey = add("table", Keyboard.KEY_Y, new Runnable() {
+			@Override
+			public void run() {
+				mod.table().toggle();
+			}
+		});
+		// Held, not pressed: see isPeekHeld() — read every tick in HypixelScout.onTick().
+		peekKey = add("peek", Keyboard.KEY_R, NOOP);
 		// opens ScoutScreen (settings) once ui/screen is ported (later phase)
 		add("settings", Keyboard.KEY_NONE, NOOP);
 		// opens ScoutScreen on the CHEATS page once ui/screen is ported (later phase)
@@ -159,10 +166,19 @@ public final class ScoutKeys {
 				mod.partyReport().sendAll(PartyReport.Channel.TEAM);
 			}
 		});
-		// Everybody flagged for cheating, with how sure the mod is — not wired yet: game.CheatSensor
-		// (the source of a Suspicion) is a later phase on this branch, not part of this one.
-		add("cheats_party", Keyboard.KEY_NONE, NOOP);
-		add("cheats_team", Keyboard.KEY_NONE, NOOP);
+		// Everybody flagged for cheating, with how sure the mod is.
+		add("cheats_party", Keyboard.KEY_NONE, new Runnable() {
+			@Override
+			public void run() {
+				mod.partyReport().sendCheats(PartyReport.Channel.PARTY, mod.cheats().suspicion());
+			}
+		});
+		add("cheats_team", Keyboard.KEY_NONE, new Runnable() {
+			@Override
+			public void run() {
+				mod.partyReport().sendCheats(PartyReport.Channel.TEAM, mod.cheats().suspicion());
+			}
+		});
 		// Whoever is under the crosshair, into chat in one press: the call-out mid-fight.
 		add("send_target_team", Keyboard.KEY_NONE, new Runnable() {
 			@Override
@@ -255,22 +271,22 @@ public final class ScoutKeys {
 		}
 	}
 
-	/** The peek key's raw state, for the peek HUD element a later phase adds. */
+	/** The peek key's raw state, read by {@code HypixelScout.onTick} for {@code ui.hud.PeekElement}. */
 	public boolean isPeekHeld() {
 		return peekKey.isKeyDown() && Minecraft.getMinecraft().currentScreen == null;
 	}
 
-	/** The table key's raw state, for the table HUD element a later phase adds. */
+	/** The table key's raw state, read by {@code HypixelScout.onTick} for HudMode.HOLD. */
 	public boolean isTableHeld() {
 		return tableKey.isKeyDown();
 	}
 
-	/** The peek binding itself, for a later phase (and the client game test) to hold down. */
+	/** The peek binding itself, for the client startup test to hold down. */
 	public KeyBinding peekBinding() {
 		return peekKey;
 	}
 
-	/** The table binding itself, for a later phase to read or show next to its toggle. */
+	/** The table binding itself, for a later phase's settings screen to show next to its toggle. */
 	public KeyBinding tableBinding() {
 		return tableKey;
 	}
