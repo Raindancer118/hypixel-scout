@@ -5,7 +5,6 @@ import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.core.StatFormat;
 import de.raindancer118.hypixelscout.core.StatsService;
-import de.raindancer118.hypixelscout.ui.Suspects;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Avatar;
@@ -41,15 +40,9 @@ public final class Nametags {
 		return current == null || tag == null ? tag : current.decorateTag(entity, tag);
 	}
 
+	/** The stars in front of the name; Scout adds its own cheat mark to the same tag. */
 	private Component decorateTag(Avatar entity, Component tag) {
-		Component decorated = withStats(entity, tag);
-		if (entity instanceof Player player && roster.isInGame()) {
-			String mark = Suspects.tagMark(player.getScoreboardName());
-			if (!mark.isEmpty()) {
-				return Component.empty().append(Component.literal(mark)).append(decorated);
-			}
-		}
-		return decorated;
+		return withStats(entity, tag);
 	}
 
 	private Component withStats(Avatar entity, Component tag) {

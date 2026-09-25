@@ -102,9 +102,12 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   account age, last seen, socials, cheat confidence — in their own order, so many to a line, with or
   without star, rank and face, and at their own size (not the chat hover, which is vanilla's). The
   profile and the peek overlay switch their parts on and off, and the peek has a size of its own.
-- **Cheat detection** (Settings → Cheats): every player in the game is watched — also in fights
+- **Cheat detection** by **Scout**, the cheat detector that comes bundled inside Hypixel Scout (it
+  is also a mod of its own that works on any server; here Hypixel Scout tells it when a Bedwars game
+  begins, who is in it, the teams and the beds). Every player in the game is watched — also in fights
   you are not part of — for what only a cheat makes possible, from nothing but what your client is
-  told anyway. Each check can be switched off on its own (Settings → Cheats → **Checks…**):
+  told anyway. Each check can be switched off on its own (`/scout options`, or Settings → Cheats →
+  **Scout options…**):
   - **Reach** — a melee hit from further than 3.2 blocks when both stood still, 3.8 on the move.
   - **KillAura** — hits well outside the attacker's view, through walls again and again, or while
     eating or drawing a bow. **Multi-aura** — two players hit in one tick.
@@ -114,7 +117,7 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   - **NoSlow** — full speed, or sprinting through a whole meal, while using an item.
     **Omni-sprint** — sprinting backwards, or while sneaking.
   - **Scaffold** — blocks placed where the placer was not looking, or bridging backwards faster than
-    about 5 blocks a second. **FastPlace** — more than 13 a second. Bridge eggs and pop-up towers are
+    about 6.5 blocks a second. **FastPlace** — more than 13 a second. Bridge eggs and pop-up towers are
     left alone.
   - **Bed nuker** — a bed broken while still wrapped in its defence (TNT and fireballs excused).
   - **Speed** — faster than a Speed II sprint-jump; **Fly** — moving about in mid-air without falling.
@@ -125,24 +128,26 @@ profiles, read from the official Hypixel API with your own key — in a real in-
   and the legit thing seen where a check looks (a swing with the sword down, knockback taken) takes
   some back. Each flag comes with a **confidence** (every sighting counts as independent evidence with
   its check's own weight; a player's checks combine), shown as `⚠ 91%` on the nametag, `⚠` in the
-  table, tab list and Teams screen, and in the chat alert. `/scout cheats` lists everybody flagged
+  table, tab list and Teams screen, in the chat alert and in Scout's **popup**, a small warning card
+  that shows for a few seconds when somebody is flagged. `/scout cheats` lists everybody flagged
   with their evidence. **Reporting to your party or team** only when you ask: the **[→ Party] [→ Team]**
   links under every alert, `/scout cheats party|team`, or two bindable keys —
   `CHEATER? YELLOW Sundial 91% sure - Reach x4, Scaffold x8`. Nothing is ever sent by itself (a chat
   macro is bannable), and nothing is reported to Hypixel for you — `/wdr` stays your call.
 
-  **Cheats tab** (`/scout suspects`, or a key of your choice): everybody seen doing anything
+  **Cheats tab** (Scout's suspects page, also as its own screen under `/scout suspects`): everybody seen doing anything
   suspicious this round, the surest first, flagged or merely suspected — and for the chosen one every
   check with how often it saw something, how sure it is, the latest evidence and how long ago, with
   **Wrong flag**, **Cheating** and **Profile** buttons and the party/team report. The **suspects card**
   on the HUD shows the same in a corner (movable and sizeable; only flagged players, or everybody from
-  a confidence of your choice; with or without the checks). **Everything is configurable** under
-  Settings → Cheats → *Checks, limits & HUD…*: each check on its own switch with its own sensitivity,
+  a confidence of your choice; with or without the checks; `/scout hud` moves it and the popup).
+  **Everything is configurable** in Scout's options (`config/scout.json`; the cheat settings of older
+  Hypixel Scout versions are taken over once): each check on its own switch with its own sensitivity,
   the limits the checks measure against (Reach standing/moving, Speed, FastPlace, backwards bridging),
-  and the card.
+  the card and the popup.
 
-  **Sighting log** (Settings → Cheats, off by default): every sighting with its measured evidence,
-  every flag and a per-round summary go into `logs/hypixelscout/cheats-<date>.jsonl` in the game
+  **Sighting log** (Scout's options, off by default): every sighting with its measured evidence,
+  every flag and a per-round summary go into `logs/scout/cheats-<date>.jsonl` in the game
   folder, one JSON object a line, at most 5 MB a day, local only. A flag that was wrong: click
   **[✗]** under its alert or `/scout cheats wrong <player> [check]` — cleared and logged as false;
   `/scout cheats right <player>` logs one as confirmed. That file is what the thresholds get tuned by.
@@ -203,7 +208,10 @@ free on purpose.
 | `/scout table` | Toggles the table |
 | `/scout refresh` | Looks everybody up again |
 | `/scout status` | Key, request budget, Mod API and game state |
-| `/scout telemetry [show \| on \| off]` | Telemetry state, writes exactly what is sent to a file, switches it |
+| `/scout suspects` / `/scout options` / `/scout hud` | Scout: suspects screen, cheat options, move its HUD cards |
+| `/scout cheats` / `/scout cheats wrong <player> [check]` / `right <player>` | Scout: everybody flagged; a verdict on a flag |
+| `/scout cheats party \| team` | Everybody flagged to party or team chat |
+| `/scout telemetry [show \| on \| off]` | Scout: telemetry state, writes exactly what is sent to a file, switches it |
 
 ## When players are looked up
 
@@ -254,12 +262,12 @@ cards, the tooltip and both reports all use the same scale.
 
 ## Cheat detection and telemetry
 
-The cheat detector is [CheatWatch](https://github.com/Raindancer118/cheatwatch) (`cheatwatch-core`,
-bundled in the jar). Two optional helpers feed its development:
+The cheat detection is **Scout** (repo [cheatwatch](https://github.com/Raindancer118/cheatwatch):
+the CheatWatch engine plus the Scout mod, bundled in this jar). Two optional helpers feed its development:
 
-- **Round recordings** (`cheats.record`, off by default): each round from its start into
-  `logs/hypixelscout/cheatwatch-<time>.cwrec`, every player name replaced by `actor_N`. Local only.
-- **Telemetry** (`telemetry.enabled`, on by default — opt-out): what the detector saw, as numbers,
+- **Round recordings** (`record` in `config/scout.json`, off by default): each round from its start into
+  `logs/scout/cheatwatch-<time>.cwrec`, every player name replaced by `actor_N`. Local only.
+- **Telemetry** (`telemetry.enabled` in `config/scout.json`, on by default — opt-out): what the detector saw, as numbers,
   every player as `actor_N`, never a name, account, chat or machine id; a notice on first launch with
   one-click off; `/scout telemetry show` writes exactly what is sent. **Nothing is sent while
   `telemetry.endpoint` is empty**, which is how it ships until a receiving server exists and the

@@ -95,7 +95,8 @@ public final class ScoutScreen extends Screen {
 
 	private EditBox lookupBox;
 	private int teamScroll;
-	private final CheatsPage cheatsPage;
+	/** Scout's suspects page, embedded as a tab: the detection and its screens are Scout's. */
+	private final de.raindancer118.scout.fabric.ui.screen.SuspectsPage cheatsPage;
 
 	public ScoutScreen(HypixelScout mod, Screen parent) {
 		super(Component.translatable("message.hypixelscout.title"));
@@ -103,7 +104,7 @@ public final class ScoutScreen extends Screen {
 		this.parent = parent;
 		this.roster = mod.roster();
 		this.stats = mod.stats();
-		this.cheatsPage = new CheatsPage(mod, this);
+		this.cheatsPage = new de.raindancer118.scout.fabric.ui.screen.SuspectsPage(this);
 	}
 
 	/** Chooses the tab the screen opens on; commands use it to land on the right one. */
