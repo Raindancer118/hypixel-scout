@@ -313,4 +313,30 @@ class ScoutSettingsTest {
 
 		assertThat(settings.tooltip.cosine()).isCloseTo(0.5, org.assertj.core.data.Offset.offset(1e-9));
 	}
+
+	@Test
+	void theOldBridgeDefaultMovesUpToWalkingOnASpeedPotionOnceAndAChoiceStays() throws Exception {
+		// 5.0 blocks a second was below walking on the Speed II potion Bedwars sells (6.0): a real
+		// round had thirteen backwards-bridging sightings at walking pace. Saved as the old default,
+		// it moves up; saved after the move, whatever the player chose stays.
+		assertThat(new ScoutSettings().cheats.bridgePerSecond).isEqualTo(6.5);
+		assertThat(new ScoutSettings().cheats.tuning().bridgeSpeed())
+				.isEqualTo(de.raindancer118.cheatwatch.CheatWatch.Tuning.DEFAULT.bridgeSpeed());
+
+		Path file = dir.resolve("hypixelscout.json");
+		Files.writeString(file, """
+				{ "cheats": { "bridgePerSecond": 5.0 } }
+				""", StandardCharsets.UTF_8);
+		assertThat(ScoutSettings.load(file).cheats.bridgePerSecond).isEqualTo(6.5);
+
+		Files.writeString(file, """
+				{ "cheats": { "bridgePerSecond": 4.2 } }
+				""", StandardCharsets.UTF_8);
+		assertThat(ScoutSettings.load(file).cheats.bridgePerSecond).isEqualTo(4.2);
+
+		Files.writeString(file, """
+				{ "cheats": { "bridgePerSecond": 5.0, "limitsRevision": 1 } }
+				""", StandardCharsets.UTF_8);
+		assertThat(ScoutSettings.load(file).cheats.bridgePerSecond).isEqualTo(5.0);
+	}
 }

@@ -58,6 +58,10 @@ public final class ScoutSettings {
 	public static final int MAX_POPUP_SECONDS = 15;
 	public static final int MAX_REQUEUE_DELAY = 15;
 	public static final int MIN_CHEAT_SENSITIVITY = 50;
+	/** Backwards bridging faster than this is SCAFFOLD, by default: walking on Speed II is 6.0. */
+	public static final double DEFAULT_BRIDGE_PER_SECOND = 6.5;
+	/** The current revision of the default limits, for {@code cheats.limitsRevision}. */
+	static final int LIMITS_REVISION = 1;
 	public static final int MAX_CHEAT_SENSITIVITY = 200;
 	public static final int MIN_SENSITIVITY = 25;
 	public static final int MAX_SENSITIVITY = 400;
@@ -277,7 +281,13 @@ public final class ScoutSettings {
 		public double reachMoving = 3.8;
 		public double speedPerSecond = 12.4;
 		public int fastPlacePerSecond = 13;
-		public double bridgePerSecond = 5.0;
+		/** Walking on the Speed II potion Bedwars sells is 6.0; see {@link #limitsRevision}. */
+		public double bridgePerSecond = DEFAULT_BRIDGE_PER_SECOND;
+		/**
+		 * Which revision of the default limits a saved file has seen; {@code null} in a file from before
+		 * the bridge default went from 5.0 to 6.5 (0.20.0). Such a file still at 5.0 moves up once.
+		 */
+		public Integer limitsRevision;
 		public Hud hud = new Hud();
 
 		public int sensitivityOf(de.raindancer118.cheatwatch.Check check) {
@@ -544,7 +554,15 @@ public final class ScoutSettings {
 		cheats.reachMoving = finiteClamp(cheats.reachMoving, 3.0, 5.0, 3.8);
 		cheats.speedPerSecond = finiteClamp(cheats.speedPerSecond, 8.0, 30.0, 12.4);
 		cheats.fastPlacePerSecond = Math.max(8, Math.min(30, cheats.fastPlacePerSecond));
-		cheats.bridgePerSecond = finiteClamp(cheats.bridgePerSecond, 3.0, 10.0, 5.0);
+		if (cheats.limitsRevision == null || cheats.limitsRevision < LIMITS_REVISION) {
+			if (cheats.bridgePerSecond == 5.0) {
+				// The old default, below walking pace on a speed potion: a real round had thirteen
+				// backwards-bridging sightings of one player doing just that.
+				cheats.bridgePerSecond = DEFAULT_BRIDGE_PER_SECOND;
+			}
+			cheats.limitsRevision = LIMITS_REVISION;
+		}
+		cheats.bridgePerSecond = finiteClamp(cheats.bridgePerSecond, 3.0, 10.0, DEFAULT_BRIDGE_PER_SECOND);
 		cheats.hud = cheats.hud == null ? new Hud() : cheats.hud;
 		cheats.hud.minPercent = Math.max(1, Math.min(99, cheats.hud.minPercent));
 		cheats.hud.maxRows = Math.max(1, Math.min(12, cheats.hud.maxRows));
