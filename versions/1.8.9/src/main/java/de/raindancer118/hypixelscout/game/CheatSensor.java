@@ -1,15 +1,21 @@
 package de.raindancer118.hypixelscout.game;
 
-import de.raindancer118.hypixelscout.cheat.CheatWatch;
-import de.raindancer118.hypixelscout.cheat.Check;
-import de.raindancer118.hypixelscout.cheat.Frame;
-import de.raindancer118.hypixelscout.cheat.Suspicion;
-import de.raindancer118.hypixelscout.cheat.Violation;
+import de.raindancer118.cheatwatch.CheatWatch;
+import de.raindancer118.cheatwatch.Check;
+import de.raindancer118.cheatwatch.Clock;
+import de.raindancer118.cheatwatch.Detector;
+import de.raindancer118.cheatwatch.Enclosure;
+import de.raindancer118.cheatwatch.Frame;
+import de.raindancer118.cheatwatch.Suspicion;
+import de.raindancer118.cheatwatch.Violation;
+import de.raindancer118.cheatwatch.math.Box;
+import de.raindancer118.cheatwatch.math.Cell;
+import de.raindancer118.cheatwatch.math.Vec;
+import de.raindancer118.cheatwatch.record.Recorder;
+import de.raindancer118.cheatwatch.record.RecorderOptions;
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.BedDefense;
-import de.raindancer118.hypixelscout.core.Clock;
 import de.raindancer118.hypixelscout.core.Roster;
-import de.raindancer118.hypixelscout.flight.Vec;
 import de.raindancer118.hypixelscout.mixin.EntityOtherPlayerMPAccessor;
 import de.raindancer118.hypixelscout.ui.Chat;
 import de.raindancer118.hypixelscout.ui.Suspects;
@@ -74,7 +80,23 @@ public final class CheatSensor {
 
 	private final Roster roster;
 	private final Supplier<ScoutSettings> settings;
-	private final CheatWatch watch = new CheatWatch();
+	private final CheatWatch engine = new CheatWatch();
+	/** What every event goes to: the engine itself, or the recorder wrapped around it this round. */
+	private Detector watch = engine;
+	/** This round's recording, while {@code cheats.record} is on; {@code null} otherwise. */
+	private Recorder recorder;
+	/** Where sightings, flags and verdicts also go, anonymised; {@code null} in a test without it. */
+	private Telemetry telemetry;
+	/** Whether a round is on for telemetry, from which tick, and everybody watched in it. */
+	private boolean roundOn;
+	private long roundStartTick;
+	private final java.util.Set<String> watchedThisRound = new java.util.HashSet<String>();
+	private final java.util.function.Predicate<Check> enabled = new java.util.function.Predicate<Check>() {
+		@Override
+		public boolean test(Check check) {
+			return settings.get().cheats.isOn(check);
+		}
+	};
 	private final Suspicion suspicion = new Suspicion();
 	/** The last finished tick; everything arriving before the next one's end belongs to {@code tick + 1}. */
 	private long tick;
@@ -99,7 +121,7 @@ public final class CheatSensor {
 	private static final long TOGETHER_NANOS = 2_000_000;
 
 	/** Where the sighting log goes when it is on; writes on its own thread. */
-	private final de.raindancer118.hypixelscout.cheat.CheatLog log = new de.raindancer118.hypixelscout.cheat.CheatLog(
+	private final de.raindancer118.cheatwatch.CheatLog log = new de.raindancer118.cheatwatch.CheatLog(
 			new File(Minecraft.getMinecraft().mcDataDir, "logs" + File.separator + "hypixelscout").toPath(),
 			Clock.SYSTEM,
 			Executors.newSingleThreadExecutor(new java.util.concurrent.ThreadFactory() {
@@ -110,19 +132,15 @@ public final class CheatSensor {
 					return thread;
 				}
 			}),
-			java.time.ZoneId.systemDefault(), de.raindancer118.hypixelscout.cheat.CheatLog.DEFAULT_MAX_BYTES);
+			java.time.ZoneId.systemDefault(), de.raindancer118.cheatwatch.CheatLog.DEFAULT_MAX_BYTES);
 	/** Whether this round's start is in the log yet: the log may be switched on halfway through. */
 	private boolean roundLogged;
 
 	public CheatSensor(Roster roster, Supplier<ScoutSettings> settings) {
 		this.roster = roster;
 		this.settings = settings;
-		watch.setEnabled(new java.util.function.Predicate<Check>() {
-			@Override
-			public boolean test(Check check) {
-				return settings.get().cheats.isOn(check);
-			}
-		});
+		engine.setEnabled(enabled);
+		engine.setEnclosure(DEFENCE);
 		instance = this;
 	}
 
@@ -164,20 +182,93 @@ public final class CheatSensor {
 		return settings.get().cheats.enabled ? suspicion.flags(name) : java.util.Collections.<Suspicion.Flag>emptyList();
 	}
 
-	/** The round is over, however it ended: its summary into the log. */
+	/**
+	 * NUKER's question — was the bed still wrapped in its defence — answered by the same {@link
+	 * BedDefense} the bed ledger shows, from nothing but the terrain CheatWatch hands over, so a
+	 * recording of that terrain still replays the answer.
+	 */
+	static final Enclosure DEFENCE = new Enclosure() {
+		@Override
+		public boolean enclosed(List<Cell> bed, final CheatWatch.Terrain terrain) {
+			List<BedDefense.Cell> cells = new ArrayList<BedDefense.Cell>(bed.size());
+			for (Cell cell : bed) {
+				cells.add(new BedDefense.Cell(cell.x(), cell.y(), cell.z()));
+			}
+			final BedDefense.Block solid = new BedDefense.Block("solid", 1);
+			return !BedDefense.analyse(cells, new BedDefense.World() {
+				@Override
+				public BedDefense.Block at(BedDefense.Cell at) {
+					return terrain.solid(at.x(), at.y(), at.z()) ? solid : null;
+				}
+			}).open();
+		}
+	};
+
+	public void telemetry(Telemetry sink) {
+		telemetry = sink;
+	}
+
+	/** The round is over, however it ended: its summary into the log, its recording closed. */
 	public void endRound() {
+		if (roundOn && telemetry != null) {
+			telemetry.roundEnded(tick - roundStartTick, watchedThisRound.size());
+		}
+		roundOn = false;
+		watchedThisRound.clear();
 		if (roundLogged) {
 			log.roundEnded();
 			roundLogged = false;
 		}
+		stopRecording();
 	}
 
-	public de.raindancer118.hypixelscout.cheat.CheatLog log() {
+	/**
+	 * Starts this round's recording when {@code cheats.record} is on. Only ever at the start of a
+	 * round, right before the engine forgets everybody: a recording begun halfway would replay
+	 * without the history the live engine had.
+	 */
+	private void startRecording() {
+		if (!settings.get().cheats.record) {
+			return;
+		}
+		try {
+			java.nio.file.Path dir = log.dir();
+			java.nio.file.Files.createDirectories(dir);
+			String name = "cheatwatch-" + java.time.LocalDateTime.now().format(STAMP) + ".cwrec";
+			recorder = new Recorder(engine, dir.resolve(name), RecorderOptions.defaults());
+			recorder.setEnabled(enabled);
+			recorder.setEnclosure(DEFENCE);
+			recorder.setTuning(settings.get().cheats.tuning());
+			watch = recorder;
+		} catch (java.io.IOException e) {
+			// Recording is a help for tuning, never a reason for the game to stumble.
+			recorder = null;
+			watch = engine;
+		}
+	}
+
+	private void stopRecording() {
+		if (recorder != null) {
+			recorder.close();
+			recorder = null;
+		}
+		watch = engine;
+	}
+
+	/** This round's recording, or {@code null} when none is running. */
+	public Recorder recorder() {
+		return recorder;
+	}
+
+	private static final java.time.format.DateTimeFormatter STAMP =
+			java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss", java.util.Locale.ROOT);
+
+	public de.raindancer118.cheatwatch.CheatLog log() {
 		return log;
 	}
 
 	/** The log, with this round's start in it, when it is switched on; else {@code null}. */
-	private de.raindancer118.hypixelscout.cheat.CheatLog logging() {
+	private de.raindancer118.cheatwatch.CheatLog logging() {
 		if (!settings.get().cheats.log) {
 			return null;
 		}
@@ -201,9 +292,12 @@ public final class CheatSensor {
 				flags.add(flag);
 			}
 		}
-		de.raindancer118.hypixelscout.cheat.CheatLog logging = logging();
+		de.raindancer118.cheatwatch.CheatLog logging = logging();
 		if (logging != null) {
 			logging.verdict(player, check, cheating, flags, suspicion.confidence(player));
+		}
+		if (telemetry != null && !flags.isEmpty()) {
+			telemetry.verdict(player, check, cheating);
 		}
 		if (!cheating) {
 			suspicion.forget(player, check);
@@ -229,7 +323,13 @@ public final class CheatSensor {
 	/** A new game: nobody has done anything yet. */
 	public void newRound() {
 		endRound();
+		startRecording();
 		watch.clear();
+		roundOn = true;
+		roundStartTick = tick;
+		if (telemetry != null) {
+			telemetry.roundStarted(roster.mode());
+		}
 		suspicion.clear();
 		hurtAt.clear();
 		arrivedAttacks.clear();
@@ -337,7 +437,7 @@ public final class CheatSensor {
 		}
 		WorldClient level = client.theWorld;
 		IBlockState before = level.getBlockState(pos);
-		BedDefense.Cell cell = new BedDefense.Cell(pos.getX(), pos.getY(), pos.getZ());
+		Cell cell = new Cell(pos.getX(), pos.getY(), pos.getZ());
 
 		boolean beforeSolid = before.getBlock().getCollisionBoundingBox(level, pos, before) != null;
 		boolean nextSolid = next.getBlock().getCollisionBoundingBox(level, pos, next) != null;
@@ -371,6 +471,7 @@ public final class CheatSensor {
 		for (EntityPlayer player : level.playerEntities) {
 			String name = watched(player);
 			if (name != null && player.isEntityAlive()) {
+				watchedThisRound.add(name);
 				watch.frame(name, frame(level, player));
 			}
 		}
@@ -380,11 +481,17 @@ public final class CheatSensor {
 		for (Violation violation : watch.endTick(tick, new LevelTerrain(level))) {
 			java.util.Optional<Suspicion.Flag> flag = suspicion.record(violation,
 					sensitivity * settings.get().cheats.sensitivityOf(violation.check()) / 100.0);
-			de.raindancer118.hypixelscout.cheat.CheatLog logging = logging();
+			de.raindancer118.cheatwatch.CheatLog logging = logging();
 			if (logging != null) {
 				logging.record(violation, suspicion.confidence(violation.player()), settings.get().cheats.sensitivity);
 				if (flag.isPresent()) {
 					logging.flagged(flag.get(), suspicion.confidence(flag.get().player()));
+				}
+			}
+			if (telemetry != null) {
+				telemetry.sighting(violation);
+				if (flag.isPresent()) {
+					telemetry.flag(flag.get());
 				}
 			}
 			if (flag.isPresent()) {
@@ -457,7 +564,7 @@ public final class CheatSensor {
 		boolean assisted = player.isOnLadder() || player.isInWater() || player.isInLava() || inWeb(level, box);
 
 		return new Frame(tick, new Vec(feetX, feetY, feetZ), new Vec(feetX, feetY + player.getEyeHeight(), feetZ),
-				Flights.box(box), yaw, pitch, player.onGround, !level.getCollidingBoundingBoxes(player, below).isEmpty(),
+				new Box(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ), yaw, pitch, player.onGround, !level.getCollidingBoundingBoxes(player, below).isEmpty(),
 				player.isSprinting(), player.isUsingItem(), assisted, player.isRiding(), player.isSneaking(),
 				held(player));
 	}

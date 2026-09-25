@@ -1,7 +1,7 @@
 package de.raindancer118.hypixelscout.ui.screen;
 
 import de.raindancer118.hypixelscout.HypixelScout;
-import de.raindancer118.hypixelscout.cheat.Suspicion;
+import de.raindancer118.cheatwatch.Suspicion;
 import de.raindancer118.hypixelscout.game.PartyReport;
 import de.raindancer118.hypixelscout.game.Teams;
 import de.raindancer118.hypixelscout.ui.Heads;

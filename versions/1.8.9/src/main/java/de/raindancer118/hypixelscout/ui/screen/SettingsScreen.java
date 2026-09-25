@@ -731,6 +731,9 @@ public final class SettingsScreen extends GuiScreen {
 		grid.advance();
 
 		toggle(grid, "cheats.log", c.log, new Consumer<Boolean>() { public void accept(Boolean v) { c.log = v; } });
+		toggle(grid, "cheats.record", c.record, new Consumer<Boolean>() { public void accept(Boolean v) { c.record = v; } });
+		final ScoutSettings.Telemetry t = settings().telemetry;
+		toggle(grid, "telemetry.enabled", t.enabled, new Consumer<Boolean>() { public void accept(Boolean v) { t.enabled = v; } });
 
 		buttonList.add(new ActionButton(nextId++, grid.x(), grid.y(), grid.columnWidth(), 20,
 				StatCollector.translateToLocal("message.hypixelscout.settings.cheats.checks"), new Runnable() {

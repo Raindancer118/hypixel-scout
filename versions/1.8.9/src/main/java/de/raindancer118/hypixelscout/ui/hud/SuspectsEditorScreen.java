@@ -1,8 +1,8 @@
 package de.raindancer118.hypixelscout.ui.hud;
 
 import de.raindancer118.hypixelscout.HypixelScout;
-import de.raindancer118.hypixelscout.cheat.Check;
-import de.raindancer118.hypixelscout.cheat.Suspicion;
+import de.raindancer118.cheatwatch.Check;
+import de.raindancer118.cheatwatch.Suspicion;
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.config.TablePlacement;
 import de.raindancer118.hypixelscout.game.CheatSensor;

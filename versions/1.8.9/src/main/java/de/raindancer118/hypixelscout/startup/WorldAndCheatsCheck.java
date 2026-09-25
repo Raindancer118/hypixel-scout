@@ -90,6 +90,13 @@ public final class WorldAndCheatsCheck implements StartupCheck {
 				return advance();
 
 			case BUILD_NUKER_ROOM:
+				// The bed nuker scene is also recorded for CheatWatch's replay: a recording only ever
+				// starts with a round.
+				mod.settings().cheats.record = true;
+				mod.cheats().newRound();
+				if (mod.cheats().recorder() == null) {
+					throw new IllegalStateException("recording is on, but the new round has no recording");
+				}
 				buildNukerRoom(client);
 				return advance();
 
@@ -118,14 +125,15 @@ public final class WorldAndCheatsCheck implements StartupCheck {
 							+ " seen=" + mod.cheats().suspicion().suspects());
 				}
 				boolean nukerFlag = false;
-				for (de.raindancer118.hypixelscout.cheat.Suspicion.Flag flag : mod.cheats().suspicion().flagged()) {
-					if (flag.check() == de.raindancer118.hypixelscout.cheat.Check.NUKER) {
+				for (de.raindancer118.cheatwatch.Suspicion.Flag flag : mod.cheats().suspicion().flagged()) {
+					if (flag.check() == de.raindancer118.cheatwatch.Check.NUKER) {
 						nukerFlag = true;
 					}
 				}
 				if (!nukerFlag) {
 					throw new IllegalStateException("expected a NUKER flag, got: " + mod.cheats().suspicion().flagged());
 				}
+				checkRecording(mod);
 				return advance();
 
 			case WORLD_LINES_SCREENSHOT:
@@ -228,6 +236,45 @@ public final class WorldAndCheatsCheck implements StartupCheck {
 					}
 				});
 		HypixelScout.get().roster().refresh(de.raindancer118.hypixelscout.game.TabListReader.current());
+	}
+
+	/** The round's recording: closed with the round, a real CheatWatch stream of the nuker, no names. */
+	private static void checkRecording(HypixelScout mod) throws IOException {
+		mod.cheats().endRound();
+		mod.settings().cheats.record = false;
+		if (mod.cheats().recorder() != null) {
+			throw new IllegalStateException("the recording outlived its round");
+		}
+		java.nio.file.Path recording = null;
+		try (java.nio.file.DirectoryStream<java.nio.file.Path> files =
+				java.nio.file.Files.newDirectoryStream(mod.cheats().log().dir(), "cheatwatch-*.cwrec")) {
+			for (java.nio.file.Path file : files) {
+				if (recording == null || java.nio.file.Files.getLastModifiedTime(file)
+						.compareTo(java.nio.file.Files.getLastModifiedTime(recording)) > 0) {
+					recording = file;
+				}
+			}
+		}
+		if (recording == null) {
+			throw new IllegalStateException("no .cwrec was written");
+		}
+		java.io.ByteArrayOutputStream text = new java.io.ByteArrayOutputStream();
+		try (java.io.InputStream in = new java.util.zip.GZIPInputStream(java.nio.file.Files.newInputStream(recording))) {
+			byte[] buffer = new byte[8192];
+			for (int read; (read = in.read(buffer)) > 0; ) {
+				text.write(buffer, 0, read);
+			}
+		}
+		String recorded = new String(text.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+		for (String expected : new String[] {"\"type\":\"header\"", "\"anonymised\":true", "\"t\":\"bedBroken\"",
+				"\"check\":\"NUKER\"", "\"class\":\"custom\""}) {
+			if (!recorded.contains(expected)) {
+				throw new IllegalStateException("the recording lacks " + expected);
+			}
+		}
+		if (recorded.contains("Duskrunner") || recorded.contains(Minecraft.getMinecraft().thePlayer.getName())) {
+			throw new IllegalStateException("the recording names a player");
+		}
 	}
 
 	/** The synthetic event: {@code CheatSensor.onBlock} sees the bed vanish, exactly as the packet mixin would. */

@@ -145,6 +145,7 @@ public final class HypixelScout {
 	private ProximityElement proximityElement;
 	private Flights flights;
 	private Hazards hazards;
+	private de.raindancer118.hypixelscout.game.Telemetry telemetry;
 	private CheatSensor cheats;
 	private boolean modApiPresent;
 	private int scanTicks;
@@ -305,10 +306,12 @@ public final class HypixelScout {
 		new de.raindancer118.hypixelscout.ui.world.HazardLines(hazards).register();
 
 		cheats = new CheatSensor(roster, settingsSupplier());
-		Suspects.use(new java.util.function.Function<String, java.util.List<de.raindancer118.hypixelscout.cheat.Suspicion.Flag>>() {
+		telemetry = new de.raindancer118.hypixelscout.game.Telemetry(settingsSupplier());
+		cheats.telemetry(telemetry);
+		Suspects.use(new java.util.function.Function<String, java.util.List<de.raindancer118.cheatwatch.Suspicion.Flag>>() {
 			@Override
-			public java.util.List<de.raindancer118.hypixelscout.cheat.Suspicion.Flag> apply(String name) {
-				return settings.cheats.mark ? cheats.flags(name) : java.util.Collections.<de.raindancer118.hypixelscout.cheat.Suspicion.Flag>emptyList();
+			public java.util.List<de.raindancer118.cheatwatch.Suspicion.Flag> apply(String name) {
+				return settings.cheats.mark ? cheats.flags(name) : java.util.Collections.<de.raindancer118.cheatwatch.Suspicion.Flag>emptyList();
 			}
 		}, new java.util.function.ToDoubleFunction<String>() {
 			@Override
@@ -345,6 +348,12 @@ public final class HypixelScout {
 		flights.tick(minecraft);
 		hazards.tick(minecraft);
 		cheats.tick(minecraft);
+		telemetry.tick(minecraft, new Runnable() {
+			@Override
+			public void run() {
+				saveSettings();
+			}
+		});
 		requeue.tick();
 
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
@@ -610,6 +619,10 @@ public final class HypixelScout {
 	}
 
 	/** Cheat detection: everybody flagged this round, and how sure the mod is. */
+	public de.raindancer118.hypixelscout.game.Telemetry telemetry() {
+		return telemetry;
+	}
+
 	public CheatSensor cheats() {
 		return cheats;
 	}

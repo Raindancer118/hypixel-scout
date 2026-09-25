@@ -1,6 +1,6 @@
 package de.raindancer118.hypixelscout.ui;
 
-import de.raindancer118.hypixelscout.cheat.Suspicion;
+import de.raindancer118.cheatwatch.Suspicion;
 import de.raindancer118.hypixelscout.core.CardField;
 
 import java.util.Collections;

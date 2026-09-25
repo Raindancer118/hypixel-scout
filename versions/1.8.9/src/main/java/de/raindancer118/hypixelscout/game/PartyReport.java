@@ -1,7 +1,7 @@
 package de.raindancer118.hypixelscout.game;
 
-import de.raindancer118.hypixelscout.cheat.CheatReport;
-import de.raindancer118.hypixelscout.cheat.Suspicion;
+import de.raindancer118.cheatwatch.CheatReport;
+import de.raindancer118.cheatwatch.Suspicion;
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.BedwarsModes;
 import de.raindancer118.hypixelscout.core.ChatPacing;

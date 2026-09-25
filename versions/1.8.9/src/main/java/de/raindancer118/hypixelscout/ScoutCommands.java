@@ -1,7 +1,7 @@
 package de.raindancer118.hypixelscout;
 
-import de.raindancer118.hypixelscout.cheat.Check;
-import de.raindancer118.hypixelscout.cheat.Suspicion;
+import de.raindancer118.cheatwatch.Check;
+import de.raindancer118.cheatwatch.Suspicion;
 import de.raindancer118.hypixelscout.core.HypixelClient;
 import de.raindancer118.hypixelscout.core.KeyCheck;
 import de.raindancer118.hypixelscout.core.Roster;
@@ -132,6 +132,9 @@ public final class ScoutCommands extends CommandBase {
 				return;
 			case "cheats":
 				cheats(sender, args);
+				return;
+			case "telemetry":
+				telemetry(sender, args);
 				return;
 			case "testkey":
 				feedback(sender, translated("message.hypixelscout.key.checking"));
@@ -322,6 +325,34 @@ public final class ScoutCommands extends CommandBase {
 		Minecraft.getMinecraft().displayGuiScreen(new ProfileScreen(mod, name, uuid, null));
 	}
 
+	/** {@code /scout telemetry [show|on|off]}: the switch, or its state and the file with exactly what goes out. */
+	private void telemetry(ICommandSender sender, String[] args) {
+		String what = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "show";
+		if ("on".equals(what) || "off".equals(what)) {
+			boolean on = "on".equals(what);
+			mod.settings().telemetry.enabled = on;
+			mod.saveSettings();
+			mod.telemetry().client().setEnabled(on);
+			feedback(sender, translated(on ? "message.hypixelscout.telemetry.on" : "message.hypixelscout.telemetry.off"));
+			return;
+		}
+		de.raindancer118.hypixelscout.config.ScoutSettings.Telemetry settings = mod.settings().telemetry;
+		de.raindancer118.cheatwatch.telemetry.TelemetryClient.Stats stats = mod.telemetry().client().stats();
+		String state = !settings.enabled ? "off" : settings.endpoint.isEmpty() ? "idle" : "on";
+		feedback(sender, translated("message.hypixelscout.telemetry.state." + state, stats.sentBatches(),
+				mod.telemetry().client().pending(), stats.droppedEvents()));
+		java.nio.file.Path file = mod.telemetry().writePreview();
+		if (file != null) {
+			IChatComponent name = new net.minecraft.util.ChatComponentText(file.getFileName().toString());
+			net.minecraft.util.ChatStyle style = new net.minecraft.util.ChatStyle();
+			style.setUnderlined(true);
+			style.setChatClickEvent(new net.minecraft.event.ClickEvent(net.minecraft.event.ClickEvent.Action.OPEN_FILE,
+					file.toAbsolutePath().toString()));
+			name.setChatStyle(style);
+			feedback(sender, translated("message.hypixelscout.telemetry.preview", name));
+		}
+	}
+
 	private void feedback(ICommandSender sender, IChatComponent message) {
 		sender.addChatMessage(Chat.prefixed(message));
 	}
@@ -347,7 +378,7 @@ public final class ScoutCommands extends CommandBase {
 		if (args.length == 1) {
 			List<String> options = new ArrayList<String>(Arrays.asList("game", "teams", "lookup", "queue",
 					"suspects", "settings", "move", "table", "party", "team", "requeue", "list", "refresh",
-					"status", "cheats", "testkey", "key"));
+					"status", "cheats", "telemetry", "testkey", "key"));
 			for (Roster.Member member : mod.roster().members()) {
 				options.add(member.name());
 			}
@@ -364,6 +395,9 @@ public final class ScoutCommands extends CommandBase {
 			}
 			if ("cheats".equals(head)) {
 				return getListOfStringsMatchingLastWord(args, "team", "party", "wrong", "right");
+			}
+			if ("telemetry".equals(head)) {
+				return getListOfStringsMatchingLastWord(args, "show", "on", "off");
 			}
 			if (!isKnownSubcommand(head)) {
 				// A player name in the first slot: the second slot is which channel to send to.
@@ -397,7 +431,7 @@ public final class ScoutCommands extends CommandBase {
 		switch (head) {
 			case "game": case "teams": case "lookup": case "queue": case "suspects": case "settings":
 			case "move": case "table": case "party": case "team": case "requeue": case "list":
-			case "refresh": case "status": case "cheats": case "testkey": case "key":
+			case "refresh": case "status": case "cheats": case "telemetry": case "testkey": case "key":
 				return true;
 			default:
 				return false;

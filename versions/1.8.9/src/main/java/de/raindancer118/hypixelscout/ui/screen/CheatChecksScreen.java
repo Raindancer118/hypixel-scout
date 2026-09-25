@@ -1,7 +1,7 @@
 package de.raindancer118.hypixelscout.ui.screen;
 
 import de.raindancer118.hypixelscout.HypixelScout;
-import de.raindancer118.hypixelscout.cheat.Check;
+import de.raindancer118.cheatwatch.Check;
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
 import de.raindancer118.hypixelscout.ui.hud.SuspectsEditorScreen;
