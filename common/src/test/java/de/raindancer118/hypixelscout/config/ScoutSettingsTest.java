@@ -80,6 +80,8 @@ class ScoutSettingsTest {
 		assertThat(settings.cheats.sensitivity).isEqualTo(100);
 		assertThat(settings.cheats.off).isEmpty();
 		assertThat(settings.cheats.log).isFalse();
+		// No CheatWatch recordings until the player asks for them.
+		assertThat(settings.cheats.record).isFalse();
 		// The cards say by default what they always said, at their usual size.
 		assertThat(settings.cards.tooltip.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
 		assertThat(settings.cards.popup.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.POPUP);
@@ -87,12 +89,12 @@ class ScoutSettingsTest {
 		assertThat(settings.cards.tooltip.scale).isEqualTo(1.0);
 		assertThat(settings.cards.peekScale).isEqualTo(1.0);
 		assertThat(settings.cards.profile.combat).isTrue();
-		assertThat(settings.cheats.sensitivityOf(de.raindancer118.hypixelscout.cheat.Check.REACH)).isEqualTo(100);
-		assertThat(settings.cheats.tuning()).isEqualTo(de.raindancer118.hypixelscout.cheat.CheatWatch.Tuning.DEFAULT);
+		assertThat(settings.cheats.sensitivityOf(de.raindancer118.cheatwatch.Check.REACH)).isEqualTo(100);
+		assertThat(settings.cheats.tuning()).isEqualTo(de.raindancer118.cheatwatch.CheatWatch.Tuning.DEFAULT);
 		assertThat(settings.cheats.hud.enabled).isTrue();
 		assertThat(settings.cheats.hud.minPercent).isEqualTo(50);
 		assertThat(settings.cheats.hud.maxRows).isEqualTo(5);
-		assertThat(settings.cheats.isOn(de.raindancer118.hypixelscout.cheat.Check.REACH)).isTrue();
+		assertThat(settings.cheats.isOn(de.raindancer118.cheatwatch.Check.REACH)).isTrue();
 		// Six callouts, the first the classic, all into team chat.
 		assertThat(settings.callouts.messages).hasSize(ScoutSettings.CALLOUTS);
 		assertThat(settings.callouts.messages[0]).isEqualTo("{team} inc");
@@ -114,6 +116,7 @@ class ScoutSettingsTest {
 		settings.accent = Accent.AQUA;
 		settings.threatSensitivity = 150;
 		settings.threatReportFrom = Threat.VERY_HIGH;
+		settings.cheats.record = true;
 		settings.save();
 
 		ScoutSettings loaded = ScoutSettings.load(file);
@@ -128,6 +131,7 @@ class ScoutSettingsTest {
 		assertThat(loaded.accent).isEqualTo(Accent.AQUA);
 		assertThat(loaded.threatSensitivity).isEqualTo(150);
 		assertThat(loaded.threatReportFrom).isEqualTo(Threat.VERY_HIGH);
+		assertThat(loaded.cheats.record).isTrue();
 	}
 
 	@Test
@@ -172,18 +176,18 @@ class ScoutSettingsTest {
 				{ "cheats": { "off": ["REACH", "NOT_A_CHECK", "REACH", "FLY"] } }
 				""", StandardCharsets.UTF_8);
 		ScoutSettings checks = ScoutSettings.load(file);
-		assertThat(checks.cheats.off).containsExactly(de.raindancer118.hypixelscout.cheat.Check.REACH,
-				de.raindancer118.hypixelscout.cheat.Check.FLY);
-		assertThat(checks.cheats.isOn(de.raindancer118.hypixelscout.cheat.Check.REACH)).isFalse();
-		assertThat(checks.cheats.isOn(de.raindancer118.hypixelscout.cheat.Check.SPEED)).isTrue();
+		assertThat(checks.cheats.off).containsExactly(de.raindancer118.cheatwatch.Check.REACH,
+				de.raindancer118.cheatwatch.Check.FLY);
+		assertThat(checks.cheats.isOn(de.raindancer118.cheatwatch.Check.REACH)).isFalse();
+		assertThat(checks.cheats.isOn(de.raindancer118.cheatwatch.Check.SPEED)).isTrue();
 		Files.writeString(file, """
 				{ "cheats": { "checkSensitivity": { "REACH": 9000, "NOPE": 50, "FLY": 10 },
 				  "reachStanding": 1.0, "reachMoving": 99, "speedPerSecond": -3, "fastPlacePerSecond": 1000,
 				  "bridgePerSecond": 0, "hud": { "minPercent": 900, "maxRows": 0, "scale": 99 } } }
 				""", StandardCharsets.UTF_8);
 		ScoutSettings tuned = ScoutSettings.load(file);
-		assertThat(tuned.cheats.sensitivityOf(de.raindancer118.hypixelscout.cheat.Check.REACH)).isEqualTo(ScoutSettings.MAX_CHEAT_SENSITIVITY);
-		assertThat(tuned.cheats.sensitivityOf(de.raindancer118.hypixelscout.cheat.Check.FLY)).isEqualTo(ScoutSettings.MIN_CHEAT_SENSITIVITY);
+		assertThat(tuned.cheats.sensitivityOf(de.raindancer118.cheatwatch.Check.REACH)).isEqualTo(ScoutSettings.MAX_CHEAT_SENSITIVITY);
+		assertThat(tuned.cheats.sensitivityOf(de.raindancer118.cheatwatch.Check.FLY)).isEqualTo(ScoutSettings.MIN_CHEAT_SENSITIVITY);
 		assertThat(tuned.cheats.checkSensitivity).doesNotContainKey(null);
 		assertThat(tuned.cheats.reachStanding).isEqualTo(3.0);
 		assertThat(tuned.cheats.reachMoving).isEqualTo(5.0);

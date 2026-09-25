@@ -200,7 +200,7 @@ public final class ScoutCommands {
 			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.none")));
 			return 1;
 		}
-		java.util.Map<String, java.util.List<de.raindancer118.hypixelscout.cheat.Suspicion.Flag>> byPlayer =
+		java.util.Map<String, java.util.List<de.raindancer118.cheatwatch.Suspicion.Flag>> byPlayer =
 				new java.util.LinkedHashMap<>();
 		for (var flag : flags) {
 			byPlayer.computeIfAbsent(flag.player(), name -> new java.util.ArrayList<>()).add(flag);
@@ -226,7 +226,7 @@ public final class ScoutCommands {
 	}
 
 	private static java.util.stream.Stream<String> checkNames() {
-		return java.util.Arrays.stream(de.raindancer118.hypixelscout.cheat.Check.values())
+		return java.util.Arrays.stream(de.raindancer118.cheatwatch.Check.values())
 				.map(check -> check.name().toLowerCase(Locale.ROOT));
 	}
 
@@ -235,11 +235,11 @@ public final class ScoutCommands {
 			boolean withCheck) {
 		var source = context.getSource();
 		String player = StringArgumentType.getString(context, "player");
-		de.raindancer118.hypixelscout.cheat.Check check = null;
+		de.raindancer118.cheatwatch.Check check = null;
 		if (withCheck) {
 			String name = StringArgumentType.getString(context, "check");
 			try {
-				check = de.raindancer118.hypixelscout.cheat.Check.valueOf(name.toUpperCase(Locale.ROOT));
+				check = de.raindancer118.cheatwatch.Check.valueOf(name.toUpperCase(Locale.ROOT));
 			} catch (IllegalArgumentException e) {
 				source.sendError(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.unknown_check", name)));
 				return 0;

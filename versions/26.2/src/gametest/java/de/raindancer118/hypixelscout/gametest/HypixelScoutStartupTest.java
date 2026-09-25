@@ -923,6 +923,14 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			throw new AssertionError("Could not empty the log directory of an earlier run", e);
 		}
 		context.runOnClient(client -> mod.settings().cheats.log = true);
+		// And a CheatWatch recording of the round, which only ever starts with a round.
+		context.runOnClient(client -> {
+			mod.settings().cheats.record = true;
+			mod.cheats().newRound();
+			if (mod.cheats().recorder() == null) {
+				throw new AssertionError("Recording is on, but the new round has no recording");
+			}
+		});
 		context.runOnClient(client -> {
 			var sundial = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_242);
 			var mate = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_243);
@@ -952,7 +960,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		}
 		context.runOnClient(client -> {
 			var flags = mod.cheats().flags("Sundial").stream().map(f -> f.check()).toList();
-			if (!flags.contains(de.raindancer118.hypixelscout.cheat.Check.REACH)) {
+			if (!flags.contains(de.raindancer118.cheatwatch.Check.REACH)) {
 				throw new AssertionError("Hits from 4.2 blocks between two other players are not Reach: " + flags);
 			}
 			var sundial = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_242);
@@ -966,14 +974,14 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 							&& mod.cheats().flags("Ashenvale").isEmpty()) {
 				throw new AssertionError("The lists do not mark exactly the flagged players");
 			}
-			if (mod.cheats().flags("Ashenvale").stream().anyMatch(f -> f.check() == de.raindancer118.hypixelscout.cheat.Check.REACH)) {
+			if (mod.cheats().flags("Ashenvale").stream().anyMatch(f -> f.check() == de.raindancer118.cheatwatch.Check.REACH)) {
 				throw new AssertionError("The victim was flagged for Reach");
 			}
 		});
 
 		// A swing and a push arriving together off the network name the attacker without any damage
 		// event: sent from another thread, the way the network thread hands packets to the client.
-		int reachBefore = mod.cheats().suspicion().count("Sundial", de.raindancer118.hypixelscout.cheat.Check.REACH);
+		int reachBefore = mod.cheats().suspicion().count("Sundial", de.raindancer118.cheatwatch.Check.REACH);
 		context.runOnClient(client -> {
 			var connection = client.getConnection();
 			var sundial = client.level.getEntity(424_242);
@@ -998,7 +1006,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		});
 		context.waitTicks(4);
 		context.runOnClient(client -> {
-			int reachAfter = mod.cheats().suspicion().count("Sundial", de.raindancer118.hypixelscout.cheat.Check.REACH);
+			int reachAfter = mod.cheats().suspicion().count("Sundial", de.raindancer118.cheatwatch.Check.REACH);
 			if (reachAfter <= reachBefore) {
 				throw new AssertionError("A swing and push arriving together did not count as Sundial's hit: " + reachAfter);
 			}
@@ -1022,18 +1030,18 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		context.waitTicks(20);
 		context.runOnClient(client -> {
 			var flags = mod.cheats().flags("Sundial").stream().map(f -> f.check()).toList();
-			if (!flags.contains(de.raindancer118.hypixelscout.cheat.Check.SCAFFOLD)) {
+			if (!flags.contains(de.raindancer118.cheatwatch.Check.SCAFFOLD)) {
 				throw new AssertionError("Blocks placed behind somebody looking away are not Scaffold: " + flags);
 			}
 			// A check switched off forgets what it saw, flags and all; on again, it watches afresh.
-			mod.settings().cheats.set(de.raindancer118.hypixelscout.cheat.Check.SCAFFOLD, false);
+			mod.settings().cheats.set(de.raindancer118.cheatwatch.Check.SCAFFOLD, false);
 		});
 		context.waitTicks(2);
 		context.runOnClient(client -> {
-			if (mod.cheats().flags("Sundial").stream().anyMatch(f -> f.check() == de.raindancer118.hypixelscout.cheat.Check.SCAFFOLD)) {
+			if (mod.cheats().flags("Sundial").stream().anyMatch(f -> f.check() == de.raindancer118.cheatwatch.Check.SCAFFOLD)) {
 				throw new AssertionError("A switched-off check still shows its flag");
 			}
-			mod.settings().cheats.set(de.raindancer118.hypixelscout.cheat.Check.SCAFFOLD, true);
+			mod.settings().cheats.set(de.raindancer118.cheatwatch.Check.SCAFFOLD, true);
 		});
 		context.setScreen(() -> new de.raindancer118.hypixelscout.ui.screen.CheatChecksScreen(mod, null));
 		context.waitTicks(3);
@@ -1090,14 +1098,16 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		context.runOnClient(client -> client.player.connection.sendCommand("scout cheats wrong Ashenvale velocity"));
 		context.waitTicks(10);
 		context.runOnClient(client -> {
-			if (mod.cheats().flags("Ashenvale").stream().anyMatch(f -> f.check() == de.raindancer118.hypixelscout.cheat.Check.VELOCITY)) {
+			if (mod.cheats().flags("Ashenvale").stream().anyMatch(f -> f.check() == de.raindancer118.cheatwatch.Check.VELOCITY)) {
 				throw new AssertionError("/scout cheats wrong did not clear the flag");
 			}
 			String written;
 			try (var files = java.nio.file.Files.list(logDir)) {
 				StringBuilder all = new StringBuilder();
 				for (java.nio.file.Path file : files.toList()) {
-					all.append(java.nio.file.Files.readString(file));
+					if (file.toString().endsWith(".jsonl")) {
+						all.append(java.nio.file.Files.readString(file));
+					}
 				}
 				written = all.toString();
 			} catch (java.io.IOException e) {
@@ -1110,6 +1120,35 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 				}
 			}
 			mod.settings().cheats.log = false;
+
+			// The round's recording: closed with the round, a real CheatWatch stream of this very fight,
+			// and nobody's name in it.
+			mod.cheats().endRound();
+			mod.settings().cheats.record = false;
+			String recorded;
+			try (var files = java.nio.file.Files.list(logDir)) {
+				java.nio.file.Path recording = files.filter(file -> file.toString().endsWith(".cwrec")).findFirst()
+						.orElseThrow(() -> new AssertionError("No .cwrec was written"));
+				try (var in = new java.util.zip.GZIPInputStream(java.nio.file.Files.newInputStream(recording))) {
+					recorded = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+				}
+			} catch (java.io.IOException e) {
+				throw new AssertionError("The recording could not be read", e);
+			}
+			for (String expected : new String[] {"\"type\":\"header\"", "\"anonymised\":true", "\"t\":\"frame\"",
+					"\"t\":\"hurt\"", "\"t\":\"endTick\"", "\"check\":\"REACH\"", "\"class\":\"custom\""}) {
+				if (!recorded.contains(expected)) {
+					throw new AssertionError("The recording lacks " + expected);
+				}
+			}
+			for (String name : new String[] {"Sundial", "Ashenvale", client.player.getScoreboardName()}) {
+				if (recorded.contains(name)) {
+					throw new AssertionError("The recording names " + name);
+				}
+			}
+			if (mod.cheats().recorder() != null) {
+				throw new AssertionError("The recording outlived its round");
+			}
 		});
 
 		context.runOnClient(client -> {

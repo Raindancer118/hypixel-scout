@@ -12,3 +12,23 @@ gradle.beforeProject { project ->
 		}
 	}
 }
+
+// CheatWatch comes from the private Reposilite. Credentials are never checked in: CI passes them as
+// MAVEN_REGISTRY_USERNAME / MAVEN_REGISTRY_PASSWORD (a read-only token), a developer machine sets
+// packagesUsername / packagesPassword in ~/.gradle/gradle.properties. Only our own group is looked
+// for there, so nothing else can be served from it by accident.
+gradle.beforeProject { project ->
+	project.repositories {
+		maven {
+			name = 'packages'
+			url = 'https://packages.tstieh.de/releases'
+			credentials {
+				username = System.getenv('MAVEN_REGISTRY_USERNAME') ?: project.findProperty('packagesUsername')
+				password = System.getenv('MAVEN_REGISTRY_PASSWORD') ?: project.findProperty('packagesPassword')
+			}
+			content {
+				includeGroup 'de.raindancer118'
+			}
+		}
+	}
+}
