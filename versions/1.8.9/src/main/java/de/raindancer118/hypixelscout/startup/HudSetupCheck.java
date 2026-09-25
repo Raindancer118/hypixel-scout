@@ -75,9 +75,10 @@ public final class HudSetupCheck implements StartupCheck {
 		spawn(client, "Brickmason", lookedAtUuid,
 				eyes.xCoord + look.xCoord * 5, eyes.yCoord + look.yCoord * 5 - client.thePlayer.getEyeHeight(),
 				eyes.zCoord + look.zCoord * 5);
-		// Off to the side but still inside the proximity radius (12 blocks, see ScoutSettings.Proximity).
-		spawn(client, "Lanternfish", nearbyUuid, client.thePlayer.posX + 6, client.thePlayer.posY,
-				client.thePlayer.posZ - 6);
+		// Starts well outside the proximity radius: HudScreenshotCheck walks it in during its
+		// proximity step, since a popup only fires on entering and would be long gone otherwise.
+		spawn(client, "Lanternfish", nearbyUuid, client.thePlayer.posX + 18, client.thePlayer.posY,
+				client.thePlayer.posZ - 18);
 		// The player's own teammate: shown in the table, never in a proximity popup.
 		spawn(client, "Ashenvale", teammateUuid, client.thePlayer.posX - 4, client.thePlayer.posY,
 				client.thePlayer.posZ - 4);

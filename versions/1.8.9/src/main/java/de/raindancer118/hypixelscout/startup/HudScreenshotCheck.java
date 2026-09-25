@@ -108,6 +108,12 @@ public final class HudScreenshotCheck implements StartupCheck {
 				return advance();
 
 			case PROXIMITY:
+				// Walked into the radius now, so the popup it triggers is still up for the picture.
+				if (ticksInPhase == 1) {
+					EntityPlayer nearby = client.theWorld.getPlayerEntityByName("Lanternfish");
+					nearby.setPositionAndRotation(client.thePlayer.posX + 6, client.thePlayer.posY,
+							client.thePlayer.posZ - 6, 180f, 0f);
+				}
 				if (ticksInPhase < HOLD_TICKS || mod.proximityElement().shown().isEmpty()) {
 					if (ticksInPhase > WAIT_TICKS) {
 						throw new IllegalStateException("no proximity popup appeared for the nearby enemies");
