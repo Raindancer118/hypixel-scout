@@ -245,6 +245,12 @@ public final class HypixelScout {
 
 		MinecraftForge.EVENT_BUS.register(this);
 		FMLCommonHandler.instance().bus().register(this);
+		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+			@Override
+			public void run() {
+				clientStopping();
+			}
+		}, "Hypixel Scout shutdown"));
 
 		location.register();
 		modApiPresent = Loader.isModLoaded("hypixel_mod_api");
@@ -464,6 +470,15 @@ public final class HypixelScout {
 	public void startGameForTest(String mode, String map) {
 		roster.onLocationChanged(true, mode, map);
 		gameJoined();
+	}
+
+	/**
+	 * Quitting the game mid-round. 1.8.9 sends no disconnect event before the JVM exits (the shutdown
+	 * hook calls this once the game loop is over), so the round ends here and its recording is closed
+	 * rather than left without its gzip end.
+	 */
+	public void clientStopping() {
+		cheats.endRound();
 	}
 
 	/** Leaving the server ends the game as surely as the location packet would. */

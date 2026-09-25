@@ -134,6 +134,7 @@ public final class WorldAndCheatsCheck implements StartupCheck {
 					throw new IllegalStateException("expected a NUKER flag, got: " + mod.cheats().suspicion().flagged());
 				}
 				checkRecording(mod);
+				checkStoppingClosesTheRecording(mod);
 				return advance();
 
 			case WORLD_LINES_SCREENSHOT:
@@ -275,6 +276,43 @@ public final class WorldAndCheatsCheck implements StartupCheck {
 		if (recorded.contains("Duskrunner") || recorded.contains(Minecraft.getMinecraft().thePlayer.getName())) {
 			throw new IllegalStateException("the recording names a player");
 		}
+	}
+
+	/**
+	 * Quitting the game mid-round: no disconnect event comes before the JVM exits, so the shutdown
+	 * hook has to close the round's recording, or its gzip stays without an end.
+	 */
+	private static void checkStoppingClosesTheRecording(HypixelScout mod) throws IOException {
+		java.nio.file.Path dir = mod.cheats().log().dir();
+		try (java.nio.file.DirectoryStream<java.nio.file.Path> files =
+				java.nio.file.Files.newDirectoryStream(dir, "cheatwatch-*.cwrec")) {
+			for (java.nio.file.Path file : files) {
+				java.nio.file.Files.delete(file);
+			}
+		}
+		mod.settings().cheats.record = true;
+		mod.cheats().newRound();
+		mod.settings().cheats.record = false;
+		if (mod.cheats().recorder() == null) {
+			throw new IllegalStateException("recording is on, but the new round has no recording");
+		}
+		mod.clientStopping();
+		if (mod.cheats().recorder() != null) {
+			throw new IllegalStateException("the recording outlived the client stopping");
+		}
+		try (java.nio.file.DirectoryStream<java.nio.file.Path> files =
+				java.nio.file.Files.newDirectoryStream(dir, "cheatwatch-*.cwrec")) {
+			for (java.nio.file.Path file : files) {
+				try (java.io.InputStream in = new java.util.zip.GZIPInputStream(java.nio.file.Files.newInputStream(file))) {
+					byte[] buffer = new byte[8192];
+					while (in.read(buffer) > 0) {
+						// read to the end: a gzip without its trailer throws here
+					}
+				}
+				return;
+			}
+		}
+		throw new IllegalStateException("no .cwrec for the round the client stopped in");
 	}
 
 	/** The synthetic event: {@code CheatSensor.onBlock} sees the bed vanish, exactly as the packet mixin would. */
