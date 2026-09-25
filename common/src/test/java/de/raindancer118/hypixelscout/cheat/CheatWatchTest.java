@@ -83,6 +83,17 @@ class CheatWatchTest {
 		}
 	}
 
+	/** How high a vanilla jump is after this many ticks: 0.42 up, then gravity and drag every tick. */
+	private static double jumpHeight(int ticks) {
+		double y = 0;
+		double velocity = 0.42;
+		for (int i = 0; i < ticks; i++) {
+			y += velocity;
+			velocity = (velocity - 0.08) * 0.98;
+		}
+		return y;
+	}
+
 	private void steps(int count) {
 		for (int i = 0; i < count; i++) {
 			step();
@@ -875,6 +886,49 @@ class CheatWatchTest {
 		assertThat(seen).isEmpty();
 	}
 
+	/** Bridging backwards and up: a vanilla jump every ten ticks, landing one block higher each time. */
+	private void jumpBridgeBackwards(double speed, int jumps) {
+		Pose bridger = put("Bridger", 0.5, 0.5, 0);
+		bridger.pitch = 80;
+		bridger.held = Frame.Held.BLOCK;
+		steps(3);
+		double floor = 0;
+		for (int jump = 0; jump < jumps; jump++) {
+			for (int t = 1; t <= 10; t++) {
+				bridger.z -= speed;
+				// Up the arc, then down onto the block just placed one higher.
+				bridger.y = floor + (t >= 6 ? Math.max(jumpHeight(t), 1.0) : jumpHeight(t));
+				watch.swing("Bridger", tick + 1);
+				step();
+			}
+			floor += 1.0;
+			bridger.y = floor;
+		}
+	}
+
+	@Test
+	void jumpBridgingUpBackwardsIsFine() {
+		// Real round: "towered up while bridging backwards at 3.3 blocks/s" for somebody who was only
+		// jump-bridging a staircase - a jump rises 1.17 blocks in the first four ticks on its own.
+		jumpBridgeBackwards(0.16, 4);
+		assertThat(checks()).doesNotContain(Check.SCAFFOLD);
+	}
+
+	@Test
+	void toweringFasterThanAJumpWhileBridgingBackwardsIsScaffold() {
+		Pose bridger = put("Bridger", 0.5, 0.5, 0);
+		bridger.pitch = 80;
+		bridger.held = Frame.Held.BLOCK;
+		steps(3);
+		for (int i = 0; i < 20; i++) {
+			bridger.z -= 0.16;
+			bridger.y += 0.42;
+			watch.swing("Bridger", tick + 1);
+			step();
+		}
+		assertThat(seen).anyMatch(v -> v.check() == Check.SCAFFOLD && v.detail().contains("towered"));
+	}
+
 	@Test
 	void placingFasterThanAnyoneCanClickIsFastPlace() {
 		// FastPlace is judged the same way Scaffold now is - only once each placement's window has
@@ -1316,17 +1370,90 @@ class CheatWatchTest {
 		assertThat(checks()).doesNotContain(Check.NOFALL);
 	}
 
+	/** Hanging in a glass cage high above the map, then put down on the island far away. */
+	private void spawnTeleport(String name) {
+		Pose player = put(name, 0.5, 0.5, 0);
+		player.y = 70;
+		player.flying = true;
+		steps(20);
+		player.x = 130.5;
+		player.y = 0;
+		player.flying = false;
+		steps(3);
+	}
+
+	@Test
+	void theRoundStartTeleportIsNeitherNoFallNorBlink() {
+		// Real round: every player "fell 67 blocks and took no fall damage" and "froze 9 ticks then
+		// jumped 129.7 blocks" the moment the game put them from the waiting cage onto their island.
+		spawnTeleport("Legit");
+		assertThat(checks()).doesNotContain(Check.NOFALL, Check.BLINK);
+	}
+
+	@Test
+	void fallingFarAfterATeleportIsStillNoFall() {
+		spawnTeleport("Cheater");
+		Pose cheater = poses.get("Cheater");
+		cheater.y = 10;
+		cheater.flying = true;
+		step();
+		for (int i = 0; i < 7; i++) {
+			cheater.y -= 1.4;
+			step();
+		}
+		cheater.y = 0;
+		cheater.flying = false;
+		step();
+		assertThat(checks()).contains(Check.NOFALL);
+	}
+
 	// --- step (Iustitia StepHeightCheck.kt) ------------------------------------------------------------
+
+	/**
+	 * Walking along z into a block at z = 2, the server sending where they are every {@code every}
+	 * ticks; the rise arrives {@code gap} ticks after the last position before it.
+	 */
+	private void walkUpOneBlock(String name, int every, int gap, double rise) {
+		Pose walker = put(name, 0.5, 0.5, 0);
+		blocks.add(List.of(0, 0, 2));
+		for (int i = 1; i <= 12; i++) {
+			if (i % every == 0) {
+				walker.z = 0.5 + i * 0.1;
+			}
+			step();
+		}
+		steps(gap - 1);
+		walker.z = 2.2;
+		walker.y = rise;
+		steps(4);
+	}
 
 	@Test
 	void steppingUpMoreThanAJumpInOneTickIsStep() {
-		put("Cheater", 0, 0, 0);
-		steps(3);
-		blocks.add(List.of(0, 0, 0));
-		Pose cheater = poses.get("Cheater");
-		cheater.y = 1.0;
-		step();
+		walkUpOneBlock("Cheater", 1, 1, 1.0);
 		assertThat(checks()).contains(Check.STEP);
+	}
+
+	@Test
+	void steppingUpAWholeBlockBetweenTwoTickUpdatesIsStillStep() {
+		walkUpOneBlock("Cheater", 2, 2, 1.0);
+		assertThat(checks()).contains(Check.STEP);
+	}
+
+	@Test
+	void theFirstTwoTicksOfAJumpInOneUpdateAreNotStep() {
+		// Real round: 211 sightings of "stepped up 0.75 blocks" - Hypixel sends where another player is
+		// only every other tick, and a jump's first two ticks are 0.42 + 0.33 = 0.75 blocks.
+		walkUpOneBlock("Legit", 2, 2, jumpHeight(2));
+		assertThat(checks()).doesNotContain(Check.STEP);
+	}
+
+	@Test
+	void aJumpOntoABlockSeenThreeTicksLateIsNotStep() {
+		// Real round: 242 sightings of "stepped up 1.00 blocks" - three ticks of a jump are 1.0013,
+		// and an update now and then arrives a tick late.
+		walkUpOneBlock("Legit", 2, 3, jumpHeight(3));
+		assertThat(checks()).doesNotContain(Check.STEP);
 	}
 
 	@Test
