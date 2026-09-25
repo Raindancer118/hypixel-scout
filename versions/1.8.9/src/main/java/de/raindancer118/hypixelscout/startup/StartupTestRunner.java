@@ -77,14 +77,26 @@ public final class StartupTestRunner {
 		finished = true;
 		writeResult("PASS: all " + steps.size() + " startup test step(s) completed");
 		LOGGER.info("startup test PASSED — exiting 0");
-		FMLCommonHandler.instance().exitJava(0, false);
+		exit(0);
 	}
 
 	private void fail(String stepName, Exception cause) {
 		finished = true;
 		LOGGER.error("startup test step failed: " + stepName, cause);
 		writeResult("FAIL: step '" + stepName + "' threw " + cause);
-		FMLCommonHandler.instance().exitJava(1, false);
+		exit(1);
+	}
+
+	/**
+	 * A hard exit, skipping the shutdown hooks. The result is on disk already; what the hooks would
+	 * do is stop the integrated server, and that deadlocks now and then: the hook waits for the
+	 * server to kick the player, the kick waits for a task on the client thread, and the client
+	 * thread is inside {@code System.exit} waiting for the hook — CI once hung that way for good.
+	 * Through {@link FMLCommonHandler}, because FML's security manager refuses {@code Runtime.halt}
+	 * from anybody else.
+	 */
+	private static void exit(int code) {
+		FMLCommonHandler.instance().exitJava(code, true);
 	}
 
 	private void writeResult(String content) {

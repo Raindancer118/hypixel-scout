@@ -33,12 +33,14 @@ jobs:
       # LWJGL 2 finds no display mode on Xvfb's default 8-bit screen (Ubuntu's xvfb-run default),
       # so the 1.8.9 clients get an explicit 24-bit one.
       - name: Client startup test (1.8.9)
+        timeout-minutes: 15
         # Forge 1.8.9 has no client-gametest API: a headless dev client walks through menu,
         # commands, a staged Bedwars world, HUD, cheat checks and every screen, with screenshots —
         # see de.raindancer118.hypixelscout.startup in versions/1.8.9.
         run: xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew -p versions/1.8.9 runClientStartupTest
 
       - name: Production startup test (1.8.9)
+        timeout-minutes: 15
         # The shipped jar in a launcher-style Forge client: vanilla jar, Forge universal, mods/.
         run: xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew -p versions/1.8.9 runProductionStartupTest
 

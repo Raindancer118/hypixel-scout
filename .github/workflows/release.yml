@@ -41,9 +41,11 @@ jobs:
         run: sudo apt-get update -q && sudo apt-get install -y -q x11-xserver-utils
 
       - name: Client startup test (1.8.9)
+        timeout-minutes: 15
         run: xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew -p versions/1.8.9 runClientStartupTest
 
       - name: Production startup test (1.8.9)
+        timeout-minutes: 15
         # The shipped jar in a launcher-style Forge client: vanilla jar, Forge universal, mods/.
         run: xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew -p versions/1.8.9 runProductionStartupTest
 
