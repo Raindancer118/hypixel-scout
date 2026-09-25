@@ -5,8 +5,7 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"AvatarRendererMixin",
-		"ClientPacketListenerMixin",
-		"LivingEntityAccessor"
+		"BlockUpdateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

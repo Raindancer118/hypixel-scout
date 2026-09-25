@@ -355,22 +355,13 @@ public final class SettingsScreen extends Screen {
 		CheatsTab() {
 			super("cheats");
 
-			ScoutSettings.Cheats cheats = settings().cheats;
-			rows.addChild(toggle("cheats.enabled", cheats.enabled, value -> cheats.enabled = value));
-			rows.addChild(toggle("cheats.chat", cheats.chatAlerts, value -> cheats.chatAlerts = value));
-			rows.addChild(toggle("cheats.mark", cheats.mark, value -> cheats.mark = value));
-			SettingSlider sensitivity = new SettingSlider(0, 0, NARROW, "message.hypixelscout.settings.cheats.sensitivity",
-					ScoutSettings.MIN_CHEAT_SENSITIVITY, ScoutSettings.MAX_CHEAT_SENSITIVITY, cheats.sensitivity,
-					value -> cheats.sensitivity = (int) Math.round(value),
-					value -> Math.round(value) + "%");
-			sensitivity.setTooltip(Tooltip.create(Component.translatable("message.hypixelscout.settings.cheats.sensitivity.tooltip")));
-			rows.addChild(sensitivity);
-			rows.addChild(toggle("cheats.log", cheats.log, value -> cheats.log = value));
-			rows.addChild(toggle("cheats.record", cheats.record, value -> cheats.record = value));
-			rows.addChild(toggle("telemetry.enabled", settings().telemetry.enabled, value -> settings().telemetry.enabled = value));
-			rows.addChild(Button.builder(Component.translatable("message.hypixelscout.settings.cheats.checks"),
-							button -> minecraft.gui.setScreen(new CheatChecksScreen(mod, SettingsScreen.this)))
-					.tooltip(Tooltip.create(Component.translatable("message.hypixelscout.settings.cheats.checks.tooltip")))
+			// The detection is Scout's now, with its own settings: this tab only leads there.
+			rows.addChild(Button.builder(Component.translatable("message.hypixelscout.settings.cheats.scout"),
+							button -> minecraft.gui.setScreen(new de.raindancer118.scout.fabric.ui.screen.SettingsScreen(SettingsScreen.this)))
+					.tooltip(Tooltip.create(Component.translatable("message.hypixelscout.settings.cheats.scout.tooltip")))
+					.width(NARROW).build());
+			rows.addChild(Button.builder(Component.translatable("message.hypixelscout.suspects.move"),
+							button -> minecraft.gui.setScreen(new de.raindancer118.scout.fabric.ui.hud.HudEditorScreen(SettingsScreen.this)))
 					.width(NARROW).build());
 		}
 	}

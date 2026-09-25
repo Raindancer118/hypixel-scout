@@ -73,19 +73,6 @@ class ScoutSettingsTest {
 		assertThat(settings.awareness.bedDefense).isTrue();
 		assertThat(settings.awareness.offscreen).isTrue();
 		assertThat(settings.awareness.offscreenRange).isEqualTo(32);
-		// Cheat detection watches, marks and says so, at the designed sensitivity.
-		assertThat(settings.cheats.enabled).isTrue();
-		assertThat(settings.cheats.chatAlerts).isTrue();
-		assertThat(settings.cheats.mark).isTrue();
-		assertThat(settings.cheats.sensitivity).isEqualTo(100);
-		assertThat(settings.cheats.off).isEmpty();
-		assertThat(settings.cheats.log).isFalse();
-		// No CheatWatch recordings until the player asks for them.
-		assertThat(settings.cheats.record).isFalse();
-		// Telemetry is opt-out: on, but with no endpoint nothing is sent, and the notice is still due.
-		assertThat(settings.telemetry.enabled).isTrue();
-		assertThat(settings.telemetry.endpoint).isEmpty();
-		assertThat(settings.telemetry.noticeShown).isFalse();
 		// The cards say by default what they always said, at their usual size.
 		assertThat(settings.cards.tooltip.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
 		assertThat(settings.cards.popup.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.POPUP);
@@ -93,17 +80,25 @@ class ScoutSettingsTest {
 		assertThat(settings.cards.tooltip.scale).isEqualTo(1.0);
 		assertThat(settings.cards.peekScale).isEqualTo(1.0);
 		assertThat(settings.cards.profile.combat).isTrue();
-		assertThat(settings.cheats.sensitivityOf(de.raindancer118.cheatwatch.Check.REACH)).isEqualTo(100);
-		assertThat(settings.cheats.tuning()).isEqualTo(de.raindancer118.cheatwatch.CheatWatch.Tuning.DEFAULT);
-		assertThat(settings.cheats.hud.enabled).isTrue();
-		assertThat(settings.cheats.hud.minPercent).isEqualTo(50);
-		assertThat(settings.cheats.hud.maxRows).isEqualTo(5);
-		assertThat(settings.cheats.isOn(de.raindancer118.cheatwatch.Check.REACH)).isTrue();
 		// Six callouts, the first the classic, all into team chat.
 		assertThat(settings.callouts.messages).hasSize(ScoutSettings.CALLOUTS);
 		assertThat(settings.callouts.messages[0]).isEqualTo("{team} inc");
 		assertThat(settings.callouts.toParty).isFalse();
 		assertThat(file).exists();
+	}
+
+	@Test
+	void theCheatSettingsAreNoLongerKeptHere() throws Exception {
+		// They moved to Scout, which takes them over from this file once (its ScoutConfig.load).
+		Path file = dir.resolve("hypixelscout.json");
+		Files.writeString(file, """
+				{ "apiKey": "", "cheats": { "sensitivity": 150 }, "telemetry": { "enabled": false } }
+				""", StandardCharsets.UTF_8);
+
+		ScoutSettings settings = ScoutSettings.load(file);
+		settings.save();
+
+		assertThat(Files.readString(file)).doesNotContain("\"cheats\"").doesNotContain("\"telemetry\"");
 	}
 
 	@Test
@@ -120,10 +115,6 @@ class ScoutSettingsTest {
 		settings.accent = Accent.AQUA;
 		settings.threatSensitivity = 150;
 		settings.threatReportFrom = Threat.VERY_HIGH;
-		settings.cheats.record = true;
-		settings.telemetry.enabled = false;
-		settings.telemetry.noticeShown = true;
-		settings.telemetry.endpoint = "https://telemetry.example/api/telemetry/v1/batches";
 		settings.save();
 
 		ScoutSettings loaded = ScoutSettings.load(file);
@@ -138,10 +129,6 @@ class ScoutSettingsTest {
 		assertThat(loaded.accent).isEqualTo(Accent.AQUA);
 		assertThat(loaded.threatSensitivity).isEqualTo(150);
 		assertThat(loaded.threatReportFrom).isEqualTo(Threat.VERY_HIGH);
-		assertThat(loaded.cheats.record).isTrue();
-		assertThat(loaded.telemetry.enabled).isFalse();
-		assertThat(loaded.telemetry.noticeShown).isTrue();
-		assertThat(loaded.telemetry.endpoint).isEqualTo("https://telemetry.example/api/telemetry/v1/batches");
 	}
 
 	@Test
@@ -179,35 +166,6 @@ class ScoutSettingsTest {
 				""", StandardCharsets.UTF_8);
 		assertThat(ScoutSettings.load(file).awareness.offscreenRange).isEqualTo(ScoutSettings.MAX_OFFSCREEN_RANGE);
 		Files.writeString(file, """
-				{ "cheats": { "sensitivity": 9000 } }
-				""", StandardCharsets.UTF_8);
-		assertThat(ScoutSettings.load(file).cheats.sensitivity).isEqualTo(ScoutSettings.MAX_CHEAT_SENSITIVITY);
-		Files.writeString(file, """
-				{ "cheats": { "off": ["REACH", "NOT_A_CHECK", "REACH", "FLY"] } }
-				""", StandardCharsets.UTF_8);
-		ScoutSettings checks = ScoutSettings.load(file);
-		assertThat(checks.cheats.off).containsExactly(de.raindancer118.cheatwatch.Check.REACH,
-				de.raindancer118.cheatwatch.Check.FLY);
-		assertThat(checks.cheats.isOn(de.raindancer118.cheatwatch.Check.REACH)).isFalse();
-		assertThat(checks.cheats.isOn(de.raindancer118.cheatwatch.Check.SPEED)).isTrue();
-		Files.writeString(file, """
-				{ "cheats": { "checkSensitivity": { "REACH": 9000, "NOPE": 50, "FLY": 10 },
-				  "reachStanding": 1.0, "reachMoving": 99, "speedPerSecond": -3, "fastPlacePerSecond": 1000,
-				  "bridgePerSecond": 0, "hud": { "minPercent": 900, "maxRows": 0, "scale": 99 } } }
-				""", StandardCharsets.UTF_8);
-		ScoutSettings tuned = ScoutSettings.load(file);
-		assertThat(tuned.cheats.sensitivityOf(de.raindancer118.cheatwatch.Check.REACH)).isEqualTo(ScoutSettings.MAX_CHEAT_SENSITIVITY);
-		assertThat(tuned.cheats.sensitivityOf(de.raindancer118.cheatwatch.Check.FLY)).isEqualTo(ScoutSettings.MIN_CHEAT_SENSITIVITY);
-		assertThat(tuned.cheats.checkSensitivity).doesNotContainKey(null);
-		assertThat(tuned.cheats.reachStanding).isEqualTo(3.0);
-		assertThat(tuned.cheats.reachMoving).isEqualTo(5.0);
-		assertThat(tuned.cheats.speedPerSecond).isEqualTo(8.0);
-		assertThat(tuned.cheats.fastPlacePerSecond).isEqualTo(30);
-		assertThat(tuned.cheats.bridgePerSecond).isEqualTo(3.0);
-		assertThat(tuned.cheats.hud.minPercent).isEqualTo(99);
-		assertThat(tuned.cheats.hud.maxRows).isEqualTo(1);
-		assertThat(tuned.cheats.hud.scale).isEqualTo(ScoutSettings.MAX_SCALE);
-		Files.writeString(file, """
 				{ "cards": { "tooltip": { "fields": ["WLR", "NOT_A_FIELD", "WLR", "FKDR"], "perLine": 99, "scale": 0.1 },
 				  "popup": { "fields": null }, "hover": null, "peekScale": 7 } }
 				""", StandardCharsets.UTF_8);
@@ -219,10 +177,6 @@ class ScoutSettingsTest {
 		assertThat(cards.cards.popup.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.POPUP);
 		assertThat(cards.cards.hover.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
 		assertThat(cards.cards.peekScale).isEqualTo(ScoutSettings.MAX_SCALE);
-		Files.writeString(file, """
-				{ "cheats": null }
-				""", StandardCharsets.UTF_8);
-		assertThat(ScoutSettings.load(file).cheats).isNotNull();
 		Files.writeString(file, """
 				{ "awareness": null }
 				""", StandardCharsets.UTF_8);
@@ -312,31 +266,5 @@ class ScoutSettingsTest {
 		settings.tooltip.angle = 60.0;
 
 		assertThat(settings.tooltip.cosine()).isCloseTo(0.5, org.assertj.core.data.Offset.offset(1e-9));
-	}
-
-	@Test
-	void theOldBridgeDefaultMovesUpToWalkingOnASpeedPotionOnceAndAChoiceStays() throws Exception {
-		// 5.0 blocks a second was below walking on the Speed II potion Bedwars sells (6.0): a real
-		// round had thirteen backwards-bridging sightings at walking pace. Saved as the old default,
-		// it moves up; saved after the move, whatever the player chose stays.
-		assertThat(new ScoutSettings().cheats.bridgePerSecond).isEqualTo(6.5);
-		assertThat(new ScoutSettings().cheats.tuning().bridgeSpeed())
-				.isEqualTo(de.raindancer118.cheatwatch.CheatWatch.Tuning.DEFAULT.bridgeSpeed());
-
-		Path file = dir.resolve("hypixelscout.json");
-		Files.writeString(file, """
-				{ "cheats": { "bridgePerSecond": 5.0 } }
-				""", StandardCharsets.UTF_8);
-		assertThat(ScoutSettings.load(file).cheats.bridgePerSecond).isEqualTo(6.5);
-
-		Files.writeString(file, """
-				{ "cheats": { "bridgePerSecond": 4.2 } }
-				""", StandardCharsets.UTF_8);
-		assertThat(ScoutSettings.load(file).cheats.bridgePerSecond).isEqualTo(4.2);
-
-		Files.writeString(file, """
-				{ "cheats": { "bridgePerSecond": 5.0, "limitsRevision": 1 } }
-				""", StandardCharsets.UTF_8);
-		assertThat(ScoutSettings.load(file).cheats.bridgePerSecond).isEqualTo(5.0);
 	}
 }

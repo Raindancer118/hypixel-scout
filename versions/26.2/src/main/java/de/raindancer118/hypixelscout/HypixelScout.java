@@ -12,14 +12,13 @@ import de.raindancer118.hypixelscout.core.GameStart;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.game.Teams;
-import de.raindancer118.hypixelscout.ui.Suspects;
 import de.raindancer118.hypixelscout.ui.Threats;
 import de.raindancer118.hypixelscout.core.StatsCache;
 import de.raindancer118.hypixelscout.core.StatsService;
 import de.raindancer118.hypixelscout.game.Callouts;
 import de.raindancer118.hypixelscout.game.ChatHover;
 import de.raindancer118.hypixelscout.game.Flights;
-import de.raindancer118.hypixelscout.game.CheatSensor;
+import de.raindancer118.scout.api.ScoutApi;
 import de.raindancer118.hypixelscout.game.Hazards;
 import de.raindancer118.hypixelscout.ui.hud.HazardElement;
 import de.raindancer118.hypixelscout.ui.hud.IncomingElement;
@@ -109,8 +108,6 @@ public final class HypixelScout implements ClientModInitializer {
 	private ProximityElement proximityElement;
 	private Flights flights;
 	private Hazards hazards;
-	private CheatSensor cheats;
-	private de.raindancer118.hypixelscout.game.Telemetry telemetry;
 	private Callouts callouts;
 	private ScoutKeys keys;
 	private ChatHover hover;
@@ -176,12 +173,8 @@ public final class HypixelScout implements ClientModInitializer {
 		hazards = new Hazards(roster, () -> settings);
 		new HazardLines(hazards).register();
 		HudElementRegistry.attachElementAfter(id("incoming"), id("hazards"), new HazardElement(hazards, () -> settings));
-		cheats = new CheatSensor(roster, () -> settings);
-		telemetry = new de.raindancer118.hypixelscout.game.Telemetry(() -> settings);
-		cheats.telemetry(telemetry);
-		Suspects.use(name -> settings.cheats.mark ? cheats.flags(name) : java.util.List.of(), cheats::confidence);
-		HudElementRegistry.attachElementBefore(id("peek"), id("suspects"),
-				new de.raindancer118.hypixelscout.ui.hud.SuspectsElement(cheats, () -> settings, roster).hideWhile(() -> peek.isHeld()));
+		// The cheat detection is Scout's, bundled inside this jar: it watches, flags and draws its own
+		// HUD; this mod only tells it about the game (game.HypixelHost, the "scout" entrypoint).
 		HudElementRegistry.replaceElement(VanillaHudElements.PLAYER_LIST,
 				vanilla -> new TabStatsElement(vanilla, roster, stats, () -> settings));
 
@@ -224,8 +217,6 @@ public final class HypixelScout implements ClientModInitializer {
 		proximity.tick(minecraft);
 		flights.tick(minecraft);
 		hazards.tick(minecraft);
-		cheats.tick(minecraft);
-		telemetry.tick(minecraft, this::saveSettings);
 		requeue.tick(minecraft);
 
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
@@ -294,7 +285,7 @@ public final class HypixelScout implements ClientModInitializer {
 		proximity.reset();
 		flights.reset();
 		hazards.newRound();
-		cheats.newRound();
+		ScoutApi.get().newRound();
 		teamsReady = false;
 		requeue.gameJoined();
 		scanTicks = 0;
@@ -327,7 +318,7 @@ public final class HypixelScout implements ClientModInitializer {
 		proximity.reset();
 		flights.reset();
 		hazards.reset();
-		cheats.endRound();
+		ScoutApi.get().endRound();
 		teamsReady = false;
 		requeue.reset();
 		partyReport.cancel();
@@ -459,14 +450,6 @@ public final class HypixelScout implements ClientModInitializer {
 	/** The arrows and fireballs in the air, for the client game test. */
 	public Flights flights() {
 		return flights;
-	}
-
-	public de.raindancer118.hypixelscout.game.Telemetry telemetry() {
-		return telemetry;
-	}
-
-	public CheatSensor cheats() {
-		return cheats;
 	}
 
 	public Hazards hazards() {
