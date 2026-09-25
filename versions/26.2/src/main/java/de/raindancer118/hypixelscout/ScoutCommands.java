@@ -108,6 +108,10 @@ public final class ScoutCommands {
 								.then(ClientCommands.argument("player", StringArgumentType.word())
 										.suggests((context, builder) -> SharedSuggestionProvider.suggest(flaggedPlayers(mod), builder))
 										.executes(context -> verdict(context, mod, true, false)))))
+				.then(ClientCommands.literal("telemetry").executes(context -> telemetryShow(context, mod))
+						.then(ClientCommands.literal("on").executes(context -> telemetrySwitch(context, mod, true)))
+						.then(ClientCommands.literal("off").executes(context -> telemetrySwitch(context, mod, false)))
+						.then(ClientCommands.literal("show").executes(context -> telemetryShow(context, mod))))
 				.then(ClientCommands.literal("testkey").executes(context -> {
 					context.getSource().sendFeedback(Chat.prefixed(
 							Component.translatable("message.hypixelscout.key.checking")));
@@ -200,7 +204,7 @@ public final class ScoutCommands {
 			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.none")));
 			return 1;
 		}
-		java.util.Map<String, java.util.List<de.raindancer118.hypixelscout.cheat.Suspicion.Flag>> byPlayer =
+		java.util.Map<String, java.util.List<de.raindancer118.cheatwatch.Suspicion.Flag>> byPlayer =
 				new java.util.LinkedHashMap<>();
 		for (var flag : flags) {
 			byPlayer.computeIfAbsent(flag.player(), name -> new java.util.ArrayList<>()).add(flag);
@@ -226,7 +230,7 @@ public final class ScoutCommands {
 	}
 
 	private static java.util.stream.Stream<String> checkNames() {
-		return java.util.Arrays.stream(de.raindancer118.hypixelscout.cheat.Check.values())
+		return java.util.Arrays.stream(de.raindancer118.cheatwatch.Check.values())
 				.map(check -> check.name().toLowerCase(Locale.ROOT));
 	}
 
@@ -235,11 +239,11 @@ public final class ScoutCommands {
 			boolean withCheck) {
 		var source = context.getSource();
 		String player = StringArgumentType.getString(context, "player");
-		de.raindancer118.hypixelscout.cheat.Check check = null;
+		de.raindancer118.cheatwatch.Check check = null;
 		if (withCheck) {
 			String name = StringArgumentType.getString(context, "check");
 			try {
-				check = de.raindancer118.hypixelscout.cheat.Check.valueOf(name.toUpperCase(Locale.ROOT));
+				check = de.raindancer118.cheatwatch.Check.valueOf(name.toUpperCase(Locale.ROOT));
 			} catch (IllegalArgumentException e) {
 				source.sendError(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.unknown_check", name)));
 				return 0;
@@ -264,5 +268,32 @@ public final class ScoutCommands {
 	public static net.minecraft.network.chat.MutableComponent describe(KeyCheck.Result result) {
 		String key = "message.hypixelscout.key.result." + result.outcome().name().toLowerCase(Locale.ROOT);
 		return Component.translatable(key, result.detail());
+	}
+
+	private static int telemetrySwitch(com.mojang.brigadier.context.CommandContext<FabricClientCommandSource> context,
+			HypixelScout mod, boolean on) {
+		mod.settings().telemetry.enabled = on;
+		mod.saveSettings();
+		mod.telemetry().client().setEnabled(on);
+		context.getSource().sendFeedback(Chat.prefixed(Component.translatable(
+				on ? "message.hypixelscout.telemetry.on" : "message.hypixelscout.telemetry.off")));
+		return 1;
+	}
+
+	/** {@code /scout telemetry [show]}: whether it is on, what it did, and the file with exactly what goes out. */
+	private static int telemetryShow(com.mojang.brigadier.context.CommandContext<FabricClientCommandSource> context,
+			HypixelScout mod) {
+		var settings = mod.settings().telemetry;
+		var stats = mod.telemetry().client().stats();
+		String state = !settings.enabled ? "off" : settings.endpoint.isEmpty() ? "idle" : "on";
+		context.getSource().sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.telemetry.state." + state,
+				stats.sentBatches(), mod.telemetry().client().pending(), stats.droppedEvents())));
+		java.nio.file.Path file = mod.telemetry().writePreview();
+		if (file != null) {
+			context.getSource().sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.telemetry.preview",
+					Component.literal(file.getFileName().toString()).withStyle(style -> style.withUnderlined(true)
+							.withClickEvent(new net.minecraft.network.chat.ClickEvent.OpenFile(file))))));
+		}
+		return 1;
 	}
 }

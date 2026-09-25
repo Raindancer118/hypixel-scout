@@ -13,6 +13,11 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      # CheatWatch comes from the private Reposilite: a read-only token, and TLS 1.2 for its SNI quirk.
+      MAVEN_REGISTRY_USERNAME: ${{ secrets.MAVEN_REGISTRY_USERNAME }}
+      MAVEN_REGISTRY_PASSWORD: ${{ secrets.MAVEN_REGISTRY_PASSWORD }}
+      JAVA_TOOL_OPTIONS: -Djdk.tls.client.protocols=TLSv1.2
     steps:
       - uses: actions/checkout@v4
 

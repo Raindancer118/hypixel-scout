@@ -35,6 +35,11 @@ dependencies {
 	// gson_version) because that is exactly what Minecraft 1.8.9 ships on the Forge side.
 	compileOnly 'com.google.code.gson:gson:2.2.4'
 
+	// The cheat detector. Java 8 bytecode and the Gson 2.2.4 API like this module, so the 1.8.9 host
+	// shades it the same way it shades this one.
+	api "de.raindancer118:cheatwatch-core:${project.cheatwatch_version}"
+	api "de.raindancer118:cheatwatch-telemetry:${project.cheatwatch_version}"
+
 	// Tests run against the same old Gson so no 2.9+/2.10+/2.11+ API can slip into main code
 	// unnoticed. 2.2.4 is also what versions/26.2 (via the game) provides, so it's the true
 	// runtime shape from both consumers' point of view.

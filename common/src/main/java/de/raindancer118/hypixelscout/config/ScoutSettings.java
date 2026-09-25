@@ -109,6 +109,7 @@ public final class ScoutSettings {
 	public Projectiles projectiles = new Projectiles();
 	public Awareness awareness = new Awareness();
 	public Cheats cheats = new Cheats();
+	public Telemetry telemetry = new Telemetry();
 	public Cards cards = new Cards();
 	public Callouts callouts = new Callouts();
 	public Queue queue = new Queue();
@@ -238,7 +239,21 @@ public final class ScoutSettings {
 		public int offscreenRange = 32;
 	}
 
-	/** Watching the other players for what only a cheat makes possible ({@code cheat.CheatWatch}). */
+	/**
+	 * CheatWatch telemetry: anonymised sightings, flags and verdicts, so the detector's false-positive
+	 * rate can be measured (what exactly is sent: CheatWatch's {@code TELEMETRY.md}). Opt-out — on by
+	 * default, with a notice on first launch — but nothing is sent while {@link #endpoint} is empty,
+	 * which it is until a receiving server exists and the data-protection review is done.
+	 */
+	public static final class Telemetry {
+		public boolean enabled = true;
+		/** Where batches go; empty sends nothing. Read at startup. */
+		public String endpoint = "";
+		/** Whether the first-launch notice has been shown. */
+		public boolean noticeShown = false;
+	}
+
+	/** Watching the other players for what only a cheat makes possible ({@code de.raindancer118.cheatwatch.CheatWatch}). */
 	public static final class Cheats {
 		public boolean enabled = true;
 		/** A line in the player's own chat when somebody is flagged. Never sent to anybody. */
@@ -249,6 +264,12 @@ public final class ScoutSettings {
 		public int sensitivity = 100;
 		/** Every sighting, flag and verdict into a local file, to tune the checks by. */
 		public boolean log = false;
+		/**
+		 * Every round recorded for CheatWatch's replay (a {@code .cwrec} in the log folder, player
+		 * names replaced by {@code actor_N}): what the detector was told, so a false positive can be
+		 * replayed and fixed. Local only; off until the player turns it on.
+		 */
+		public boolean record = false;
 		/** Percent per check, by its name, on top of {@link #sensitivity}; a check not in here is at 100. */
 		public Map<String, Integer> checkSensitivity = new LinkedHashMap<>();
 		/** The limits, in the units a player thinks in. */
@@ -259,11 +280,11 @@ public final class ScoutSettings {
 		public double bridgePerSecond = 5.0;
 		public Hud hud = new Hud();
 
-		public int sensitivityOf(de.raindancer118.hypixelscout.cheat.Check check) {
+		public int sensitivityOf(de.raindancer118.cheatwatch.Check check) {
 			return checkSensitivity.getOrDefault(check.name(), 100);
 		}
 
-		public void setSensitivity(de.raindancer118.hypixelscout.cheat.Check check, int percent) {
+		public void setSensitivity(de.raindancer118.cheatwatch.Check check, int percent) {
 			if (percent == 100) {
 				checkSensitivity.remove(check.name());
 			} else {
@@ -271,19 +292,19 @@ public final class ScoutSettings {
 			}
 		}
 
-		public de.raindancer118.hypixelscout.cheat.CheatWatch.Tuning tuning() {
-			return new de.raindancer118.hypixelscout.cheat.CheatWatch.Tuning(reachStanding, reachMoving,
+		public de.raindancer118.cheatwatch.CheatWatch.Tuning tuning() {
+			return new de.raindancer118.cheatwatch.CheatWatch.Tuning(reachStanding, reachMoving,
 					speedPerSecond / 20, fastPlacePerSecond, bridgePerSecond / 20);
 		}
 
 		/** The checks switched off, one by one; everything else is watched. */
-		public List<de.raindancer118.hypixelscout.cheat.Check> off = new ArrayList<>();
+		public List<de.raindancer118.cheatwatch.Check> off = new ArrayList<>();
 
-		public boolean isOn(de.raindancer118.hypixelscout.cheat.Check check) {
+		public boolean isOn(de.raindancer118.cheatwatch.Check check) {
 			return !off.contains(check);
 		}
 
-		public void set(de.raindancer118.hypixelscout.cheat.Check check, boolean on) {
+		public void set(de.raindancer118.cheatwatch.Check check, boolean on) {
 			off.remove(check);
 			if (!on) {
 				off.add(check);
@@ -511,11 +532,13 @@ public final class ScoutSettings {
 		cards.peekScale = finiteClamp(cards.peekScale, MIN_SCALE, MAX_SCALE, 1.0);
 
 		cheats = cheats == null ? new Cheats() : cheats;
+		telemetry = telemetry == null ? new Telemetry() : telemetry;
+		telemetry.endpoint = telemetry.endpoint == null ? "" : telemetry.endpoint.trim();
 		cheats.sensitivity = Math.max(MIN_CHEAT_SENSITIVITY, Math.min(MAX_CHEAT_SENSITIVITY, cheats.sensitivity));
 		// A check name this version does not know reads as null; a hand-edited list may repeat one.
 		cheats.checkSensitivity = cheats.checkSensitivity == null ? new LinkedHashMap<>() : new LinkedHashMap<>(cheats.checkSensitivity);
 		cheats.checkSensitivity.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null
-				|| java.util.Arrays.stream(de.raindancer118.hypixelscout.cheat.Check.values()).noneMatch(check -> check.name().equals(entry.getKey())));
+				|| java.util.Arrays.stream(de.raindancer118.cheatwatch.Check.values()).noneMatch(check -> check.name().equals(entry.getKey())));
 		cheats.checkSensitivity.replaceAll((check, percent) -> Math.max(MIN_CHEAT_SENSITIVITY, Math.min(MAX_CHEAT_SENSITIVITY, percent)));
 		cheats.reachStanding = finiteClamp(cheats.reachStanding, 3.0, 4.5, 3.2);
 		cheats.reachMoving = finiteClamp(cheats.reachMoving, 3.0, 5.0, 3.8);

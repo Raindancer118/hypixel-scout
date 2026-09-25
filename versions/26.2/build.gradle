@@ -57,6 +57,10 @@ dependencies {
 	// Every line that does not touch a Minecraft class lives in the shared build. Gradle
 	// substitutes this coordinate with ../../common through the composite in settings.gradle.
 	include implementation("de.raindancer118:hypixelscout-common:${project.mod_version}")
+	// CheatWatch rides inside the jar too (jar-in-jar): include is not transitive, and a player
+	// installs one mod, not its libraries.
+	include implementation("de.raindancer118:cheatwatch-core:${project.cheatwatch_version}")
+	include implementation("de.raindancer118:cheatwatch-telemetry:${project.cheatwatch_version}")
 
 	// The Hypixel Mod API is a separate mod the player installs. Compiled against the plain API,
 	// never bundled; the Fabric mod that carries it is in the dev client so the handshake runs.

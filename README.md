@@ -203,6 +203,7 @@ free on purpose.
 | `/scout table` | Toggles the table |
 | `/scout refresh` | Looks everybody up again |
 | `/scout status` | Key, request budget, Mod API and game state |
+| `/scout telemetry [show \| on \| off]` | Telemetry state, writes exactly what is sent to a file, switches it |
 
 ## When players are looked up
 
@@ -250,6 +251,20 @@ cards, the tooltip and both reports all use the same scale.
   under 10, dark red above. These bands are the mod's, not Hypixel's.
 - **Threat** from grey (NONE) over green (LOW), yellow, gold, red and dark red to purple (INSANE), measured as described above.
 - **Team bars** are the team's scoreboard colour; the **accent** (gold by default) is yours to pick.
+
+## Cheat detection and telemetry
+
+The cheat detector is [CheatWatch](https://github.com/Raindancer118/cheatwatch) (`cheatwatch-core`,
+bundled in the jar). Two optional helpers feed its development:
+
+- **Round recordings** (`cheats.record`, off by default): each round from its start into
+  `logs/hypixelscout/cheatwatch-<time>.cwrec`, every player name replaced by `actor_N`. Local only.
+- **Telemetry** (`telemetry.enabled`, on by default — opt-out): what the detector saw, as numbers,
+  every player as `actor_N`, never a name, account, chat or machine id; a notice on first launch with
+  one-click off; `/scout telemetry show` writes exactly what is sent. **Nothing is sent while
+  `telemetry.endpoint` is empty**, which is how it ships until a receiving server exists and the
+  opt-out model has passed a data-protection review (GDPR / § 25 TDDDG — see CheatWatch's
+  `TELEMETRY.md`).
 
 ## What it deliberately does not do
 

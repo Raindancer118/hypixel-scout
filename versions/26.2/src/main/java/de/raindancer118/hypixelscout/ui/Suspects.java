@@ -1,6 +1,6 @@
 package de.raindancer118.hypixelscout.ui;
 
-import de.raindancer118.hypixelscout.cheat.Suspicion;
+import de.raindancer118.cheatwatch.Suspicion;
 
 import java.util.List;
 import java.util.function.Function;
