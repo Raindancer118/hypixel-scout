@@ -367,6 +367,7 @@ public final class SettingsScreen extends Screen {
 			rows.addChild(sensitivity);
 			rows.addChild(toggle("cheats.log", cheats.log, value -> cheats.log = value));
 			rows.addChild(toggle("cheats.record", cheats.record, value -> cheats.record = value));
+			rows.addChild(toggle("telemetry.enabled", settings().telemetry.enabled, value -> settings().telemetry.enabled = value));
 			rows.addChild(Button.builder(Component.translatable("message.hypixelscout.settings.cheats.checks"),
 							button -> minecraft.gui.setScreen(new CheatChecksScreen(mod, SettingsScreen.this)))
 					.tooltip(Tooltip.create(Component.translatable("message.hypixelscout.settings.cheats.checks.tooltip")))

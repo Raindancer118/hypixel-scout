@@ -109,6 +109,7 @@ public final class HypixelScout implements ClientModInitializer {
 	private Flights flights;
 	private Hazards hazards;
 	private CheatSensor cheats;
+	private de.raindancer118.hypixelscout.game.Telemetry telemetry;
 	private Callouts callouts;
 	private ScoutKeys keys;
 	private ChatHover hover;
@@ -175,6 +176,8 @@ public final class HypixelScout implements ClientModInitializer {
 		new HazardLines(hazards).register();
 		HudElementRegistry.attachElementAfter(id("incoming"), id("hazards"), new HazardElement(hazards, () -> settings));
 		cheats = new CheatSensor(roster, () -> settings);
+		telemetry = new de.raindancer118.hypixelscout.game.Telemetry(() -> settings);
+		cheats.telemetry(telemetry);
 		Suspects.use(name -> settings.cheats.mark ? cheats.flags(name) : java.util.List.of(), cheats::confidence);
 		HudElementRegistry.attachElementBefore(id("peek"), id("suspects"),
 				new de.raindancer118.hypixelscout.ui.hud.SuspectsElement(cheats, () -> settings, roster).hideWhile(() -> peek.isHeld()));
@@ -220,6 +223,7 @@ public final class HypixelScout implements ClientModInitializer {
 		flights.tick(minecraft);
 		hazards.tick(minecraft);
 		cheats.tick(minecraft);
+		telemetry.tick(minecraft, this::saveSettings);
 		requeue.tick(minecraft);
 
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
@@ -444,6 +448,10 @@ public final class HypixelScout implements ClientModInitializer {
 	/** The arrows and fireballs in the air, for the client game test. */
 	public Flights flights() {
 		return flights;
+	}
+
+	public de.raindancer118.hypixelscout.game.Telemetry telemetry() {
+		return telemetry;
 	}
 
 	public CheatSensor cheats() {

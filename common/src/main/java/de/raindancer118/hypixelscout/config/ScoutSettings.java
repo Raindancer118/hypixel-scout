@@ -109,6 +109,7 @@ public final class ScoutSettings {
 	public Projectiles projectiles = new Projectiles();
 	public Awareness awareness = new Awareness();
 	public Cheats cheats = new Cheats();
+	public Telemetry telemetry = new Telemetry();
 	public Cards cards = new Cards();
 	public Callouts callouts = new Callouts();
 	public Queue queue = new Queue();
@@ -236,6 +237,20 @@ public final class ScoutSettings {
 		/** Enemies behind or beside the player in plain line of sight, as markers on the screen's edge. */
 		public boolean offscreen = true;
 		public int offscreenRange = 32;
+	}
+
+	/**
+	 * CheatWatch telemetry: anonymised sightings, flags and verdicts, so the detector's false-positive
+	 * rate can be measured (what exactly is sent: CheatWatch's {@code TELEMETRY.md}). Opt-out — on by
+	 * default, with a notice on first launch — but nothing is sent while {@link #endpoint} is empty,
+	 * which it is until a receiving server exists and the data-protection review is done.
+	 */
+	public static final class Telemetry {
+		public boolean enabled = true;
+		/** Where batches go; empty sends nothing. Read at startup. */
+		public String endpoint = "";
+		/** Whether the first-launch notice has been shown. */
+		public boolean noticeShown = false;
 	}
 
 	/** Watching the other players for what only a cheat makes possible ({@code de.raindancer118.cheatwatch.CheatWatch}). */
@@ -517,6 +532,8 @@ public final class ScoutSettings {
 		cards.peekScale = finiteClamp(cards.peekScale, MIN_SCALE, MAX_SCALE, 1.0);
 
 		cheats = cheats == null ? new Cheats() : cheats;
+		telemetry = telemetry == null ? new Telemetry() : telemetry;
+		telemetry.endpoint = telemetry.endpoint == null ? "" : telemetry.endpoint.trim();
 		cheats.sensitivity = Math.max(MIN_CHEAT_SENSITIVITY, Math.min(MAX_CHEAT_SENSITIVITY, cheats.sensitivity));
 		// A check name this version does not know reads as null; a hand-edited list may repeat one.
 		cheats.checkSensitivity = cheats.checkSensitivity == null ? new LinkedHashMap<>() : new LinkedHashMap<>(cheats.checkSensitivity);

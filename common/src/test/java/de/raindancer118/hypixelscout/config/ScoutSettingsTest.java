@@ -82,6 +82,10 @@ class ScoutSettingsTest {
 		assertThat(settings.cheats.log).isFalse();
 		// No CheatWatch recordings until the player asks for them.
 		assertThat(settings.cheats.record).isFalse();
+		// Telemetry is opt-out: on, but with no endpoint nothing is sent, and the notice is still due.
+		assertThat(settings.telemetry.enabled).isTrue();
+		assertThat(settings.telemetry.endpoint).isEmpty();
+		assertThat(settings.telemetry.noticeShown).isFalse();
 		// The cards say by default what they always said, at their usual size.
 		assertThat(settings.cards.tooltip.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
 		assertThat(settings.cards.popup.layout()).isEqualTo(de.raindancer118.hypixelscout.core.CardLines.Layout.POPUP);
@@ -117,6 +121,9 @@ class ScoutSettingsTest {
 		settings.threatSensitivity = 150;
 		settings.threatReportFrom = Threat.VERY_HIGH;
 		settings.cheats.record = true;
+		settings.telemetry.enabled = false;
+		settings.telemetry.noticeShown = true;
+		settings.telemetry.endpoint = "https://telemetry.example/api/telemetry/v1/batches";
 		settings.save();
 
 		ScoutSettings loaded = ScoutSettings.load(file);
@@ -132,6 +139,9 @@ class ScoutSettingsTest {
 		assertThat(loaded.threatSensitivity).isEqualTo(150);
 		assertThat(loaded.threatReportFrom).isEqualTo(Threat.VERY_HIGH);
 		assertThat(loaded.cheats.record).isTrue();
+		assertThat(loaded.telemetry.enabled).isFalse();
+		assertThat(loaded.telemetry.noticeShown).isTrue();
+		assertThat(loaded.telemetry.endpoint).isEqualTo("https://telemetry.example/api/telemetry/v1/batches");
 	}
 
 	@Test

@@ -335,6 +335,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			assertHazards(context, singleplayer, mod);
 			assertCallouts(context, mod);
 			assertCheats(context, mod);
+			assertTelemetry(context, mod);
 
 			// The threat report into team chat: one line per enemy team, most dangerous first.
 			context.runOnClient(client -> {
@@ -902,6 +903,50 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
 		});
 		context.waitTicks(2);
+	}
+
+	/**
+	 * Telemetry, opt-out: the notice came with the first world, {@code /scout telemetry show} writes
+	 * exactly what would be sent — with nobody's name in it — and off keeps nothing.
+	 */
+	private static void assertTelemetry(ClientGameTestContext context, HypixelScout mod) {
+		context.runOnClient(client -> {
+			if (!mod.settings().telemetry.enabled || !mod.settings().telemetry.noticeShown) {
+				throw new AssertionError("Telemetry should be on and its notice shown by now");
+			}
+			// The fight just now, as telemetry has it — or had it, if the sender already went past it.
+			mod.telemetry().client().sighting(new de.raindancer118.cheatwatch.Violation("Sundial",
+					de.raindancer118.cheatwatch.Check.REACH, "4.2 blocks", 1));
+			client.player.connection.sendCommand("scout telemetry show");
+		});
+		context.waitTicks(5);
+		context.runOnClient(client -> {
+			java.nio.file.Path preview = mod.cheats().log().dir().resolve("telemetry-preview.json");
+			String text;
+			try {
+				text = java.nio.file.Files.readString(preview);
+			} catch (java.io.IOException e) {
+				throw new AssertionError("/scout telemetry show wrote no preview", e);
+			}
+			if (text.contains("Sundial") || text.contains(client.player.getScoreboardName())) {
+				throw new AssertionError("The telemetry preview names a player:\n" + text);
+			}
+			client.player.connection.sendCommand("scout telemetry off");
+		});
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			if (mod.settings().telemetry.enabled || mod.telemetry().client().enabled()
+					|| mod.telemetry().client().pending() != 0) {
+				throw new AssertionError("Telemetry off still keeps something");
+			}
+			client.player.connection.sendCommand("scout telemetry on");
+		});
+		context.waitTicks(3);
+		context.runOnClient(client -> {
+			if (!mod.telemetry().client().enabled()) {
+				throw new AssertionError("Telemetry on did not come back on");
+			}
+		});
 	}
 
 	/**

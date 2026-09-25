@@ -68,6 +68,12 @@ public final class CheatSensor {
 	private Detector watch = engine;
 	/** This round's recording, while {@code cheats.record} is on; {@code null} otherwise. */
 	private Recorder recorder;
+	/** Where sightings, flags and verdicts also go, anonymised; {@code null} in a test without it. */
+	private Telemetry telemetry;
+	/** Whether a round is on for telemetry, from which tick, and everybody watched in it. */
+	private boolean roundOn;
+	private long roundStartTick;
+	private final java.util.Set<String> watchedThisRound = new java.util.HashSet<>();
 	private final Suspicion suspicion = new Suspicion();
 	/** The last finished tick; everything arriving before the next one's end belongs to {@code tick + 1}. */
 	private long tick;
@@ -150,8 +156,17 @@ public final class CheatSensor {
 		return settings.get().cheats.enabled ? suspicion.flags(name) : List.of();
 	}
 
+	public void telemetry(Telemetry sink) {
+		telemetry = sink;
+	}
+
 	/** The round is over, however it ended: its summary into the log, its recording closed. */
 	public void endRound() {
+		if (roundOn && telemetry != null) {
+			telemetry.roundEnded(tick - roundStartTick, watchedThisRound.size());
+		}
+		roundOn = false;
+		watchedThisRound.clear();
 		if (roundLogged) {
 			log.roundEnded();
 			roundLogged = false;
@@ -228,6 +243,9 @@ public final class CheatSensor {
 		if (logging != null) {
 			logging.verdict(player, check, cheating, flags, suspicion.confidence(player));
 		}
+		if (telemetry != null && !flags.isEmpty()) {
+			telemetry.verdict(player, check, cheating);
+		}
 		if (!cheating) {
 			suspicion.forget(player, check);
 		}
@@ -272,6 +290,11 @@ public final class CheatSensor {
 		endRound();
 		startRecording();
 		watch.clear();
+		roundOn = true;
+		roundStartTick = tick;
+		if (telemetry != null) {
+			telemetry.roundStarted(roster.mode());
+		}
 		suspicion.clear();
 		hurtAt.clear();
 		arrivedAttacks.clear();
@@ -420,6 +443,7 @@ public final class CheatSensor {
 		for (Player player : level.players()) {
 			String name = watched(player);
 			if (name != null && player.isAlive()) {
+				watchedThisRound.add(name);
 				watch.frame(name, frame(level, player));
 			}
 		}
@@ -432,6 +456,10 @@ public final class CheatSensor {
 			if (logging != null) {
 				logging.record(violation, suspicion.confidence(violation.player()), settings.get().cheats.sensitivity);
 				flag.ifPresent(raised -> logging.flagged(raised, suspicion.confidence(raised.player())));
+			}
+			if (telemetry != null) {
+				telemetry.sighting(violation);
+				flag.ifPresent(telemetry::flag);
 			}
 			flag.ifPresent(this::announce);
 		}

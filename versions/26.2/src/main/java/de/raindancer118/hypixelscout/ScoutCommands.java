@@ -108,6 +108,10 @@ public final class ScoutCommands {
 								.then(ClientCommands.argument("player", StringArgumentType.word())
 										.suggests((context, builder) -> SharedSuggestionProvider.suggest(flaggedPlayers(mod), builder))
 										.executes(context -> verdict(context, mod, true, false)))))
+				.then(ClientCommands.literal("telemetry").executes(context -> telemetryShow(context, mod))
+						.then(ClientCommands.literal("on").executes(context -> telemetrySwitch(context, mod, true)))
+						.then(ClientCommands.literal("off").executes(context -> telemetrySwitch(context, mod, false)))
+						.then(ClientCommands.literal("show").executes(context -> telemetryShow(context, mod))))
 				.then(ClientCommands.literal("testkey").executes(context -> {
 					context.getSource().sendFeedback(Chat.prefixed(
 							Component.translatable("message.hypixelscout.key.checking")));
@@ -264,5 +268,32 @@ public final class ScoutCommands {
 	public static net.minecraft.network.chat.MutableComponent describe(KeyCheck.Result result) {
 		String key = "message.hypixelscout.key.result." + result.outcome().name().toLowerCase(Locale.ROOT);
 		return Component.translatable(key, result.detail());
+	}
+
+	private static int telemetrySwitch(com.mojang.brigadier.context.CommandContext<FabricClientCommandSource> context,
+			HypixelScout mod, boolean on) {
+		mod.settings().telemetry.enabled = on;
+		mod.saveSettings();
+		mod.telemetry().client().setEnabled(on);
+		context.getSource().sendFeedback(Chat.prefixed(Component.translatable(
+				on ? "message.hypixelscout.telemetry.on" : "message.hypixelscout.telemetry.off")));
+		return 1;
+	}
+
+	/** {@code /scout telemetry [show]}: whether it is on, what it did, and the file with exactly what goes out. */
+	private static int telemetryShow(com.mojang.brigadier.context.CommandContext<FabricClientCommandSource> context,
+			HypixelScout mod) {
+		var settings = mod.settings().telemetry;
+		var stats = mod.telemetry().client().stats();
+		String state = !settings.enabled ? "off" : settings.endpoint.isEmpty() ? "idle" : "on";
+		context.getSource().sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.telemetry.state." + state,
+				stats.sentBatches(), mod.telemetry().client().pending(), stats.droppedEvents())));
+		java.nio.file.Path file = mod.telemetry().writePreview();
+		if (file != null) {
+			context.getSource().sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.telemetry.preview",
+					Component.literal(file.getFileName().toString()).withStyle(style -> style.withUnderlined(true)
+							.withClickEvent(new net.minecraft.network.chat.ClickEvent.OpenFile(file))))));
+		}
+		return 1;
 	}
 }
