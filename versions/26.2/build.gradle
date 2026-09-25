@@ -191,4 +191,6 @@ jar {
 // OpenAL Soft's null device: the game test keeps its sound system but plays nothing out loud.
 tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	environment 'ALSOFT_DRIVERS', 'null'
+	// A failed assertion deadlocks the framework when it closes the world; fail instead of hanging.
+	timeout = java.time.Duration.ofMinutes(8)
 }

@@ -82,460 +82,469 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 
 		try (HypixelStub stub = new HypixelStub();
 				TestSingleplayerContext singleplayer = context.worldBuilder().create()) {
-			HypixelScout mod = HypixelScout.get();
-			mod.client().setBaseUrl(stub.url());
-			mod.mojang().setBaseUrl(stub.url());
+			try {
+				HypixelScout mod = HypixelScout.get();
+				mod.client().setBaseUrl(stub.url());
+				mod.mojang().setBaseUrl(stub.url());
 
-			List<Roster.Member> members = new ArrayList<>();
-			for (Seat seat : GAME) {
-				UUID uuid = UUID.nameUUIDFromBytes(("scout-test:" + seat.player().name()).getBytes());
-				stub.add(uuid, seat.player());
-				members.add(new Roster.Member(seat.player().name(), uuid));
-			}
-			stub.add(UUID.nameUUIDFromBytes("scout-test:Technoblade".getBytes()),
-					new HypixelStub.Player("Technoblade", 1799, 55_000, 1_800, 9_200, 1_100, 212, "MVP_PLUS", false));
-
-			context.waitTick();
-			context.runOnClient(client -> assertCommandRegistered());
-
-			// Settings first, the way a player would: no key → the table says so.
-			context.runOnClient(client -> {
-				mod.settings().table.mode = HudMode.TOGGLE;
-				mod.setApiKey("");
-				members.add(new Roster.Member(client.player.getScoreboardName(), client.player.getUUID()));
-				stub.add(client.player.getUUID(), new HypixelStub.Player(client.player.getScoreboardName(),
-						333, 3_000, 1_000, 900, 400, 9, "MVP", false));
-				TabListReader.replaceForTest(() -> members);
-				mod.startGameForTest("BEDWARS_FOUR_FOUR", "Lighthouse");
-				mod.table().toggle();
-			});
-			context.waitTicks(5);
-			context.takeScreenshot("scout_table_no_key");
-
-			context.setScreen(() -> mod.scoutScreen(null));
-			context.waitTicks(3);
-			context.takeScreenshot("scout_game_no_key");
-
-			context.setScreen(() -> mod.settingsScreen(null));
-			context.waitTicks(3);
-			context.runOnClient(client -> ((SettingsScreen) client.gui.screen()).typeKeyForTest("not a key"));
-			context.waitTicks(2);
-			context.takeScreenshot("scout_settings_bad_key");
-			context.runOnClient(client -> ((SettingsScreen) client.gui.screen()).typeKeyForTest(HypixelStub.KEY));
-
-			AtomicReference<KeyCheck.Result> check = new AtomicReference<>();
-			context.runOnClient(client -> mod.checkKey(check::set));
-			context.waitFor(client -> check.get() != null);
-			if (check.get().outcome() != KeyCheck.Outcome.OK) {
-				throw new AssertionError("Key check against the stub failed: " + check.get());
-			}
-			context.setScreen(() -> null);
-
-			// The waiting lobby: a key, a full tab list, no teams yet — and nobody may be looked up.
-			int beforeLobby = stub.playerRequests.get();
-			context.waitTicks(50);
-			context.runOnClient(client -> {
-				if (mod.roster().hasStarted()) {
-					throw new AssertionError("The waiting lobby was taken for the match");
+				List<Roster.Member> members = new ArrayList<>();
+				for (Seat seat : GAME) {
+					UUID uuid = UUID.nameUUIDFromBytes(("scout-test:" + seat.player().name()).getBytes());
+					stub.add(uuid, seat.player());
+					members.add(new Roster.Member(seat.player().name(), uuid));
 				}
-				if (stub.playerRequests.get() != beforeLobby) {
-					throw new AssertionError((stub.playerRequests.get() - beforeLobby) + " lookups in the waiting lobby");
-				}
-			});
-			context.setScreen(() -> mod.scoutScreen(null));
-			context.waitTicks(3);
-			context.takeScreenshot("scout_page_game_lobby");
-			context.setScreen(() -> null);
+				stub.add(UUID.nameUUIDFromBytes("scout-test:Technoblade".getBytes()),
+						new HypixelStub.Player("Technoblade", 1799, 55_000, 1_800, 9_200, 1_100, 212, "MVP_PLUS", false));
 
-			// The match starts: the scoreboard puts everybody into teams, and the mod sees it by itself.
-			setUpTeams(context, singleplayer);
-			context.waitFor(client -> mod.roster().hasStarted(), 100);
+				context.waitTick();
+				context.runOnClient(client -> assertCommandRegistered());
 
-			// Everybody in the game gets looked up, once, through the real HTTP client.
-			context.waitFor(client -> members.stream().allMatch(member -> mod.stats().peek(member.uuid()) != null), 400);
-			context.waitTicks(25);
-			context.runOnClient(client -> assertRelativeThreat(mod, members));
-			context.runOnClient(client -> assertStats(mod, members));
-			// The nick was told apart through Mojang and cost no Hypixel request.
-			if (stub.asked.contains(UUID.nameUUIDFromBytes("scout-test:Glimmer".getBytes()).toString().replace("-", ""))) {
-				throw new AssertionError("Hypixel was asked about a nick Mojang already gave away");
-			}
-			context.runOnClient(client -> {
-				if (mod.client().getLimiter().limit() != 600) {
-					throw new AssertionError("The production key's limit was not taken from the answer: "
-							+ mod.client().getLimiter().limit());
-				}
-			});
-			int requests = stub.playerRequests.get();
-
-			context.waitTicks(10);
-			context.takeScreenshot("scout_table");
-
-			context.runOnClient(client -> {
-				mod.settings().table.showBeds = true;
-				mod.settings().table.showAccountAge = true;
-				mod.settings().table.hideOwnTeam = true;
-				mod.settings().table.scale = 0.8;
-			});
-			context.waitTicks(2);
-			context.takeScreenshot("scout_table_all_columns_scaled");
-			context.runOnClient(client -> {
-				mod.settings().table.showBeds = false;
-				mod.settings().table.showAccountAge = false;
-				mod.settings().table.hideOwnTeam = false;
-				mod.settings().table.scale = 1.0;
-			});
-
-			// The tab list, replaced while the key is held.
-			context.runOnClient(client -> mod.settings().tab.enabled = true);
-			context.getInput().holdKey(options -> options.keyPlayerList);
-			context.waitTicks(3);
-			context.takeScreenshot("scout_tab_list");
-			context.getInput().releaseKey(options -> options.keyPlayerList);
-
-			// Somebody in front of the camera: the look tooltip and the decorated nametag.
-			context.runOnClient(client -> {
-				mod.table().close();
-				mod.settings().nametag.stars = true;
-				var self = client.player;
-				self.snapTo(self.getX(), self.getY(), self.getZ(), 0.0f, 0.0f);
-				var other = new net.minecraft.client.player.RemotePlayer(client.level,
-						new com.mojang.authlib.GameProfile(UUID.nameUUIDFromBytes("scout-test:Sundial".getBytes()),
-								"Sundial"));
-				other.snapTo(self.getX(), self.getY(), self.getZ() + 3.5, 180.0f, 0.0f);
-				other.setId(424_242);
-				client.level.addEntity(other);
-				// A teammate right beside the player: no popup for them.
-				var mate = new net.minecraft.client.player.RemotePlayer(client.level,
-						new com.mojang.authlib.GameProfile(UUID.nameUUIDFromBytes("scout-test:Ashenvale".getBytes()),
-								"Ashenvale"));
-				mate.snapTo(self.getX() + 2.0, self.getY(), self.getZ() - 2.0, 0.0f, 0.0f);
-				mate.setId(424_243);
-				client.level.addEntity(mate);
-			});
-			context.waitTicks(5);
-			context.runOnClient(client -> {
-				var target = de.raindancer118.hypixelscout.game.LookTarget.pick(mod.settings().tooltip.cosine(), false, 1.0f);
-				if (target == null || !target.getScoreboardName().equals("Sundial")) {
-					throw new AssertionError("Look target not picked: " + target);
-				}
-				var tag = de.raindancer118.hypixelscout.game.Nametags.decorate(target, Component.literal("Sundial"));
-				if (!tag.getString().replaceAll("§.", "").startsWith("[1502")) {
-					throw new AssertionError("Nametag not decorated: " + tag.getString());
-				}
-			});
-			context.takeScreenshot("scout_look_tooltip_nametag");
-			// The same card made the player's own: two fields, one a line, no face, half as big again.
-			context.runOnClient(client -> {
-				var card = mod.settings().cards.tooltip;
-				card.fields = new java.util.ArrayList<>(List.of(de.raindancer118.hypixelscout.core.CardField.FKDR,
-						de.raindancer118.hypixelscout.core.CardField.WINSTREAK));
-				card.perLine = 1;
-				card.head = false;
-				card.scale = 1.5;
-			});
-			context.waitTicks(2);
-			context.takeScreenshot("scout_look_tooltip_custom");
-			context.runOnClient(client -> mod.settings().cards.tooltip = de.raindancer118.hypixelscout.config.ScoutSettings.Card.of(
-					de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP));
-			context.setScreen(() -> new de.raindancer118.hypixelscout.ui.screen.CardsScreen(mod, null));
-			context.waitTicks(3);
-			context.takeScreenshot("scout_cards_settings");
-			context.setScreen(() -> null);
-			context.waitTicks(2);
-
-			// Sundial, an enemy three and a half blocks away, came into the popup radius.
-			context.runOnClient(client -> {
-				var shown = mod.proximity().shown();
-				if (shown.isEmpty() || !shown.getFirst().name().equals("Sundial")) {
-					throw new AssertionError("No proximity popup for Sundial: " + shown);
-				}
-				if (shown.stream().anyMatch(popup -> popup.name().equals("Ashenvale"))) {
-					throw new AssertionError("A popup for a teammate: " + shown);
-				}
-				mod.settings().proximity.from = de.raindancer118.hypixelscout.core.Threat.INSANE;
-				if (mod.proximity().shown().isEmpty()) {
-					throw new AssertionError("Sundial is INSANE and still filtered out");
-				}
-				mod.settings().proximity.from = de.raindancer118.hypixelscout.core.Threat.NONE;
-				mod.settings().tooltip.enabled = false;
-			});
-			context.waitTicks(2);
-			context.takeScreenshot("scout_proximity_popup");
-			context.runOnClient(client -> mod.settings().tooltip.enabled = true);
-
-			// Auto requeue, party mode: in a party with Ashenvale, nothing until both are finally out.
-			String self = context.computeOnClient(client -> client.player.getScoreboardName());
-			context.runOnClient(client -> {
-				mod.settings().requeue.mode = de.raindancer118.hypixelscout.core.RequeueMode.PARTY;
-				mod.settings().requeue.delaySeconds = 15;
-				mod.requeue().setPartyForTest(java.util.Set.of(client.player.getUUID(), uuidOf(members, "Ashenvale")),
-						client.player.getUUID());
-			});
-			singleplayer.getServer().runCommand("tellraw @a {\"text\":\"" + self + " fell into the void.\"}");
-			singleplayer.getServer().runCommand("tellraw @a {\"text\":\"" + self
-					+ " was knocked into the void by Sundial. FINAL KILL!\"}");
-			context.waitTicks(3);
-			context.runOnClient(client -> {
-				if (mod.requeue().isPending()) {
-					throw new AssertionError("Requeue although Ashenvale is still in");
-				}
-			});
-			singleplayer.getServer().runCommand("tellraw @a {\"text\":\"Ashenvale fell into the void. FINAL KILL!\"}");
-			context.waitTicks(3);
-			context.runOnClient(client -> {
-				if (!mod.requeue().isPending()) {
-					throw new AssertionError("No requeue after the whole party was out");
-				}
-			});
-			context.takeScreenshot("scout_requeue_pending");
-			context.runOnClient(client -> client.player.connection.sendCommand("scout requeue cancel"));
-			context.runOnClient(client -> {
-				if (mod.requeue().isPending()) {
-					throw new AssertionError("Requeue not cancelled");
-				}
-				mod.settings().requeue.mode = de.raindancer118.hypixelscout.core.RequeueMode.OFF;
-				mod.settings().requeue.delaySeconds = 3;
-				mod.requeue().setPartyForTest(java.util.Set.of(), null);
-			});
-
-			// Holding the peek key: the full profile of whoever is aimed at, gone on release.
-			context.getInput().holdKey(mod.keys().peekMapping());
-			context.waitTicks(3);
-			context.runOnClient(client -> {
-				if (mod.peek().showing() != de.raindancer118.hypixelscout.ui.hud.PeekElement.Showing.PLAYER
-						|| !"Sundial".equals(mod.peek().shownPlayer())) {
-					throw new AssertionError("Peek did not show the aimed-at player: " + mod.peek().showing());
-				}
-			});
-			context.takeScreenshot("scout_peek_player");
-
-			context.runOnClient(client -> client.player.snapTo(client.player.getX(), client.player.getY(),
-					client.player.getZ(), 180.0f, 0.0f));
-			context.waitTicks(3);
-			context.runOnClient(client -> {
-				if (mod.peek().showing() != de.raindancer118.hypixelscout.ui.hud.PeekElement.Showing.TABLE) {
-					throw new AssertionError("Peek without a target did not show the table: " + mod.peek().showing());
-				}
-			});
-			context.takeScreenshot("scout_peek_table");
-
-			context.getInput().releaseKey(mod.keys().peekMapping());
-			context.waitTicks(2);
-			context.runOnClient(client -> {
-				if (mod.peek().isHeld() || mod.peek().showing() != de.raindancer118.hypixelscout.ui.hud.PeekElement.Showing.NOTHING) {
-					throw new AssertionError("Peek stayed up after the key was released");
-				}
-				client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
-			});
-			context.takeScreenshot("scout_peek_released");
-			context.runOnClient(client -> mod.settings().nametag.stars = false);
-
-			assertProjectiles(context, singleplayer, mod);
-			assertHazards(context, singleplayer, mod);
-			assertCallouts(context, mod);
-			assertCheats(context, mod);
-			assertTelemetry(context, mod);
-
-			// The threat report into team chat: one line per enemy team, most dangerous first.
-			context.runOnClient(client -> {
-				mod.partyReport().send(de.raindancer118.hypixelscout.game.PartyReport.Channel.TEAM);
-				List<String> lines = mod.partyReport().pendingLines();
-				if (lines.isEmpty() || !lines.getFirst().equals("YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS")
-						|| lines.stream().anyMatch(line -> line.startsWith("RED"))) {
-					throw new AssertionError("Unexpected team report: " + lines);
-				}
-				if (lines.stream().noneMatch(line -> line.equals("BLUE Glimmer is nicked"))) {
-					throw new AssertionError("The nick is missing from the report: " + lines);
-				}
-			});
-			context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
-			context.waitTicks(5);
-			context.takeScreenshot("scout_team_report_sent");
-
-			// The whole enemy list into party chat: everybody, the harmless ones too, then sent out.
-			context.runOnClient(client -> client.player.connection.sendCommand("scout list party"));
-			context.runOnClient(client -> {
-				List<String> lines = mod.partyReport().pendingLines();
-				if (lines.size() != 12 || !lines.getFirst().equals("YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS")
-						|| lines.stream().noneMatch(line -> line.startsWith("GREEN mossy 17* - NONE"))
-						|| !lines.getLast().equals("BLUE Glimmer is nicked")
-						|| lines.stream().anyMatch(line -> line.startsWith("RED"))) {
-					throw new AssertionError("Unexpected enemy list: " + lines);
-				}
-			});
-			context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
-
-			// Chat: the names in a line gain the stats on hover, and nothing else changes.
-			context.runOnClient(client -> assertChatHover(mod));
-			singleplayer.getServer().runCommand("tellraw @a [{\"text\":\"Ashenvale\",\"color\":\"red\"},"
-					+ "{\"text\":\" was knocked into the void by \",\"color\":\"gray\"},"
-					+ "{\"text\":\"Lanternfish\",\"color\":\"green\"},{\"text\":\". FINAL KILL!\",\"color\":\"aqua\",\"bold\":true}]");
-			context.waitTicks(5);
-
-			context.runOnClient(client -> {
-				mod.lookups().add("Technoblade");
-				mod.lookups().add("Sundial");
-				mod.lookups().add("Brickmason");
-			});
-
-			// The main screen, every tab.
-			for (ScoutScreen.Page page : ScoutScreen.Page.values()) {
-				context.setScreen(() -> {
-					ScoutScreen screen = mod.scoutScreen(null);
-					screen.showPage(page);
-					return screen;
+				// Settings first, the way a player would: no key → the table says so.
+				context.runOnClient(client -> {
+					mod.settings().table.mode = HudMode.TOGGLE;
+					mod.setApiKey("");
+					members.add(new Roster.Member(client.player.getScoreboardName(), client.player.getUUID()));
+					stub.add(client.player.getUUID(), new HypixelStub.Player(client.player.getScoreboardName(),
+							333, 3_000, 1_000, 900, 400, 9, "MVP", false));
+					TabListReader.replaceForTest(() -> members);
+					mod.startGameForTest("BEDWARS_FOUR_FOUR", "Lighthouse");
+					mod.table().toggle();
 				});
-				context.waitTicks(4);
-				context.takeScreenshot("scout_page_" + page.name().toLowerCase());
-			}
+				context.waitTicks(5);
+				context.takeScreenshot("scout_table_no_key");
 
-			context.runOnClient(client -> {
-				ScoutScreen screen = mod.scoutScreen(null);
-				client.gui.setScreen(screen);
-				if (screen.shownRows() != members.size()) {
-					throw new AssertionError("Game tab lists " + screen.shownRows() + " of " + members.size());
-				}
-			});
-
-			// A profile from the list, and a stranger looked up by name through Mojang.
-			context.setScreen(() -> mod.profileScreen("Sundial",
-					UUID.nameUUIDFromBytes("scout-test:Sundial".getBytes()), null));
-			context.waitTicks(4);
-			context.takeScreenshot("scout_profile");
-
-			// One player's stats into team chat, from the profile, with one click.
-			context.clickScreenButton("message.hypixelscout.profile.send.team");
-			context.runOnClient(client -> {
-				List<String> lines = mod.partyReport().pendingLines();
-				if (lines.size() < 2 || !lines.subList(lines.size() - 2, lines.size()).equals(List.of(
-						"Sundial [MVP+] 1502* is INSANE",
-						"13.8 FKDR, 5.3 WLR, 104 winstreak, 1.7 beds and 8.5 kills a game"))) {
-					throw new AssertionError("Unexpected player line: " + lines);
-				}
-			});
-			context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
-			context.setScreen(() -> null);
-			context.runOnClient(client -> client.player.connection.sendCommand("scout Brickmason party"));
-			context.waitFor(client -> mod.partyReport().pendingLines().stream()
-					.anyMatch(line -> line.startsWith("Brickmason [MVP+] 488* is ")), 100);
-			context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
-			context.waitTicks(3);
-			context.takeScreenshot("scout_player_sent");
-
-			context.setScreen(() -> mod.profileScreen("Technoblade", null, null));
-			context.waitFor(client -> client.gui.screen() instanceof ProfileScreen profile && profile.uuid() != null
-					&& mod.stats().peek(profile.uuid()) != null, 200);
-			context.waitTicks(4);
-			context.takeScreenshot("scout_profile_stranger");
-
-			context.setScreen(() -> mod.profileScreen("Glimmer",
-					UUID.nameUUIDFromBytes("scout-test:Glimmer".getBytes()), null));
-			context.waitTicks(3);
-			context.takeScreenshot("scout_profile_nick");
-
-			// Rebinding the peek key from the mod's own settings, the way a player would: click the
-			// binding, press the new key.
-			context.setScreen(() -> mod.settingsScreen(null).onTab(SettingsScreen.KEYS_TAB));
-			context.waitTicks(3);
-			context.takeScreenshot("scout_settings_keys");
-			clickKeyBinding(context, "Peek");
-			context.waitTicks(1);
-			context.takeScreenshot("scout_settings_keys_capturing");
-			context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_H);
-			context.waitTicks(2);
-			context.runOnClient(client -> {
-				if (!mod.keys().peekMapping().saveString().equals("key.keyboard.h")) {
-					throw new AssertionError("Peek key not rebound: " + mod.keys().peekMapping().saveString());
-				}
-			});
-			context.takeScreenshot("scout_settings_keys_rebound");
-			// Escape while capturing unbinds, as in vanilla's controls; then the default comes back.
-			clickKeyBinding(context, "Peek");
-			context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE);
-			context.waitTicks(2);
-			context.runOnClient(client -> {
-				if (!mod.keys().peekMapping().isUnbound()) {
-					throw new AssertionError("Escape did not unbind the peek key");
-				}
-				if (!(client.gui.screen() instanceof SettingsScreen)) {
-					throw new AssertionError("Escape while capturing closed the settings");
-				}
-			});
-			context.clickScreenButton("message.hypixelscout.settings.keys.reset");
-			context.waitTicks(2);
-			context.runOnClient(client -> {
-				if (!mod.keys().peekMapping().isDefault()) {
-					throw new AssertionError("Reset did not bring the default peek key back");
-				}
-			});
-
-			// Every settings tab, and the editor.
-			for (int tab = 0; tab < SettingsScreen.KEYS_TAB; tab++) {
-				int index = tab;
-				context.setScreen(() -> mod.settingsScreen(null).onTab(index));
+				context.setScreen(() -> mod.scoutScreen(null));
 				context.waitTicks(3);
-				context.takeScreenshot("scout_settings_" + tab);
+				context.takeScreenshot("scout_game_no_key");
+
+				context.setScreen(() -> mod.settingsScreen(null));
+				context.waitTicks(3);
+				context.runOnClient(client -> ((SettingsScreen) client.gui.screen()).typeKeyForTest("not a key"));
+				context.waitTicks(2);
+				context.takeScreenshot("scout_settings_bad_key");
+				context.runOnClient(client -> ((SettingsScreen) client.gui.screen()).typeKeyForTest(HypixelStub.KEY));
+
+				AtomicReference<KeyCheck.Result> check = new AtomicReference<>();
+				context.runOnClient(client -> mod.checkKey(check::set));
+				context.waitFor(client -> check.get() != null);
+				if (check.get().outcome() != KeyCheck.Outcome.OK) {
+					throw new AssertionError("Key check against the stub failed: " + check.get());
+				}
+				context.setScreen(() -> null);
+
+				// The waiting lobby: a key, a full tab list, no teams yet — and nobody may be looked up.
+				int beforeLobby = stub.playerRequests.get();
+				context.waitTicks(50);
+				context.runOnClient(client -> {
+					if (mod.roster().hasStarted()) {
+						throw new AssertionError("The waiting lobby was taken for the match");
+					}
+					if (stub.playerRequests.get() != beforeLobby) {
+						throw new AssertionError((stub.playerRequests.get() - beforeLobby) + " lookups in the waiting lobby");
+					}
+				});
+				context.setScreen(() -> mod.scoutScreen(null));
+				context.waitTicks(3);
+				context.takeScreenshot("scout_page_game_lobby");
+				context.setScreen(() -> null);
+
+				// The match starts: the scoreboard puts everybody into teams, and the mod sees it by itself.
+				setUpTeams(context, singleplayer);
+				context.waitFor(client -> mod.roster().hasStarted(), 100);
+
+				// Everybody in the game gets looked up, once, through the real HTTP client.
+				context.waitFor(client -> members.stream().allMatch(member -> mod.stats().peek(member.uuid()) != null), 400);
+				context.waitTicks(25);
+				context.runOnClient(client -> assertRelativeThreat(mod, members));
+				context.runOnClient(client -> assertStats(mod, members));
+				// The nick was told apart through Mojang and cost no Hypixel request.
+				if (stub.asked.contains(UUID.nameUUIDFromBytes("scout-test:Glimmer".getBytes()).toString().replace("-", ""))) {
+					throw new AssertionError("Hypixel was asked about a nick Mojang already gave away");
+				}
+				context.runOnClient(client -> {
+					if (mod.client().getLimiter().limit() != 600) {
+						throw new AssertionError("The production key's limit was not taken from the answer: "
+								+ mod.client().getLimiter().limit());
+					}
+				});
+				int requests = stub.playerRequests.get();
+
+				context.waitTicks(10);
+				context.takeScreenshot("scout_table");
+
+				context.runOnClient(client -> {
+					mod.settings().table.showBeds = true;
+					mod.settings().table.showAccountAge = true;
+					mod.settings().table.hideOwnTeam = true;
+					mod.settings().table.scale = 0.8;
+				});
+				context.waitTicks(2);
+				context.takeScreenshot("scout_table_all_columns_scaled");
+				context.runOnClient(client -> {
+					mod.settings().table.showBeds = false;
+					mod.settings().table.showAccountAge = false;
+					mod.settings().table.hideOwnTeam = false;
+					mod.settings().table.scale = 1.0;
+				});
+
+				// The tab list, replaced while the key is held.
+				context.runOnClient(client -> mod.settings().tab.enabled = true);
+				context.getInput().holdKey(options -> options.keyPlayerList);
+				context.waitTicks(3);
+				context.takeScreenshot("scout_tab_list");
+				context.getInput().releaseKey(options -> options.keyPlayerList);
+
+				// Somebody in front of the camera: the look tooltip and the decorated nametag.
+				context.runOnClient(client -> {
+					mod.table().close();
+					mod.settings().nametag.stars = true;
+					var self = client.player;
+					self.snapTo(self.getX(), self.getY(), self.getZ(), 0.0f, 0.0f);
+					var other = new net.minecraft.client.player.RemotePlayer(client.level,
+							new com.mojang.authlib.GameProfile(UUID.nameUUIDFromBytes("scout-test:Sundial".getBytes()),
+									"Sundial"));
+					other.snapTo(self.getX(), self.getY(), self.getZ() + 3.5, 180.0f, 0.0f);
+					other.setId(424_242);
+					client.level.addEntity(other);
+					// A teammate right beside the player: no popup for them.
+					var mate = new net.minecraft.client.player.RemotePlayer(client.level,
+							new com.mojang.authlib.GameProfile(UUID.nameUUIDFromBytes("scout-test:Ashenvale".getBytes()),
+									"Ashenvale"));
+					mate.snapTo(self.getX() + 2.0, self.getY(), self.getZ() - 2.0, 0.0f, 0.0f);
+					mate.setId(424_243);
+					client.level.addEntity(mate);
+				});
+				context.waitTicks(5);
+				context.runOnClient(client -> {
+					var target = de.raindancer118.hypixelscout.game.LookTarget.pick(mod.settings().tooltip.cosine(), false, 1.0f);
+					if (target == null || !target.getScoreboardName().equals("Sundial")) {
+						throw new AssertionError("Look target not picked: " + target);
+					}
+					var tag = de.raindancer118.hypixelscout.game.Nametags.decorate(target, Component.literal("Sundial"));
+					if (!tag.getString().replaceAll("§.", "").startsWith("[1502")) {
+						throw new AssertionError("Nametag not decorated: " + tag.getString());
+					}
+				});
+				context.takeScreenshot("scout_look_tooltip_nametag");
+				// The same card made the player's own: two fields, one a line, no face, half as big again.
+				context.runOnClient(client -> {
+					var card = mod.settings().cards.tooltip;
+					card.fields = new java.util.ArrayList<>(List.of(de.raindancer118.hypixelscout.core.CardField.FKDR,
+							de.raindancer118.hypixelscout.core.CardField.WINSTREAK));
+					card.perLine = 1;
+					card.head = false;
+					card.scale = 1.5;
+				});
+				context.waitTicks(2);
+				context.takeScreenshot("scout_look_tooltip_custom");
+				context.runOnClient(client -> mod.settings().cards.tooltip = de.raindancer118.hypixelscout.config.ScoutSettings.Card.of(
+						de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP));
+				context.setScreen(() -> new de.raindancer118.hypixelscout.ui.screen.CardsScreen(mod, null));
+				context.waitTicks(3);
+				context.takeScreenshot("scout_cards_settings");
+				context.setScreen(() -> null);
+				context.waitTicks(2);
+
+				// Sundial, an enemy three and a half blocks away, came into the popup radius.
+				context.runOnClient(client -> {
+					var shown = mod.proximity().shown();
+					if (shown.isEmpty() || !shown.getFirst().name().equals("Sundial")) {
+						throw new AssertionError("No proximity popup for Sundial: " + shown);
+					}
+					if (shown.stream().anyMatch(popup -> popup.name().equals("Ashenvale"))) {
+						throw new AssertionError("A popup for a teammate: " + shown);
+					}
+					mod.settings().proximity.from = de.raindancer118.hypixelscout.core.Threat.INSANE;
+					if (mod.proximity().shown().isEmpty()) {
+						throw new AssertionError("Sundial is INSANE and still filtered out");
+					}
+					mod.settings().proximity.from = de.raindancer118.hypixelscout.core.Threat.NONE;
+					mod.settings().tooltip.enabled = false;
+				});
+				context.waitTicks(2);
+				context.takeScreenshot("scout_proximity_popup");
+				context.runOnClient(client -> mod.settings().tooltip.enabled = true);
+
+				// Auto requeue, party mode: in a party with Ashenvale, nothing until both are finally out.
+				String self = context.computeOnClient(client -> client.player.getScoreboardName());
+				context.runOnClient(client -> {
+					mod.settings().requeue.mode = de.raindancer118.hypixelscout.core.RequeueMode.PARTY;
+					mod.settings().requeue.delaySeconds = 15;
+					mod.requeue().setPartyForTest(java.util.Set.of(client.player.getUUID(), uuidOf(members, "Ashenvale")),
+							client.player.getUUID());
+				});
+				singleplayer.getServer().runCommand("tellraw @a {\"text\":\"" + self + " fell into the void.\"}");
+				singleplayer.getServer().runCommand("tellraw @a {\"text\":\"" + self
+						+ " was knocked into the void by Sundial. FINAL KILL!\"}");
+				context.waitTicks(3);
+				context.runOnClient(client -> {
+					if (mod.requeue().isPending()) {
+						throw new AssertionError("Requeue although Ashenvale is still in");
+					}
+				});
+				singleplayer.getServer().runCommand("tellraw @a {\"text\":\"Ashenvale fell into the void. FINAL KILL!\"}");
+				context.waitTicks(3);
+				context.runOnClient(client -> {
+					if (!mod.requeue().isPending()) {
+						throw new AssertionError("No requeue after the whole party was out");
+					}
+				});
+				context.takeScreenshot("scout_requeue_pending");
+				context.runOnClient(client -> client.player.connection.sendCommand("scout requeue cancel"));
+				context.runOnClient(client -> {
+					if (mod.requeue().isPending()) {
+						throw new AssertionError("Requeue not cancelled");
+					}
+					mod.settings().requeue.mode = de.raindancer118.hypixelscout.core.RequeueMode.OFF;
+					mod.settings().requeue.delaySeconds = 3;
+					mod.requeue().setPartyForTest(java.util.Set.of(), null);
+				});
+
+				// Holding the peek key: the full profile of whoever is aimed at, gone on release.
+				context.getInput().holdKey(mod.keys().peekMapping());
+				context.waitTicks(3);
+				context.runOnClient(client -> {
+					if (mod.peek().showing() != de.raindancer118.hypixelscout.ui.hud.PeekElement.Showing.PLAYER
+							|| !"Sundial".equals(mod.peek().shownPlayer())) {
+						throw new AssertionError("Peek did not show the aimed-at player: " + mod.peek().showing());
+					}
+				});
+				context.takeScreenshot("scout_peek_player");
+
+				context.runOnClient(client -> client.player.snapTo(client.player.getX(), client.player.getY(),
+						client.player.getZ(), 180.0f, 0.0f));
+				context.waitTicks(3);
+				context.runOnClient(client -> {
+					if (mod.peek().showing() != de.raindancer118.hypixelscout.ui.hud.PeekElement.Showing.TABLE) {
+						throw new AssertionError("Peek without a target did not show the table: " + mod.peek().showing());
+					}
+				});
+				context.takeScreenshot("scout_peek_table");
+
+				context.getInput().releaseKey(mod.keys().peekMapping());
+				context.waitTicks(2);
+				context.runOnClient(client -> {
+					if (mod.peek().isHeld() || mod.peek().showing() != de.raindancer118.hypixelscout.ui.hud.PeekElement.Showing.NOTHING) {
+						throw new AssertionError("Peek stayed up after the key was released");
+					}
+					client.player.snapTo(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0f, 0.0f);
+				});
+				context.takeScreenshot("scout_peek_released");
+				context.runOnClient(client -> mod.settings().nametag.stars = false);
+
+				assertProjectiles(context, singleplayer, mod);
+				assertHazards(context, singleplayer, mod);
+				assertCallouts(context, mod);
+				assertCheats(context, mod);
+				assertTelemetry(context, mod);
+
+				// The threat report into team chat: one line per enemy team, most dangerous first.
+				context.runOnClient(client -> {
+					mod.partyReport().send(de.raindancer118.hypixelscout.game.PartyReport.Channel.TEAM);
+					List<String> lines = mod.partyReport().pendingLines();
+					if (lines.isEmpty() || !lines.getFirst().equals("YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS")
+							|| lines.stream().anyMatch(line -> line.startsWith("RED"))) {
+						throw new AssertionError("Unexpected team report: " + lines);
+					}
+					if (lines.stream().noneMatch(line -> line.equals("BLUE Glimmer is nicked"))) {
+						throw new AssertionError("The nick is missing from the report: " + lines);
+					}
+				});
+				context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
+				context.waitTicks(5);
+				context.takeScreenshot("scout_team_report_sent");
+
+				// The whole enemy list into party chat: everybody, the harmless ones too, then sent out.
+				context.runOnClient(client -> client.player.connection.sendCommand("scout list party"));
+				context.runOnClient(client -> {
+					List<String> lines = mod.partyReport().pendingLines();
+					if (lines.size() != 12 || !lines.getFirst().equals("YELLOW Sundial 1502* - INSANE - 13.8 FKDR - 104 WS")
+							|| lines.stream().noneMatch(line -> line.startsWith("GREEN mossy 17* - NONE"))
+							|| !lines.getLast().equals("BLUE Glimmer is nicked")
+							|| lines.stream().anyMatch(line -> line.startsWith("RED"))) {
+						throw new AssertionError("Unexpected enemy list: " + lines);
+					}
+				});
+				context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
+
+				// Chat: the names in a line gain the stats on hover, and nothing else changes.
+				context.runOnClient(client -> assertChatHover(mod));
+				singleplayer.getServer().runCommand("tellraw @a [{\"text\":\"Ashenvale\",\"color\":\"red\"},"
+						+ "{\"text\":\" was knocked into the void by \",\"color\":\"gray\"},"
+						+ "{\"text\":\"Lanternfish\",\"color\":\"green\"},{\"text\":\". FINAL KILL!\",\"color\":\"aqua\",\"bold\":true}]");
+				context.waitTicks(5);
+
+				context.runOnClient(client -> {
+					mod.lookups().add("Technoblade");
+					mod.lookups().add("Sundial");
+					mod.lookups().add("Brickmason");
+				});
+
+				// The main screen, every tab.
+				for (ScoutScreen.Page page : ScoutScreen.Page.values()) {
+					context.setScreen(() -> {
+						ScoutScreen screen = mod.scoutScreen(null);
+						screen.showPage(page);
+						return screen;
+					});
+					context.waitTicks(4);
+					context.takeScreenshot("scout_page_" + page.name().toLowerCase());
+				}
+
+				context.runOnClient(client -> {
+					ScoutScreen screen = mod.scoutScreen(null);
+					client.gui.setScreen(screen);
+					if (screen.shownRows() != members.size()) {
+						throw new AssertionError("Game tab lists " + screen.shownRows() + " of " + members.size());
+					}
+				});
+
+				// A profile from the list, and a stranger looked up by name through Mojang.
+				context.setScreen(() -> mod.profileScreen("Sundial",
+						UUID.nameUUIDFromBytes("scout-test:Sundial".getBytes()), null));
+				context.waitTicks(4);
+				context.takeScreenshot("scout_profile");
+
+				// One player's stats into team chat, from the profile, with one click.
+				context.clickScreenButton("message.hypixelscout.profile.send.team");
+				context.runOnClient(client -> {
+					List<String> lines = mod.partyReport().pendingLines();
+					if (lines.size() < 2 || !lines.subList(lines.size() - 2, lines.size()).equals(List.of(
+							"Sundial [MVP+] 1502* is INSANE",
+							"13.8 FKDR, 5.3 WLR, 104 winstreak, 1.7 beds and 8.5 kills a game"))) {
+						throw new AssertionError("Unexpected player line: " + lines);
+					}
+				});
+				context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
+				context.setScreen(() -> null);
+				context.runOnClient(client -> client.player.connection.sendCommand("scout Brickmason party"));
+				context.waitFor(client -> mod.partyReport().pendingLines().stream()
+						.anyMatch(line -> line.startsWith("Brickmason [MVP+] 488* is ")), 100);
+				context.waitFor(client -> mod.partyReport().pendingLines().isEmpty(), 400);
+				context.waitTicks(3);
+				context.takeScreenshot("scout_player_sent");
+
+				context.setScreen(() -> mod.profileScreen("Technoblade", null, null));
+				context.waitFor(client -> client.gui.screen() instanceof ProfileScreen profile && profile.uuid() != null
+						&& mod.stats().peek(profile.uuid()) != null, 200);
+				context.waitTicks(4);
+				context.takeScreenshot("scout_profile_stranger");
+
+				context.setScreen(() -> mod.profileScreen("Glimmer",
+						UUID.nameUUIDFromBytes("scout-test:Glimmer".getBytes()), null));
+				context.waitTicks(3);
+				context.takeScreenshot("scout_profile_nick");
+
+				// Rebinding the peek key from the mod's own settings, the way a player would: click the
+				// binding, press the new key.
+				context.setScreen(() -> mod.settingsScreen(null).onTab(SettingsScreen.KEYS_TAB));
+				context.waitTicks(3);
+				context.takeScreenshot("scout_settings_keys");
+				clickKeyBinding(context, "Peek");
+				context.waitTicks(1);
+				context.takeScreenshot("scout_settings_keys_capturing");
+				context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_H);
+				context.waitTicks(2);
+				context.runOnClient(client -> {
+					if (!mod.keys().peekMapping().saveString().equals("key.keyboard.h")) {
+						throw new AssertionError("Peek key not rebound: " + mod.keys().peekMapping().saveString());
+					}
+				});
+				context.takeScreenshot("scout_settings_keys_rebound");
+				// Escape while capturing unbinds, as in vanilla's controls; then the default comes back.
+				clickKeyBinding(context, "Peek");
+				context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE);
+				context.waitTicks(2);
+				context.runOnClient(client -> {
+					if (!mod.keys().peekMapping().isUnbound()) {
+						throw new AssertionError("Escape did not unbind the peek key");
+					}
+					if (!(client.gui.screen() instanceof SettingsScreen)) {
+						throw new AssertionError("Escape while capturing closed the settings");
+					}
+				});
+				context.clickScreenButton("message.hypixelscout.settings.keys.reset");
+				context.waitTicks(2);
+				context.runOnClient(client -> {
+					if (!mod.keys().peekMapping().isDefault()) {
+						throw new AssertionError("Reset did not bring the default peek key back");
+					}
+				});
+
+				// Every settings tab, and the editor.
+				for (int tab = 0; tab < SettingsScreen.KEYS_TAB; tab++) {
+					int index = tab;
+					context.setScreen(() -> mod.settingsScreen(null).onTab(index));
+					context.waitTicks(3);
+					context.takeScreenshot("scout_settings_" + tab);
+				}
+
+				context.setScreen(() -> mod.tableEditor(null));
+				context.waitTicks(3);
+				context.takeScreenshot("scout_table_editor");
+				context.runOnClient(client -> {
+					if (!(client.gui.screen() instanceof TableEditorScreen)) {
+						throw new AssertionError("Table editor did not open");
+					}
+				});
+				context.setScreen(() -> null);
+
+				// Commands open what they say.
+				context.runOnClient(client -> client.player.connection.sendCommand("scout teams"));
+				context.waitForScreen(ScoutScreen.class);
+				context.runOnClient(client -> {
+					if (((ScoutScreen) client.gui.screen()).page() != ScoutScreen.Page.TEAMS) {
+						throw new AssertionError("/scout teams opened the wrong tab");
+					}
+					// Blue's bed, seen standing in wool and end stone; Red's was broken in the hazard test.
+					mod.hazards().ledger().record("blue", new de.raindancer118.hypixelscout.core.BedDefense.Cell(30_000, 70, 30_000),
+							new de.raindancer118.hypixelscout.core.BedDefense.Report(false, List.of(
+									new de.raindancer118.hypixelscout.core.BedDefense.Material("Blue Wool", 0.8, 4),
+									new de.raindancer118.hypixelscout.core.BedDefense.Material("End Stone", 3.0, 14)), null));
+				});
+				context.waitTicks(2);
+				context.takeScreenshot("scout_teams_beds");
+				context.runOnClient(client -> client.gui.screen().mouseScrolled(0, 0, 0, -10));
+				context.waitTicks(2);
+				context.takeScreenshot("scout_teams_beds_scrolled");
+				context.setScreen(() -> null);
+				context.runOnClient(client -> client.player.connection.sendCommand("scout Brickmason"));
+				context.waitForScreen(ProfileScreen.class);
+				context.setScreen(() -> null);
+
+				// Opening all of that must not have looked anybody up a second time.
+				if (stub.playerRequests.get() > requests + 1) {
+					throw new AssertionError("Screens caused " + (stub.playerRequests.get() - requests) + " extra requests");
+				}
+
+				assertStoppingClosesTheRecording(context, mod);
+
+				// Leaving the game empties everything.
+				context.runOnClient(client -> {
+					TabListReader.replaceForTest(null);
+					mod.roster().onLocationChanged(false, null, null);
+					if (!mod.roster().members().isEmpty()) {
+						throw new AssertionError("Roster survived leaving the game");
+					}
+				});
+				context.waitTicks(3);
+				context.takeScreenshot("scout_after_game");
+
+				// Outside a game the editor shows a made-up lobby, so the table can still be placed.
+				context.runOnClient(client -> mod.settings().table.placement =
+						de.raindancer118.hypixelscout.config.TablePlacement.fromTopLeft(427, 240, 200, 150, 220, 90));
+				context.setScreen(() -> mod.tableEditor(null));
+				context.waitTicks(3);
+				context.takeScreenshot("scout_table_editor_sample");
+				context.setScreen(() -> null);
+			} catch (Throwable failure) {
+				// Closing the world after a failure deadlocks the game test framework (the render
+				// thread halts the server while it waits for the test phase), and the failure is never
+				// printed: say it before the close.
+				System.err.println("Hypixel Scout game test failed: " + failure);
+				failure.printStackTrace();
+				throw failure;
 			}
-
-			context.setScreen(() -> mod.tableEditor(null));
-			context.waitTicks(3);
-			context.takeScreenshot("scout_table_editor");
-			context.runOnClient(client -> {
-				if (!(client.gui.screen() instanceof TableEditorScreen)) {
-					throw new AssertionError("Table editor did not open");
-				}
-			});
-			context.setScreen(() -> null);
-
-			// Commands open what they say.
-			context.runOnClient(client -> client.player.connection.sendCommand("scout teams"));
-			context.waitForScreen(ScoutScreen.class);
-			context.runOnClient(client -> {
-				if (((ScoutScreen) client.gui.screen()).page() != ScoutScreen.Page.TEAMS) {
-					throw new AssertionError("/scout teams opened the wrong tab");
-				}
-				// Blue's bed, seen standing in wool and end stone; Red's was broken in the hazard test.
-				mod.hazards().ledger().record("blue", new de.raindancer118.hypixelscout.core.BedDefense.Cell(30_000, 70, 30_000),
-						new de.raindancer118.hypixelscout.core.BedDefense.Report(false, List.of(
-								new de.raindancer118.hypixelscout.core.BedDefense.Material("Blue Wool", 0.8, 4),
-								new de.raindancer118.hypixelscout.core.BedDefense.Material("End Stone", 3.0, 14)), null));
-			});
-			context.waitTicks(2);
-			context.takeScreenshot("scout_teams_beds");
-			context.runOnClient(client -> client.gui.screen().mouseScrolled(0, 0, 0, -10));
-			context.waitTicks(2);
-			context.takeScreenshot("scout_teams_beds_scrolled");
-			context.setScreen(() -> null);
-			context.runOnClient(client -> client.player.connection.sendCommand("scout Brickmason"));
-			context.waitForScreen(ProfileScreen.class);
-			context.setScreen(() -> null);
-
-			// Opening all of that must not have looked anybody up a second time.
-			if (stub.playerRequests.get() > requests + 1) {
-				throw new AssertionError("Screens caused " + (stub.playerRequests.get() - requests) + " extra requests");
-			}
-
-			assertStoppingClosesTheRecording(context, mod);
-
-			// Leaving the game empties everything.
-			context.runOnClient(client -> {
-				TabListReader.replaceForTest(null);
-				mod.roster().onLocationChanged(false, null, null);
-				if (!mod.roster().members().isEmpty()) {
-					throw new AssertionError("Roster survived leaving the game");
-				}
-			});
-			context.waitTicks(3);
-			context.takeScreenshot("scout_after_game");
-
-			// Outside a game the editor shows a made-up lobby, so the table can still be placed.
-			context.runOnClient(client -> mod.settings().table.placement =
-					de.raindancer118.hypixelscout.config.TablePlacement.fromTopLeft(427, 240, 200, 150, 220, 90));
-			context.setScreen(() -> mod.tableEditor(null));
-			context.waitTicks(3);
-			context.takeScreenshot("scout_table_editor_sample");
-			context.setScreen(() -> null);
 		} catch (java.io.IOException e) {
 			throw new AssertionError("Could not start the Hypixel stub", e);
 		}
@@ -1059,7 +1068,22 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 		});
 
-		// Blocks appearing behind him, one a tick, while he looks straight ahead.
+		// Blocks appearing behind him, one a tick, while he looks straight ahead - end stone in his
+		// hand, his mate out of reach: a block belongs to a placer only then (cheatwatch 0.3.0).
+		net.minecraft.world.item.ItemStack[] held = new net.minecraft.world.item.ItemStack[1];
+		double[] mateAt = new double[3];
+		context.runOnClient(client -> {
+			var sundial = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_242);
+			held[0] = sundial.getMainHandItem().copy();
+			sundial.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+					new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.END_STONE));
+			var mate = client.level.getEntity(424_243);
+			mateAt[0] = mate.getX();
+			mateAt[1] = mate.getY();
+			mateAt[2] = mate.getZ();
+			place(mate, mate.getX() + 12, mate.getY(), mate.getZ(), mate.getYRot());
+		});
+		context.waitTicks(3);
 		for (int i = 0; i < 8; i++) {
 			int z = base[2] - 3 + i;
 			context.runOnClient(client -> {
@@ -1082,6 +1106,10 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			}
 			// A check switched off forgets what it saw, flags and all; on again, it watches afresh.
 			mod.settings().cheats.set(de.raindancer118.cheatwatch.Check.SCAFFOLD, false);
+			((net.minecraft.world.entity.player.Player) client.level.getEntity(424_242))
+					.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, held[0]);
+			var mate = client.level.getEntity(424_243);
+			place(mate, mateAt[0], mateAt[1], mateAt[2], mate.getYRot());
 		});
 		context.waitTicks(2);
 		context.runOnClient(client -> {
