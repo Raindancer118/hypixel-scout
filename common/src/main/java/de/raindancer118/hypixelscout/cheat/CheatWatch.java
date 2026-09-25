@@ -253,14 +253,24 @@ public final class CheatWatch {
 	/** Step: a grounded rise in this range, in one tick, is higher than a leg climbs. */
 	private static final double STEP_MIN = 0.6;
 	private static final double STEP_MAX = 2.5;
-	/** Vanilla jump height, plus a buffer this mod cannot narrow: a remote player's Jump Boost
-	 * amplifier is not reliably visible, so the allowance is the same whatever the potion says. */
-	private static final double STEP_JUMP_ALLOWANCE = 0.52;
+	/** What a jump rises on top of its arc, as a buffer this mod cannot narrow: a remote player's Jump
+	 * Boost amplifier is not reliably visible, so the allowance is the same whatever the potion says. */
+	private static final double STEP_JUMP_BUFFER = 0.1;
+	/** Past this many ticks a jump has peaked; a longer gap between two positions allows no more. */
+	private static final int STEP_GAP_MAX = 6;
+
+	/** A vanilla jump's first tick up, and what gravity and drag do to it every tick after. */
+	private static final double JUMP_VELOCITY = 0.42;
+	private static final double GRAVITY = 0.08;
+	private static final double AIR_DRAG = 0.98;
 
 	/** Blink: a freeze this many ticks (near motionless), then a jump past this many blocks. */
 	private static final int BLINK_FREEZE_TICKS = 5;
 	private static final double BLINK_FREEZE_EPSILON = 0.01;
 	private static final double BLINK_SNAP = 2.0;
+	/** Blocks a tick that no burst of held-back movement goes past — sprint-jumping on Speed II is
+	 * about half of it. A snap further than this per frozen tick is the server putting them there. */
+	private static final double BLINK_MOST_PER_TICK = 1.0;
 
 	/** Criticals: the attacker's small upward rise before a hit, and how many hits with how little
 	 * spread in that rise before a fixed fall-arc phase (a hack forcing crits) is called. */
@@ -277,6 +287,8 @@ public final class CheatWatch {
 		final ArrayDeque<Boolean> fullSpeedHits = new ArrayDeque<>();
 		final Map<Check, Long> lastSeen = new EnumMap<>(Check.class);
 		long lastShove = Long.MIN_VALUE / 2;
+		/** The last tick the server put them somewhere else outright — a round start, a respawn. */
+		long lastTeleport = Long.MIN_VALUE / 2;
 		long lastHurt = Long.MIN_VALUE / 2;
 		long lastBridgeFlag = Long.MIN_VALUE / 2;
 		Vec motion;
@@ -740,6 +752,11 @@ public final class CheatWatch {
 		}
 		if (last != null && frame.feet().distanceTo(last.feet()) > TELEPORT) {
 			track.lastShove = frame.tick();
+		}
+		// Sideways, not down: a long fall covers more than this between two updates, but no fall
+		// moves anybody across the map.
+		if (last != null && frame.horizontalFrom(last) > TELEPORT) {
+			track.lastTeleport = frame.tick();
 		}
 		track.frames.addLast(frame);
 		while (track.frames.size() > HISTORY) {
@@ -2018,6 +2035,11 @@ public final class CheatWatch {
 		if (now == null) {
 			return;
 		}
+		if (track.lastTeleport == tick) {
+			// Out of the waiting cage onto the island, or back after a death: the height they hung at
+			// before is not a fall.
+			track.fallPeakY = Double.NaN;
+		}
 		boolean airborne = !now.supported() && !now.assisted() && !now.riding();
 		if (airborne) {
 			if (Double.isNaN(track.fallPeakY) || now.feet().y() > track.fallPeakY) {
@@ -2038,10 +2060,14 @@ public final class CheatWatch {
 	// --- step: a rise higher than a jump lets a leg climb -----------------------------------------------
 
 	/**
-	 * A grounded-to-grounded rise in one tick past what a jump explains. Vanilla's jump gives about
-	 * 0.42 blocks of ground clearance; the allowance here is a little wider because a remote player's
-	 * Jump Boost amplifier is not reliably visible to this client, so it cannot be subtracted out —
-	 * left conservative on purpose (a real StepHeight cheat's climb is well past this either way).
+	 * A grounded-to-grounded rise past what a jump explains in the ticks since their position last
+	 * changed. Hypixel sends where another player is only every other tick, and now and then a tick
+	 * late, so one new position can carry two or three ticks of a jump at once — 0.75 or 1.0 blocks,
+	 * with the box pressed against the block they jump onto counting as supported. The allowance is
+	 * the jump's arc over that gap (0.42 for one tick) plus a buffer, because a remote player's Jump
+	 * Boost amplifier is not reliably visible to this client. The price: somebody standing still for a
+	 * while and then climbing a block in one go looks like a jump seen late; a StepHeight cheat walking
+	 * into a block, the way it is used, is still caught at the usual two-tick cadence.
 	 *
 	 * <p>Derived from Iustitia (MIT), checks/movement/StepHeightCheck.kt.
 	 */
@@ -2053,9 +2079,36 @@ public final class CheatWatch {
 			return;
 		}
 		double dy = now.feet().y() - before.feet().y();
-		if (dy > Math.max(STEP_MIN, STEP_JUMP_ALLOWANCE) && dy <= STEP_MAX) {
+		double allowance = jumpArc(ticksSinceMoved(track, before, tick)) + STEP_JUMP_BUFFER;
+		if (dy > Math.max(STEP_MIN, allowance) && dy <= STEP_MAX) {
 			add(found, player, Check.STEP, String.format(Locale.ROOT, "stepped up %.2f blocks", dy), tick);
 		}
+	}
+
+	/** How many ticks before {@code tick} the position {@code before} first arrived, capped. */
+	private static int ticksSinceMoved(Track track, Frame before, long tick) {
+		int gap = 1;
+		while (gap < STEP_GAP_MAX) {
+			Frame earlier = track.at(tick - gap - 1);
+			if (earlier == null || !earlier.feet().equals(before.feet())) {
+				break;
+			}
+			gap++;
+		}
+		return gap;
+	}
+
+	/** The highest a vanilla jump gets within this many ticks. */
+	static double jumpArc(int ticks) {
+		double y = 0;
+		double highest = 0;
+		double velocity = JUMP_VELOCITY;
+		for (int i = 0; i < ticks; i++) {
+			y += velocity;
+			highest = Math.max(highest, y);
+			velocity = (velocity - GRAVITY) * AIR_DRAG;
+		}
+		return highest;
 	}
 
 	// --- blink: froze, then snapped several blocks -------------------------------------------------------
@@ -2081,7 +2134,10 @@ public final class CheatWatch {
 			track.stillStreak++;
 			return;
 		}
-		if (track.stillStreak >= BLINK_FREEZE_TICKS && moved > BLINK_SNAP) {
+		// Further than any burst of their own moves reaches is the server putting them somewhere — the
+		// round start out of the waiting cage, a respawn — not packets they held back.
+		boolean teleported = moved > (track.stillStreak + 1) * BLINK_MOST_PER_TICK;
+		if (track.stillStreak >= BLINK_FREEZE_TICKS && moved > BLINK_SNAP && !teleported) {
 			add(found, player, Check.BLINK,
 					String.format(Locale.ROOT, "froze %d ticks then jumped %.1f blocks", track.stillStreak, moved), tick);
 		}
@@ -2126,7 +2182,9 @@ public final class CheatWatch {
 	/**
 	 * Looking down at the bridge and moving straight away from where they look, blocks in hand and
 	 * swinging: backwards bridging. Legs do that at up to about 4 blocks a second on the flat; past 5
-	 * — or rising a tower while going sideways — it is a scaffold, whatever the rotation says.
+	 * — or rising a tower while going sideways faster than a jump lifts anybody — it is a scaffold,
+	 * whatever the rotation says. Jump-bridging a staircase is legit and rises 1.17 blocks in the first
+	 * four ticks of each jump; the tower has to beat the highest arc over the window's ticks.
 	 */
 	private static String backwardsBridge(List<Frame> frames, double limit) {
 		Frame first = frames.get(0);
@@ -2151,7 +2209,7 @@ public final class CheatWatch {
 		if (Math.abs(rise) < 0.05 && speed > limit) {
 			return String.format(Locale.ROOT, "bridged backwards at %.1f blocks/s", speed * 20);
 		}
-		if (rise > 0.2 && rise < 0.75 && speed > 0.15) {
+		if (rise * ticks > jumpArc((int) ticks) + STEP_JUMP_BUFFER && rise < 0.75 && speed > 0.15) {
 			return String.format(Locale.ROOT, "towered up while bridging backwards at %.1f blocks/s", speed * 20);
 		}
 		return null;
