@@ -113,7 +113,7 @@ public final class CheatChecksScreen extends GuiScreen {
 						cheats.reachMoving = 3.8;
 						cheats.speedPerSecond = 12.4;
 						cheats.fastPlacePerSecond = 13;
-						cheats.bridgePerSecond = 5.0;
+						cheats.bridgePerSecond = de.raindancer118.hypixelscout.config.ScoutSettings.DEFAULT_BRIDGE_PER_SECOND;
 						cheats.checkSensitivity.clear();
 						initGui();
 					}

@@ -363,6 +363,9 @@ tasks.register('runProductionStartupTest') {
 	description = 'Runs the startup test in a production-like Forge client with the shipped jar.'
 	dependsOn tasks.named('remapJar')
 	mustRunAfter tasks.named('runClientStartupTest')
+	// As runClientStartupTest: a client that hangs on its way out (one was found still running
+	// twenty hours later) is stopped rather than left behind.
+	timeout = Duration.ofMinutes(8)
 
 	doLast {
 		def runDir = layout.buildDirectory.dir('run/productionTest').get().asFile
