@@ -516,6 +516,8 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 				throw new AssertionError("Screens caused " + (stub.playerRequests.get() - requests) + " extra requests");
 			}
 
+			assertStoppingClosesTheRecording(context, mod);
+
 			// Leaving the game empties everything.
 			context.runOnClient(client -> {
 				TabListReader.replaceForTest(null);
@@ -1206,6 +1208,40 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			place(client.level.getEntity(424_243), before[1][0], before[1][1], before[1][2], (float) before[1][3]);
 		});
 		context.waitTicks(2);
+	}
+
+	/**
+	 * Quitting the game mid-round: the disconnect's queued work never runs once the client stops, so
+	 * stopping itself has to close the round's recording, or its gzip stays without an end. Ends the
+	 * game, so it comes last.
+	 */
+	private static void assertStoppingClosesTheRecording(ClientGameTestContext context, HypixelScout mod) {
+		context.runOnClient(client -> {
+			java.nio.file.Path logDir = mod.cheats().log().dir();
+			try (var old = java.nio.file.Files.list(logDir)) {
+				for (java.nio.file.Path file : old.filter(file -> file.toString().endsWith(".cwrec")).toList()) {
+					java.nio.file.Files.delete(file);
+				}
+			} catch (java.io.IOException e) {
+				throw new AssertionError("Could not remove the first recording", e);
+			}
+			mod.settings().cheats.record = true;
+			mod.cheats().newRound();
+			mod.settings().cheats.record = false;
+			mod.clientStopping();
+			if (mod.cheats().recorder() != null) {
+				throw new AssertionError("The recording outlived the client stopping");
+			}
+			try (var files = java.nio.file.Files.list(logDir)) {
+				java.nio.file.Path recording = files.filter(file -> file.toString().endsWith(".cwrec")).findFirst()
+						.orElseThrow(() -> new AssertionError("No .cwrec for the round the client stopped in"));
+				try (var in = new java.util.zip.GZIPInputStream(java.nio.file.Files.newInputStream(recording))) {
+					in.readAllBytes();
+				}
+			} catch (java.io.IOException e) {
+				throw new AssertionError("The recording of the round the client stopped in is not complete", e);
+			}
+		});
 	}
 
 	/**

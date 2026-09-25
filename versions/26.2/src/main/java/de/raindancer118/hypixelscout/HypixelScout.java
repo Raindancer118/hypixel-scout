@@ -46,6 +46,7 @@ import de.raindancer118.hypixelscout.ui.screen.ProfileScreen;
 import de.raindancer118.hypixelscout.ui.screen.ScoutScreen;
 import de.raindancer118.hypixelscout.ui.screen.SettingsScreen;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -204,6 +205,7 @@ public final class HypixelScout implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, minecraft) ->
 				minecraft.execute(this::leftServer));
+		ClientLifecycleEvents.CLIENT_STOPPING.register(minecraft -> clientStopping());
 
 		new LocationBridge(roster, this::gameJoined).register();
 		requeue.register();
@@ -306,6 +308,15 @@ public final class HypixelScout implements ClientModInitializer {
 	public void startGameForTest(String mode, String map) {
 		roster.onLocationChanged(true, mode, map);
 		gameJoined();
+	}
+
+	/**
+	 * Quitting the game mid-round. The disconnect that comes with it hands its work to the client's
+	 * task queue, which never runs again once the client stops — so the round ends here, and its
+	 * recording is closed rather than left without its gzip end.
+	 */
+	public void clientStopping() {
+		leftServer();
 	}
 
 	/** Leaving the server ends the game as surely as the location packet would. */
