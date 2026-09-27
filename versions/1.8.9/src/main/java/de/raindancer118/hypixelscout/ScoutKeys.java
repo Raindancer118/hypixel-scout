@@ -201,13 +201,15 @@ public final class ScoutKeys {
 		add("cheats_party", Keyboard.KEY_NONE, new Runnable() {
 			@Override
 			public void run() {
-				mod.partyReport().sendCheats(PartyReport.Channel.PARTY, mod.cheats().suspicion());
+				mod.partyReport().sendCheats(PartyReport.Channel.PARTY,
+						de.raindancer118.scout.api.ScoutApi.get().suspicion());
 			}
 		});
 		add("cheats_team", Keyboard.KEY_NONE, new Runnable() {
 			@Override
 			public void run() {
-				mod.partyReport().sendCheats(PartyReport.Channel.TEAM, mod.cheats().suspicion());
+				mod.partyReport().sendCheats(PartyReport.Channel.TEAM,
+						de.raindancer118.scout.api.ScoutApi.get().suspicion());
 			}
 		});
 		// Whoever is under the crosshair, into chat in one press: the call-out mid-fight.

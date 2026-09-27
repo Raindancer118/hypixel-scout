@@ -18,8 +18,10 @@ import de.raindancer118.hypixelscout.core.ThreatScale;
 import de.raindancer118.hypixelscout.game.AutoRequeue;
 import de.raindancer118.hypixelscout.game.Callouts;
 import de.raindancer118.hypixelscout.game.ChatHover;
-import de.raindancer118.hypixelscout.game.CheatSensor;
 import de.raindancer118.hypixelscout.game.Flights;
+import de.raindancer118.hypixelscout.game.HypixelHost;
+import de.raindancer118.scout.api.ScoutApi;
+import de.raindancer118.scout.forge.ScoutRuntime;
 import de.raindancer118.hypixelscout.game.Hazards;
 import de.raindancer118.hypixelscout.game.LocationBridge;
 import de.raindancer118.hypixelscout.game.Nametags;
@@ -33,14 +35,12 @@ import de.raindancer118.hypixelscout.startup.StartupTestListener;
 import de.raindancer118.hypixelscout.ui.Chat;
 import de.raindancer118.hypixelscout.ui.ProfileView;
 import de.raindancer118.hypixelscout.ui.ScoutTheme;
-import de.raindancer118.hypixelscout.ui.Suspects;
 import de.raindancer118.hypixelscout.ui.Threats;
 import de.raindancer118.hypixelscout.ui.hud.HazardElement;
 import de.raindancer118.hypixelscout.ui.hud.IncomingElement;
 import de.raindancer118.hypixelscout.ui.hud.LookTooltipElement;
 import de.raindancer118.hypixelscout.ui.hud.PeekElement;
 import de.raindancer118.hypixelscout.ui.hud.ProximityElement;
-import de.raindancer118.hypixelscout.ui.hud.SuspectsElement;
 import de.raindancer118.hypixelscout.ui.hud.TabStatsElement;
 import de.raindancer118.hypixelscout.ui.hud.TableHud;
 import de.raindancer118.hypixelscout.ui.hud.TableHudElement;
@@ -81,15 +81,8 @@ import java.util.function.Consumer;
  * has started. The alternative is matching English chat lines, which breaks the day Hypixel rewords
  * one.
  *
- * <p>This is Phase 1 of the Forge 1.8.9 port on branch {@code forge-1.8.9} (see {@code Project.md}):
- * the foundation — settings, the API clients, the roster, alerts, party/team reports, callouts, the
- * queue, auto-requeue, lookups, the tick loop, game-start detection, nametags and chat hover — with
- * no HUD elements, screens, world-drawn lines, projectile awareness or cheat detection yet. Those
- * are later phases on this branch, built on top of what this class already exposes: a later phase's
- * {@code onInitializeClient}-equivalent adds its own {@code HudElementRegistry}-style registration
- * (1.8.9's is {@code RenderGameOverlayEvent}) right where 26.2's does — after {@link #stats}/{@link
- * #roster} exist below — and reaches this class's state through the same accessors 26.2's HUD/screen
- * code already calls ({@link #settings()}, {@link #roster()}, {@link #stats()}, …).
+ * <p>The Forge 1.8.9 port of 26.2's mod (branch {@code forge-1.8.9}, see {@code Project.md}). Cheat
+ * detection is Scout's (repo cheatwatch), shaded in; this mod is its host ({@link HypixelHost}).
  */
 @Mod(modid = HypixelScout.MOD_ID, name = "Hypixel Scout", version = HypixelScout.VERSION,
 		clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]",
@@ -145,8 +138,6 @@ public final class HypixelScout {
 	private ProximityElement proximityElement;
 	private Flights flights;
 	private Hazards hazards;
-	private de.raindancer118.hypixelscout.game.Telemetry telemetry;
-	private CheatSensor cheats;
 	private boolean modApiPresent;
 	private int scanTicks;
 	/** Whether the scoreboard shows real Bedwars teams, checked with the roster every second. */
@@ -239,6 +230,12 @@ public final class HypixelScout {
 
 		registerHudElements();
 
+		// The cheat detection is Scout's, shaded into this jar: it watches, flags and draws its own
+		// HUD; this mod only tells it about the game. The host goes in first, so Scout starts with
+		// it — and leaves /scout to this mod's command, which hands Scout its subcommands.
+		ScoutApi.register(new HypixelHost());
+		ScoutRuntime.start();
+
 		keys = new ScoutKeys(this);
 		keys.register();
 		ScoutCommands.register(this);
@@ -258,6 +255,7 @@ public final class HypixelScout {
 		if (Boolean.getBoolean("hypixelscout.startupTest")) {
 			LOGGER.info("hypixelscout.startupTest=true — registering the startup test listener");
 			MinecraftForge.EVENT_BUS.register(new StartupTestListener());
+			MinecraftForge.EVENT_BUS.register(new de.raindancer118.hypixelscout.startup.ScreenFrames());
 		}
 
 		LOGGER.info("Hypixel Scout ready ({} API key)", client.hasApiKey() ? "with" : "without an");
@@ -266,11 +264,8 @@ public final class HypixelScout {
 	/**
 	 * Phase 2a of this branch's port (see {@code Project.md}): everything drawn on the HUD — the
 	 * in-game table, the peek overlay, the look tooltip, the tab list replacement, proximity
-	 * popups, the incoming-projectile warning, hazards and the suspects card. Kept in one small
-	 * method, called once from {@link #onInit}, since {@code game.Flights}/{@code game.Hazards}/
-	 * {@code game.CheatSensor} are being ported on this same branch at the same time as this method
-	 * — {@link #tableEditor}/{@link #suspectsEditor} (Phase 3) wire the screens that move these two
-	 * elements around, not this method.
+	 * popups, the incoming-projectile warning and hazards (the suspects card is Scout's). Called
+	 * once from {@link #onInit}; {@link #tableEditor} wires the screen that moves the table.
 	 *
 	 * <p>Every element fires on {@link net.minecraftforge.client.event.RenderGameOverlayEvent.Post}
 	 * with {@code ElementType.ALL} except the tab list ({@code Pre}, {@code PLAYER_LIST}, cancelling
@@ -311,22 +306,6 @@ public final class HypixelScout {
 		MinecraftForge.EVENT_BUS.register(new HazardElement(hazards, settingsSupplier()));
 		new de.raindancer118.hypixelscout.ui.world.HazardLines(hazards).register();
 
-		cheats = new CheatSensor(roster, settingsSupplier());
-		telemetry = new de.raindancer118.hypixelscout.game.Telemetry(settingsSupplier());
-		cheats.telemetry(telemetry);
-		Suspects.use(new java.util.function.Function<String, java.util.List<de.raindancer118.cheatwatch.Suspicion.Flag>>() {
-			@Override
-			public java.util.List<de.raindancer118.cheatwatch.Suspicion.Flag> apply(String name) {
-				return settings.cheats.mark ? cheats.flags(name) : java.util.Collections.<de.raindancer118.cheatwatch.Suspicion.Flag>emptyList();
-			}
-		}, new java.util.function.ToDoubleFunction<String>() {
-			@Override
-			public double applyAsDouble(String name) {
-				return cheats.confidence(name);
-			}
-		});
-		MinecraftForge.EVENT_BUS.register(new SuspectsElement(cheats, settingsSupplier(), roster).hideWhile(peekHeld));
-
 		MinecraftForge.EVENT_BUS.register(new TabStatsElement(roster, stats, settingsSupplier()));
 	}
 
@@ -353,13 +332,6 @@ public final class HypixelScout {
 		proximity.tick();
 		flights.tick(minecraft);
 		hazards.tick(minecraft);
-		cheats.tick(minecraft);
-		telemetry.tick(minecraft, new Runnable() {
-			@Override
-			public void run() {
-				saveSettings();
-			}
-		});
 		requeue.tick();
 
 		if (roster.isInGame() && ++scanTicks >= SCAN_INTERVAL_TICKS) {
@@ -456,7 +428,7 @@ public final class HypixelScout {
 		proximity.reset();
 		flights.reset();
 		hazards.newRound();
-		cheats.newRound();
+		ScoutApi.get().newRound();
 		teamsReady = false;
 		requeue.gameJoined();
 		scanTicks = 0;
@@ -474,11 +446,10 @@ public final class HypixelScout {
 
 	/**
 	 * Quitting the game mid-round. 1.8.9 sends no disconnect event before the JVM exits (the shutdown
-	 * hook calls this once the game loop is over), so the round ends here and its recording is closed
-	 * rather than left without its gzip end.
+	 * hook calls this once the game loop is over), so the game ends here, and with it Scout's round.
 	 */
 	public void clientStopping() {
-		cheats.endRound();
+		leftServer();
 	}
 
 	/** Leaving the server ends the game as surely as the location packet would. */
@@ -489,7 +460,7 @@ public final class HypixelScout {
 		proximity.reset();
 		flights.reset();
 		hazards.reset();
-		cheats.endRound();
+		ScoutApi.get().endRound();
 		teamsReady = false;
 		requeue.reset();
 		partyReport.cancel();
@@ -633,15 +604,6 @@ public final class HypixelScout {
 		return hazards;
 	}
 
-	/** Cheat detection: everybody flagged this round, and how sure the mod is. */
-	public de.raindancer118.hypixelscout.game.Telemetry telemetry() {
-		return telemetry;
-	}
-
-	public CheatSensor cheats() {
-		return cheats;
-	}
-
 	public ChatHover chatHover() {
 		return hover;
 	}
@@ -674,9 +636,5 @@ public final class HypixelScout {
 
 	public net.minecraft.client.gui.GuiScreen tableEditor(net.minecraft.client.gui.GuiScreen parent) {
 		return new de.raindancer118.hypixelscout.ui.hud.TableEditorScreen(this, parent);
-	}
-
-	public net.minecraft.client.gui.GuiScreen suspectsEditor(net.minecraft.client.gui.GuiScreen parent) {
-		return new de.raindancer118.hypixelscout.ui.hud.SuspectsEditorScreen(this, parent);
 	}
 }

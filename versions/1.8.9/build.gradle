@@ -145,6 +145,11 @@ dependencies {
 	// settings.gradle with ../../common's own jar — never actually resolved from a repository.
 	shade "de.raindancer118:hypixelscout-common:${mod_version}"
 
+	// Scout, the cheat detector (repo cheatwatch), with its HUD, screens, command and its engine —
+	// the classifier `bundle`: no @Mod, no coremod, no Mixin of its own, MCP names, so it is shaded
+	// and remapped with this mod's own classes. This mod is its host (game.HypixelHost).
+	shade "de.raindancer118:scout-forge-mc1.8.9:${scout_version}:bundle"
+
 	// Mixin itself. The excluded modules are already on the game's classpath (Forge/LaunchWrapper
 	// bring their own guava/gson/log4j/commons-io/launchwrapper); shading them too would just
 	// duplicate classes already present and occasionally shadow a newer one Forge relies on.
@@ -177,6 +182,15 @@ tasks.named('processResources').configure {
 	def props = [version: project.version, minecraft_version: project.minecraft_version]
 	inputs.properties props
 
+	// Scout's lang files, as this mod's resources: FML serves assets only from a mod's own jar or
+	// resources, and in the dev client the bundle is just a jar on the classpath. The jar below
+	// leaves them out of the shaded bundle, so they are there once.
+	from({
+		configurations.shade.findAll { it.name.startsWith('scout-forge-') }.collect { zipTree(it) }
+	}) {
+		include 'assets/scout/**'
+	}
+
 	filesMatching('mcmod.info') {
 		expand props
 	}
@@ -190,6 +204,7 @@ jar {
 	from({
 		configurations.shade.collect { it.isDirectory() ? it : zipTree(it) }
 	}) {
+		exclude 'assets/scout/**'
 		exclude 'META-INF/MANIFEST.MF'
 		exclude 'META-INF/*.SF'
 		exclude 'META-INF/*.DSA'
@@ -204,7 +219,8 @@ jar {
 				// Chains the Mixin launchwrapper tweaker in ahead of FML's own tweaker.
 				'TweakClass'                 : 'org.spongepowered.asm.launch.MixinTweaker',
 				'TweakOrder'                 : '0',
-				'MixinConfigs'               : 'hypixelscout.mixins.json',
+				// Scout's own mixins come with its bundle; this coremod bootstraps both.
+				'MixinConfigs'               : 'hypixelscout.mixins.json,scout.mixins.json',
 				// A jar with a TweakClass is loaded as a tweaker and skipped as a mod; this makes
 				// Mixin hand it back to FML, or the @Mod never loads in a real client.
 				'ForceLoadAsMod'             : 'true'
@@ -230,6 +246,7 @@ tasks.matching { it.name in ['runClient', 'runServer'] }.configureEach {
 tasks.named('runClient', JavaExec).configure {
 	args '--tweakClass', 'org.spongepowered.asm.launch.MixinTweaker'
 	args '--mixin', 'hypixelscout.mixins.json'
+	args '--mixin', 'scout.mixins.json'
 }
 
 // Gated on the requested task names so a plain `./gradlew runClient` still gets everything below,
@@ -391,7 +408,7 @@ tasks.register('runProductionStartupTest') {
 		// Minecraft's and Forge's libraries from the dev classpath, without anything that exists
 		// only in development: our classes, the MCP-named game, the remapped dev mods.
 		def libraries = tasks.named('runClient', JavaExec).get().classpath.filter { file ->
-			file.isFile() && !(file.name ==~ /(?i).*(fixForge|mcp|hypixelscout|mixin|annotations|hypixel-mod-api).*/)
+			file.isFile() && !(file.name ==~ /(?i).*(fixForge|mcp|hypixelscout|scout-forge|mixin|annotations|hypixel-mod-api).*/)
 		}
 		def runId = UUID.randomUUID().toString()
 		def result = project.services.get(org.gradle.process.ExecOperations).javaexec {

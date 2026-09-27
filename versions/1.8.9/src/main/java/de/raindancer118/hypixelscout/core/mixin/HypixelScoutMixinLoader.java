@@ -23,6 +23,8 @@ public final class HypixelScoutMixinLoader implements IFMLLoadingPlugin {
 	public HypixelScoutMixinLoader() {
 		MixinBootstrap.init();
 		Mixins.addConfiguration("hypixelscout.mixins.json");
+		// Scout's, shaded in with its bundle, which has no coremod of its own.
+		Mixins.addConfiguration("scout.mixins.json");
 	}
 
 	@Override

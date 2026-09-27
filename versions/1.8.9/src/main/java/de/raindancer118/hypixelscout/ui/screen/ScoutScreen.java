@@ -1,5 +1,6 @@
 package de.raindancer118.hypixelscout.ui.screen;
 
+import de.raindancer118.scout.forge.ui.screen.SuspectsPage;
 import de.raindancer118.hypixelscout.HypixelScout;
 import de.raindancer118.hypixelscout.config.ScoutSettings;
 import de.raindancer118.hypixelscout.core.BedDefense;
@@ -75,7 +76,8 @@ public final class ScoutScreen extends GuiScreen {
 	private final GuiScreen parent;
 	private final Roster roster;
 	private final StatsService stats;
-	private final CheatsPage cheatsPage;
+	/** Scout's suspects page, embedded as a tab: the detection and its screens are Scout's. */
+	private final SuspectsPage cheatsPage;
 
 	private Page page;
 	private TabBar tabBar;
@@ -100,7 +102,7 @@ public final class ScoutScreen extends GuiScreen {
 		this.parent = parent;
 		this.roster = mod.roster();
 		this.stats = mod.stats();
-		this.cheatsPage = new CheatsPage(mod, this);
+		this.cheatsPage = new SuspectsPage(this);
 		this.page = page;
 	}
 
@@ -164,18 +166,8 @@ public final class ScoutScreen extends GuiScreen {
 				initQueue();
 				break;
 			case CHEATS:
-				cheatsPage.init(contentLeft(), contentTop, contentWidth(), contentBottom,
-						new java.util.function.IntSupplier() {
-							@Override
-							public int getAsInt() {
-								return nextId++;
-							}
-						}, new java.util.function.Consumer<GuiButton>() {
-							@Override
-							public void accept(GuiButton button) {
-								buttonList.add(button);
-							}
-						});
+				// Its buttons take their ids from its own reserved range (SuspectsPage.FIRST_BUTTON_ID).
+				cheatsPage.init(contentLeft(), contentTop, contentWidth(), contentBottom, buttonList);
 				break;
 			default:
 		}
@@ -207,6 +199,9 @@ public final class ScoutScreen extends GuiScreen {
 
 	@Override
 	protected void actionPerformed(GuiButton button) {
+		if (page == Page.CHEATS && cheatsPage.actionPerformed(button)) {
+			return;
+		}
 		if (button instanceof de.raindancer118.hypixelscout.ui.widget.Clickable) {
 			((de.raindancer118.hypixelscout.ui.widget.Clickable) button).onClick();
 		}
@@ -926,7 +921,7 @@ public final class ScoutScreen extends GuiScreen {
 			syncRows();
 		}
 		if (page == Page.CHEATS) {
-			cheatsPage.tick();
+			cheatsPage.updateScreen();
 		}
 	}
 
@@ -955,7 +950,7 @@ public final class ScoutScreen extends GuiScreen {
 				drawQueue(fontRendererObj);
 				break;
 			case CHEATS:
-				cheatsPage.draw(fontRendererObj, mouseX, mouseY);
+				cheatsPage.draw(mouseX, mouseY, partialTicks);
 				break;
 			default:
 		}
@@ -990,7 +985,7 @@ public final class ScoutScreen extends GuiScreen {
 				clickRecent(mouseX, mouseY);
 				break;
 			case CHEATS:
-				cheatsPage.mouseClicked(mouseX, mouseY);
+				cheatsPage.mouseClicked(mouseX, mouseY, mouseButton);
 				break;
 			default:
 		}
@@ -1011,7 +1006,7 @@ public final class ScoutScreen extends GuiScreen {
 		} else if (page == Page.GAME) {
 			gameScroll -= direction * ROW;
 		} else if (page == Page.CHEATS) {
-			cheatsPage.onScroll(direction);
+			cheatsPage.handleMouseInput();
 		}
 	}
 

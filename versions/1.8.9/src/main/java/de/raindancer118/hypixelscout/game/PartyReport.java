@@ -240,8 +240,7 @@ public final class PartyReport {
 	 * behind anything already going out. Party chat works anywhere on Hypixel, team chat only in a
 	 * game with teams.
 	 *
-	 * <p>{@code suspicion} is supplied by whichever later phase runs the cheat checks (a
-	 * {@code CheatSensor} does not exist in this module yet) — this class only knows how to turn one
+	 * <p>{@code suspicion} is Scout's ({@code ScoutApi.get().suspicion()}); this class only turns it
 	 * into chat lines.
 	 */
 	public void sendCheats(Channel channel, Suspicion suspicion) {

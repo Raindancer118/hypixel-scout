@@ -2,10 +2,8 @@ package de.raindancer118.hypixelscout.startup;
 
 import de.raindancer118.hypixelscout.HypixelScout;
 import de.raindancer118.hypixelscout.mc.ScoutGuiFactory;
-import de.raindancer118.hypixelscout.ui.hud.SuspectsEditorScreen;
 import de.raindancer118.hypixelscout.ui.hud.TableEditorScreen;
 import de.raindancer118.hypixelscout.ui.screen.CardsScreen;
-import de.raindancer118.hypixelscout.ui.screen.CheatChecksScreen;
 import de.raindancer118.hypixelscout.ui.screen.ProfileScreen;
 import de.raindancer118.hypixelscout.ui.screen.ScoutScreen;
 import de.raindancer118.hypixelscout.ui.screen.SettingsScreen;
@@ -26,16 +24,20 @@ import java.nio.file.Files;
  * empty ones.
  *
  * <p>A small tick-driven state machine, the same pattern every other step in this package uses:
- * open a screen, hold a few frames so it has actually rendered once, screenshot, move on. The
+ * open a screen, wait until it has been drawn ({@link ScreenFrames}), screenshot, move on. The
  * settings-persistence check (one setting flipped through the real widget's own click handler,
  * then read back from {@code config/hypixelscout.json}) rides along on the General tab's own pass.
  */
 public final class ScreensCheck implements StartupCheck {
+	/** Ticks the settings screen stays open before its toggle is clicked. */
 	private static final int HOLD = 3;
+	/** Frames a screen must have been drawn before it is photographed. */
+	private static final int FRAMES = 2;
+	private static final int GIVE_UP_TICKS = 200;
 
 	private enum Phase {
-		SCOUT_PAGES, PROFILE, SETTINGS_TABS, SETTINGS_PERSIST, CARDS, CHEAT_CHECKS, TABLE_EDITOR,
-		SUSPECTS_EDITOR, CONFIG_GUI, DONE
+		SCOUT_PAGES, PROFILE, SETTINGS_TABS, SETTINGS_PERSIST, CARDS, SCOUT_OPTIONS, TABLE_EDITOR,
+		SCOUT_HUD_EDITOR, CONFIG_GUI, DONE
 	}
 
 	private Phase phase = Phase.SCOUT_PAGES;
@@ -63,7 +65,7 @@ public final class ScreensCheck implements StartupCheck {
 				if (ticksInPhase == 1) {
 					client.displayGuiScreen(new ProfileScreen(mod, "Brickmason", mod.roster().uuidOf("Brickmason"), null));
 				}
-				if (ticksInPhase < HOLD) {
+				if (!drawn(client)) {
 					return false;
 				}
 				expect(client, ProfileScreen.class, "hypixelscout-screen-profile.png");
@@ -79,40 +81,44 @@ public final class ScreensCheck implements StartupCheck {
 				if (ticksInPhase == 1) {
 					client.displayGuiScreen(new CardsScreen(mod, null));
 				}
-				if (ticksInPhase < HOLD) {
+				if (!drawn(client)) {
 					return false;
 				}
 				expect(client, CardsScreen.class, "hypixelscout-screen-cards.png");
 				return advance();
 
-			case CHEAT_CHECKS:
+			case SCOUT_OPTIONS:
+				// Scout's options, which Settings → Cheats leads to.
 				if (ticksInPhase == 1) {
-					client.displayGuiScreen(new CheatChecksScreen(mod, null));
+					client.displayGuiScreen(new de.raindancer118.scout.forge.ui.screen.SettingsScreen(null));
 				}
-				if (ticksInPhase < HOLD) {
+				if (!drawn(client)) {
 					return false;
 				}
-				expect(client, CheatChecksScreen.class, "hypixelscout-screen-cheat-checks.png");
+				expect(client, de.raindancer118.scout.forge.ui.screen.SettingsScreen.class,
+						"hypixelscout-screen-scout-options.png");
 				return advance();
 
 			case TABLE_EDITOR:
 				if (ticksInPhase == 1) {
 					client.displayGuiScreen(mod.tableEditor(null));
 				}
-				if (ticksInPhase < HOLD) {
+				if (!drawn(client)) {
 					return false;
 				}
 				expect(client, TableEditorScreen.class, "hypixelscout-screen-table-editor.png");
 				return advance();
 
-			case SUSPECTS_EDITOR:
+			case SCOUT_HUD_EDITOR:
+				// Scout's card editor, where the suspects card now moves.
 				if (ticksInPhase == 1) {
-					client.displayGuiScreen(mod.suspectsEditor(null));
+					client.displayGuiScreen(new de.raindancer118.scout.forge.ui.hud.HudEditorScreen(null));
 				}
-				if (ticksInPhase < HOLD) {
+				if (!drawn(client)) {
 					return false;
 				}
-				expect(client, SuspectsEditorScreen.class, "hypixelscout-screen-suspects-editor.png");
+				expect(client, de.raindancer118.scout.forge.ui.hud.HudEditorScreen.class,
+						"hypixelscout-screen-scout-hud-editor.png");
 				return advance();
 
 			case CONFIG_GUI:
@@ -122,7 +128,7 @@ public final class ScreensCheck implements StartupCheck {
 					// SettingsScreen — proving the factory wiring, not just SettingsScreen a second time.
 					client.displayGuiScreen(new ScoutGuiFactory.ScoutConfigScreen(null));
 				}
-				if (ticksInPhase < HOLD) {
+				if (!drawn(client)) {
 					return false;
 				}
 				expect(client, SettingsScreen.class, "hypixelscout-screen-mod-options.png");
@@ -142,7 +148,7 @@ public final class ScreensCheck implements StartupCheck {
 		if (ticksInPhase == 1) {
 			client.displayGuiScreen(new ScoutScreen(mod, null, pages[scoutPageIndex]));
 		}
-		if (ticksInPhase < HOLD) {
+		if (!drawn(client)) {
 			return false;
 		}
 
@@ -166,7 +172,7 @@ public final class ScreensCheck implements StartupCheck {
 		if (ticksInPhase == 1) {
 			client.displayGuiScreen(new SettingsScreen(mod, null).onTab(settingsTabIndex));
 		}
-		if (ticksInPhase < HOLD) {
+		if (!drawn(client)) {
 			return false;
 		}
 
@@ -217,6 +223,18 @@ public final class ScreensCheck implements StartupCheck {
 
 		// Left flipped on for the rest of the test is harmless; nothing after this reads it.
 		return advance();
+	}
+
+	private boolean drawn(Minecraft client) {
+		if (ScreenFrames.of(client.currentScreen) >= FRAMES) {
+			return true;
+		}
+		if (ticksInPhase > GIVE_UP_TICKS) {
+			throw new IllegalStateException(phase + ": " + (client.currentScreen == null ? "no screen"
+					: client.currentScreen.getClass().getSimpleName()) + " never drawn " + FRAMES
+					+ " frames within " + GIVE_UP_TICKS + " ticks");
+		}
+		return false;
 	}
 
 	private boolean advance() {

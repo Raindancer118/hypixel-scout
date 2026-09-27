@@ -710,36 +710,20 @@ public final class SettingsScreen extends GuiScreen {
 
 	private void cheats(TwoColumnGrid grid) {
 		sectionLabels.clear();
-		final ScoutSettings.Cheats c = settings().cheats;
-		toggle(grid, "cheats.enabled", c.enabled, new Consumer<Boolean>() { public void accept(Boolean v) { c.enabled = v; } });
-		toggle(grid, "cheats.chat", c.chatAlerts, new Consumer<Boolean>() { public void accept(Boolean v) { c.chatAlerts = v; } });
-		toggle(grid, "cheats.mark", c.mark, new Consumer<Boolean>() { public void accept(Boolean v) { c.mark = v; } });
-
-		buttonList.add(new de.raindancer118.hypixelscout.ui.widget.SettingSlider(nextId++, grid.x(), grid.y(),
-				grid.columnWidth(), 20, "message.hypixelscout.settings.cheats.sensitivity", ScoutSettings.MIN_CHEAT_SENSITIVITY,
-				ScoutSettings.MAX_CHEAT_SENSITIVITY, c.sensitivity, new java.util.function.DoubleConsumer() {
+		// The detection is Scout's now, with its own settings: this tab only leads there.
+		buttonList.add(new ActionButton(nextId++, grid.x(), grid.y(), grid.columnWidth(), 20,
+				StatCollector.translateToLocal("message.hypixelscout.settings.cheats.scout"), new Runnable() {
 					@Override
-					public void accept(double value) {
-						c.sensitivity = (int) Math.round(value);
-					}
-				}, new java.util.function.DoubleFunction<String>() {
-					@Override
-					public String apply(double value) {
-						return Math.round(value) + "%";
+					public void run() {
+						mc.displayGuiScreen(new de.raindancer118.scout.forge.ui.screen.SettingsScreen(SettingsScreen.this));
 					}
 				}));
 		grid.advance();
-
-		toggle(grid, "cheats.log", c.log, new Consumer<Boolean>() { public void accept(Boolean v) { c.log = v; } });
-		toggle(grid, "cheats.record", c.record, new Consumer<Boolean>() { public void accept(Boolean v) { c.record = v; } });
-		final ScoutSettings.Telemetry t = settings().telemetry;
-		toggle(grid, "telemetry.enabled", t.enabled, new Consumer<Boolean>() { public void accept(Boolean v) { t.enabled = v; } });
-
 		buttonList.add(new ActionButton(nextId++, grid.x(), grid.y(), grid.columnWidth(), 20,
-				StatCollector.translateToLocal("message.hypixelscout.settings.cheats.checks"), new Runnable() {
+				StatCollector.translateToLocal("message.hypixelscout.suspects.move"), new Runnable() {
 					@Override
 					public void run() {
-						mc.displayGuiScreen(new CheatChecksScreen(mod, SettingsScreen.this));
+						mc.displayGuiScreen(new de.raindancer118.scout.forge.ui.hud.HudEditorScreen(SettingsScreen.this));
 					}
 				}));
 		grid.advance();

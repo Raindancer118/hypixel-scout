@@ -104,14 +104,54 @@ public final class ScoutFeatureCheck implements StartupCheck {
 			throw new IllegalStateException("/scout key <malformed> produced no feedback");
 		}
 
-		// Cheat detection is real from here (Phase 2b, see Project.md): no game is running yet at
-		// this point in the test (WorldEntryCheck has not created a world), so nobody is flagged —
-		// but the command itself must actually run, not fall back to a "not available yet" placeholder.
-		sender.messages().clear();
-		int cheatsResult = ClientCommandHandler.instance.executeCommand(sender, "/scout cheats");
-		if (cheatsResult == 0 || sender.messages().isEmpty() || sender.messages().get(0).contains("Not available yet")) {
-			throw new IllegalStateException("/scout cheats should run cheat detection's own feedback, got: "
-					+ sender.messages());
+		checkScoutsSubcommands(sender, client);
+	}
+
+	/**
+	 * Scout, bundled in, has its own {@code /scout} subcommands; there is only one {@code /scout}
+	 * (this mod's — 1.8.9 has no Brigadier to merge two), which hands them on.
+	 */
+	private void checkScoutsSubcommands(TestCommandSender sender, Minecraft client) {
+		if (ClientCommandHandler.instance.getCommands().get("scout") != de.raindancer118.hypixelscout.ScoutCommands.instance()) {
+			throw new IllegalStateException("/scout is not this mod's command but "
+					+ ClientCommandHandler.instance.getCommands().get("scout"));
+		}
+
+		// No game yet, so nobody is flagged — but the answer is Scout's.
+		for (String command : new String[] {"/scout cheats", "/scout telemetry show"}) {
+			sender.messages().clear();
+			int result = ClientCommandHandler.instance.executeCommand(sender, command);
+			if (result == 0 || sender.messages().isEmpty() || !sender.messages().get(0).contains("[Scout]")) {
+				throw new IllegalStateException(command + " should be answered by Scout, got: " + sender.messages());
+			}
+		}
+
+		ClientCommandHandler.instance.executeCommand(sender, "/scout options");
+		if (!(client.currentScreen instanceof de.raindancer118.scout.forge.ui.screen.SettingsScreen)) {
+			throw new IllegalStateException("/scout options should open Scout's settings, current screen is "
+					+ (client.currentScreen == null ? "null" : client.currentScreen.getClass().getSimpleName()));
+		}
+		client.displayGuiScreen(null);
+		ClientCommandHandler.instance.executeCommand(sender, "/scout suspects");
+		if (!(client.currentScreen instanceof de.raindancer118.scout.forge.ui.screen.SuspectsScreen)) {
+			throw new IllegalStateException("/scout suspects should open Scout's suspects screen, current screen is "
+					+ (client.currentScreen == null ? "null" : client.currentScreen.getClass().getSimpleName()));
+		}
+		client.displayGuiScreen(null);
+
+		java.util.List<String> offered = de.raindancer118.hypixelscout.ScoutCommands.instance()
+				.addTabCompletionOptions(sender, new String[] {""}, null);
+		for (String expected : new String[] {"game", "cheats", "options", "hud", "telemetry", "suspects"}) {
+			if (!offered.contains(expected)) {
+				throw new IllegalStateException("tab completion lacks " + expected + ": " + offered);
+			}
+		}
+		java.util.List<String> cheats = de.raindancer118.hypixelscout.ScoutCommands.instance()
+				.addTabCompletionOptions(sender, new String[] {"cheats", ""}, null);
+		for (String expected : new String[] {"party", "team", "wrong", "right"}) {
+			if (!cheats.contains(expected)) {
+				throw new IllegalStateException("tab completion of /scout cheats lacks " + expected + ": " + cheats);
+			}
 		}
 	}
 
@@ -139,6 +179,10 @@ public final class ScoutFeatureCheck implements StartupCheck {
 				"message.hypixelscout.key.malformed",
 				"key.hypixelscout.open",
 				"key.categories.hypixelscout",
+				// Scout's, from its bundle inside this jar.
+				"message.scout.suspects.wrong",
+				"message.hypixelscout.settings.cheats.scout",
+				"message.hypixelscout.suspects.profile",
 		};
 
 		for (String key : keys) {

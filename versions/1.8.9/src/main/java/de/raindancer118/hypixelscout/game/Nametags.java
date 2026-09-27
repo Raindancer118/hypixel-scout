@@ -5,7 +5,6 @@ import de.raindancer118.hypixelscout.core.PlayerStats;
 import de.raindancer118.hypixelscout.core.Roster;
 import de.raindancer118.hypixelscout.core.StatFormat;
 import de.raindancer118.hypixelscout.core.StatsService;
-import de.raindancer118.hypixelscout.ui.Suspects;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
@@ -31,7 +30,8 @@ import java.util.function.Supplier;
  * everything and then solidly in front of it, which is what gives nametags their see-through-walls
  * look) is unchanged from the working {@code 1.8.9-support} branch's own {@code NametagStars}; only
  * the data source (this module's {@code common} {@link Roster}/{@link StatsService}/{@link
- * ScoutSettings}) and the suspicion mark (26.2's {@link Suspects#tagMark}) are new.
+ * ScoutSettings}) is new. The cheat mark above the label is Scout's (it receives this event
+ * cancelled).
  */
 public final class Nametags {
 	private static final float SCALE = 0.02666667f;
@@ -86,14 +86,13 @@ public final class Nametags {
 		drawLabel(mc, label(name, playerStats, nametag.fkdr), event.x, event.y + player.height + 0.5, event.z);
 	}
 
+	/** The stars in front of the name; Scout draws its own cheat mark above the label. */
 	private String label(String name, PlayerStats playerStats, boolean showFkdr) {
-		String mark = Suspects.tagMark(name);
-
 		if (playerStats.isNicked()) {
-			return mark + "§d[NICK] §f" + name;
+			return "§d[NICK] §f" + name;
 		}
 
-		StringBuilder label = new StringBuilder(mark);
+		StringBuilder label = new StringBuilder();
 		label.append(StatFormat.star(playerStats.getStars())).append(' ').append(name);
 
 		if (showFkdr) {

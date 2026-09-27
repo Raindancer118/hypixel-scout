@@ -24,7 +24,7 @@ public final class StartupTestListener {
 		HudSetupCheck hudSetup = new HudSetupCheck();
 		this.runner = new StartupTestRunner(StartupTestRunner.gameDir(), new MainMenuScreenshotCheck(),
 				new ScoutFeatureCheck(), new WorldEntryCheck(), hudSetup, new HudScreenshotCheck(hudSetup),
-				new WorldAndCheatsCheck(), new ScreensCheck());
+				new WorldAndCheatsCheck(), new ScreensCheck(), new LeavingCheck());
 	}
 
 	@SubscribeEvent

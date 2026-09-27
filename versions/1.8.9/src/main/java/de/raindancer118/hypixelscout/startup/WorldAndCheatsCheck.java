@@ -1,8 +1,13 @@
 package de.raindancer118.hypixelscout.startup;
 
 import com.mojang.authlib.GameProfile;
+import de.raindancer118.cheatwatch.Check;
+import de.raindancer118.cheatwatch.Suspicion;
 import de.raindancer118.hypixelscout.HypixelScout;
-import net.minecraft.block.Block;
+import de.raindancer118.hypixelscout.ui.Suspects;
+import de.raindancer118.scout.api.ScoutApi;
+import de.raindancer118.scout.api.ScoutView;
+import de.raindancer118.scout.hud.Marks;
 import net.minecraft.block.BlockBed;
 import net.minecraft.block.BlockDirectional;
 import net.minecraft.block.state.IBlockState;
@@ -11,6 +16,7 @@ import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.entity.item.EntityTNTPrimed;
 import net.minecraft.entity.projectile.EntityArrow;
 import net.minecraft.init.Blocks;
+import net.minecraft.network.play.server.S23PacketBlockChange;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ScreenShotHelper;
@@ -20,12 +26,15 @@ import java.io.IOException;
 import java.util.UUID;
 
 /**
- * Phase 2b of this branch's port (see {@code Project.md}): projectile awareness ({@code
- * game.Flights}), hazard awareness ({@code game.Hazards}, the bed ledger) and cheat detection
- * ({@code game.CheatSensor}), proven the same way {@link HudScreenshotCheck} proves the HUD — real
- * entities and real blocks in the singleplayer world {@link WorldEntryCheck} already entered, ticked
- * by the mod's own real {@code TickEvent.ClientTickEvent} handler, not by calling any of this
- * module's {@code tick()} methods directly.
+ * Projectile awareness ({@code game.Flights}), hazard awareness ({@code game.Hazards}, the bed
+ * ledger) and Scout, the bundled cheat detector, with this mod as its host — real entities and real
+ * blocks in the singleplayer world {@link WorldEntryCheck} already entered, ticked by the real
+ * client tick, not by calling any {@code tick()} directly.
+ *
+ * <p>What Scout does on its own (log, recordings, telemetry, popup, nametag mark) is tested in its
+ * own repository; here it is what this mod adds: the round begins with the Bedwars game, the roster
+ * decides who is watched, {@code BedDefense} answers NUKER, the marks in this mod's lists follow
+ * Scout's — and that Scout's mixins, shaded into this jar, see a real block-change packet.
  *
  * <p>Runs after {@link HudScreenshotCheck} so it is free to move the fake players that check staged
  * without disturbing the HUD screenshots' framing.
@@ -90,19 +99,13 @@ public final class WorldAndCheatsCheck implements StartupCheck {
 				return advance();
 
 			case BUILD_NUKER_ROOM:
-				// The bed nuker scene is also recorded for CheatWatch's replay: a recording only ever
-				// starts with a round.
-				mod.settings().cheats.record = true;
-				mod.cheats().newRound();
-				if (mod.cheats().recorder() == null) {
-					throw new IllegalStateException("recording is on, but the new round has no recording");
-				}
+				checkScoutsHost();
 				buildNukerRoom(client);
 				return advance();
 
 			case BREAK_NUKER_BED:
 				if (ticksInPhase < 3) {
-					// Let CheatSensor.tick() record a couple of frames for the breaker standing next to
+					// Let Scout record a couple of frames for the breaker standing next to
 					// the bed before the "break" packet arrives, the way a real player's presence would.
 					return false;
 				}
@@ -113,28 +116,24 @@ public final class WorldAndCheatsCheck implements StartupCheck {
 				if (ticksInPhase < 5) {
 					return false;
 				}
-				if (mod.cheats().suspicion().flagged().isEmpty()) {
+				ScoutView scout = ScoutApi.get();
+				boolean nukerFlag = false;
+				for (Suspicion.Flag flag : scout.flags("Duskrunner")) {
+					if (flag.check() == Check.NUKER) {
+						nukerFlag = true;
+					}
+				}
+				if (!nukerFlag) {
 					Minecraft mc = Minecraft.getMinecraft();
 					StringBuilder around = new StringBuilder();
 					for (BlockPos pos : BlockPos.getAllInBox(nukerHead.add(-1, -1, -1), nukerHead.add(1, 1, 2))) {
 						around.append(mc.theWorld.getBlockState(pos).getBlock().getLocalizedName().charAt(0));
 					}
-					throw new IllegalStateException("breaking a fully enclosed bed next to a tracked player "
-							+ "raised no CheatSensor flag (expected a NUKER flag); roster=" + mod.roster().members()
-							+ " players=" + mc.theWorld.playerEntities + " around=" + around
-							+ " seen=" + mod.cheats().suspicion().suspects());
+					throw new IllegalStateException("breaking a fully enclosed bed next to a watched player "
+							+ "raised no NUKER flag in Scout; roster=" + mod.roster().members() + " around=" + around
+							+ " flagged=" + scout.suspicion().flagged() + " seen=" + scout.suspects());
 				}
-				boolean nukerFlag = false;
-				for (de.raindancer118.cheatwatch.Suspicion.Flag flag : mod.cheats().suspicion().flagged()) {
-					if (flag.check() == de.raindancer118.cheatwatch.Check.NUKER) {
-						nukerFlag = true;
-					}
-				}
-				if (!nukerFlag) {
-					throw new IllegalStateException("expected a NUKER flag, got: " + mod.cheats().suspicion().flagged());
-				}
-				checkRecording(mod);
-				checkStoppingClosesTheRecording(mod);
+				checkMarks(scout);
 				return advance();
 
 			case WORLD_LINES_SCREENSHOT:
@@ -223,7 +222,7 @@ public final class WorldAndCheatsCheck implements StartupCheck {
 		breaker.setPositionAndRotation(foot.getX() + 0.5, foot.getY(), foot.getZ() + 2.5, 180f, 0f);
 		client.theWorld.spawnEntityInWorld(breaker);
 
-		// Duskrunner joins the roster CheatSensor.watched() already trusts, alongside everybody
+		// Duskrunner joins the roster the host tells Scout to watch, alongside everybody
 		// HudSetupCheck staged earlier — replaceForTest swaps the whole tab list, so the existing
 		// members are carried over rather than dropped.
 		final java.util.List<de.raindancer118.hypixelscout.core.Roster.Member> members =
@@ -239,86 +238,45 @@ public final class WorldAndCheatsCheck implements StartupCheck {
 		HypixelScout.get().roster().refresh(de.raindancer118.hypixelscout.game.TabListReader.current());
 	}
 
-	/** The round's recording: closed with the round, a real CheatWatch stream of the nuker, no names. */
-	private static void checkRecording(HypixelScout mod) throws IOException {
-		mod.cheats().endRound();
-		mod.settings().cheats.record = false;
-		if (mod.cheats().recorder() != null) {
-			throw new IllegalStateException("the recording outlived its round");
+	/** Scout runs inside this mod and takes it as its host: the Bedwars game is its round. */
+	private static void checkScoutsHost() {
+		if (!ScoutApi.hosts().names().contains("Hypixel Scout")) {
+			throw new IllegalStateException("Hypixel Scout is not Scout's host: " + ScoutApi.hosts().names());
 		}
-		java.nio.file.Path recording = null;
-		try (java.nio.file.DirectoryStream<java.nio.file.Path> files =
-				java.nio.file.Files.newDirectoryStream(mod.cheats().log().dir(), "cheatwatch-*.cwrec")) {
-			for (java.nio.file.Path file : files) {
-				if (recording == null || java.nio.file.Files.getLastModifiedTime(file)
-						.compareTo(java.nio.file.Files.getLastModifiedTime(recording)) > 0) {
-					recording = file;
-				}
+		if (!ScoutApi.get().enabled()) {
+			throw new IllegalStateException("Scout's detection is off");
+		}
+		if (!ScoutApi.hosts().drivesRounds() || !ScoutApi.hosts().watching()) {
+			throw new IllegalStateException("Scout does not watch the staged Bedwars game as its host's round");
+		}
+	}
+
+	/** This mod's lists and cards mark whom Scout flagged, and follow Scout's switch for marks. */
+	private static void checkMarks(ScoutView scout) {
+		if (!Suspects.mark("Duskrunner").equals(Marks.MARK)) {
+			throw new IllegalStateException("the flagged player has no mark in the lists: '" + Suspects.mark("Duskrunner") + "'");
+		}
+		if (!Suspects.cardExtras("Duskrunner").containsKey(de.raindancer118.hypixelscout.core.CardField.CHEATS)) {
+			throw new IllegalStateException("the cards have no cheat field for the flagged player");
+		}
+		scout.config().mark = false;
+		try {
+			if (!Suspects.mark("Duskrunner").isEmpty()) {
+				throw new IllegalStateException("marks switched off in Scout still show in the lists");
 			}
-		}
-		if (recording == null) {
-			throw new IllegalStateException("no .cwrec was written");
-		}
-		java.io.ByteArrayOutputStream text = new java.io.ByteArrayOutputStream();
-		try (java.io.InputStream in = new java.util.zip.GZIPInputStream(java.nio.file.Files.newInputStream(recording))) {
-			byte[] buffer = new byte[8192];
-			for (int read; (read = in.read(buffer)) > 0; ) {
-				text.write(buffer, 0, read);
-			}
-		}
-		String recorded = new String(text.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
-		for (String expected : new String[] {"\"type\":\"header\"", "\"anonymised\":true", "\"t\":\"bedBroken\"",
-				"\"check\":\"NUKER\"", "\"class\":\"custom\""}) {
-			if (!recorded.contains(expected)) {
-				throw new IllegalStateException("the recording lacks " + expected);
-			}
-		}
-		if (recorded.contains("Duskrunner") || recorded.contains(Minecraft.getMinecraft().thePlayer.getName())) {
-			throw new IllegalStateException("the recording names a player");
+		} finally {
+			scout.config().mark = true;
 		}
 	}
 
 	/**
-	 * Quitting the game mid-round: no disconnect event comes before the JVM exits, so the shutdown
-	 * hook has to close the round's recording, or its gzip stays without an end.
+	 * The bed vanishes through the real packet handler, as the server would say it: only Scout's own
+	 * mixin, shaded into this jar and remapped with it, can turn that into the NUKER flag.
 	 */
-	private static void checkStoppingClosesTheRecording(HypixelScout mod) throws IOException {
-		java.nio.file.Path dir = mod.cheats().log().dir();
-		try (java.nio.file.DirectoryStream<java.nio.file.Path> files =
-				java.nio.file.Files.newDirectoryStream(dir, "cheatwatch-*.cwrec")) {
-			for (java.nio.file.Path file : files) {
-				java.nio.file.Files.delete(file);
-			}
-		}
-		mod.settings().cheats.record = true;
-		mod.cheats().newRound();
-		mod.settings().cheats.record = false;
-		if (mod.cheats().recorder() == null) {
-			throw new IllegalStateException("recording is on, but the new round has no recording");
-		}
-		mod.clientStopping();
-		if (mod.cheats().recorder() != null) {
-			throw new IllegalStateException("the recording outlived the client stopping");
-		}
-		try (java.nio.file.DirectoryStream<java.nio.file.Path> files =
-				java.nio.file.Files.newDirectoryStream(dir, "cheatwatch-*.cwrec")) {
-			for (java.nio.file.Path file : files) {
-				try (java.io.InputStream in = new java.util.zip.GZIPInputStream(java.nio.file.Files.newInputStream(file))) {
-					byte[] buffer = new byte[8192];
-					while (in.read(buffer) > 0) {
-						// read to the end: a gzip without its trailer throws here
-					}
-				}
-				return;
-			}
-		}
-		throw new IllegalStateException("no .cwrec for the round the client stopped in");
-	}
-
-	/** The synthetic event: {@code CheatSensor.onBlock} sees the bed vanish, exactly as the packet mixin would. */
 	private void breakNukerBed(Minecraft client) {
-		Block airBlock = Blocks.air;
-		de.raindancer118.hypixelscout.game.CheatSensor.onBlock(nukerHead, airBlock.getDefaultState());
+		S23PacketBlockChange packet = new S23PacketBlockChange(client.theWorld, nukerHead);
+		packet.blockState = Blocks.air.getDefaultState();
+		client.getNetHandler().handleBlockChange(packet);
 	}
 
 	private static void screenshot(Minecraft client, String filename) throws IOException {
