@@ -3,7 +3,7 @@
 	"id": "hypixelscout",
 	"version": "${version}",
 	"name": "Hypixel Scout",
-	"description": "Bedwars opponent stats inside the game: a table of everybody in your match, full profiles, a look tooltip, chat hover, nick and winstreak alerts and quick queue. Reads the official Hypixel API with your own key. Client-side only.",
+	"description": "Bedwars opponent stats inside the game: a table of everybody in your match, full profiles, a look tooltip, chat hover, nick and winstreak alerts and quick queue. Brings Scout, the cheat detector, along. Reads the official Hypixel API with your own key. Client-side only.",
 	"authors": [
 		"Raindancer118"
 	],
@@ -17,6 +17,9 @@
 		],
 		"modmenu": [
 			"de.raindancer118.hypixelscout.compat.ModMenuIntegration"
+		],
+		"scout": [
+			"de.raindancer118.hypixelscout.game.HypixelHost"
 		]
 	},
 	"mixins": [
@@ -30,6 +33,7 @@
 		"minecraft": "~${minecraft_version}",
 		"java": ">=25",
 		"fabric-api": "*",
-		"hypixel-mod-api": ">=${hypixel_mod_api}"
+		"hypixel-mod-api": ">=${hypixel_mod_api}",
+		"scout": "*"
 	}
 }

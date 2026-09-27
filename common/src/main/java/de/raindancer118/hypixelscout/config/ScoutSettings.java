@@ -18,9 +18,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Every setting the mod has, as {@code config/hypixelscout.json}.
@@ -57,12 +55,6 @@ public final class ScoutSettings {
 	public static final int MAX_OFFSCREEN_RANGE = 64;
 	public static final int MAX_POPUP_SECONDS = 15;
 	public static final int MAX_REQUEUE_DELAY = 15;
-	public static final int MIN_CHEAT_SENSITIVITY = 50;
-	/** Backwards bridging faster than this is SCAFFOLD, by default: walking on Speed II is 6.0. */
-	public static final double DEFAULT_BRIDGE_PER_SECOND = 6.5;
-	/** The current revision of the default limits, for {@code cheats.limitsRevision}. */
-	static final int LIMITS_REVISION = 1;
-	public static final int MAX_CHEAT_SENSITIVITY = 200;
 	public static final int MIN_SENSITIVITY = 25;
 	public static final int MAX_SENSITIVITY = 400;
 
@@ -112,8 +104,6 @@ public final class ScoutSettings {
 	public Requeue requeue = new Requeue();
 	public Projectiles projectiles = new Projectiles();
 	public Awareness awareness = new Awareness();
-	public Cheats cheats = new Cheats();
-	public Telemetry telemetry = new Telemetry();
 	public Cards cards = new Cards();
 	public Callouts callouts = new Callouts();
 	public Queue queue = new Queue();
@@ -243,85 +233,6 @@ public final class ScoutSettings {
 		public int offscreenRange = 32;
 	}
 
-	/**
-	 * CheatWatch telemetry: anonymised sightings, flags and verdicts, so the detector's false-positive
-	 * rate can be measured (what exactly is sent: CheatWatch's {@code TELEMETRY.md}). Opt-out — on by
-	 * default, with a notice on first launch — but nothing is sent while {@link #endpoint} is empty,
-	 * which it is until a receiving server exists and the data-protection review is done.
-	 */
-	public static final class Telemetry {
-		public boolean enabled = true;
-		/** Where batches go; empty sends nothing. Read at startup. */
-		public String endpoint = "";
-		/** Whether the first-launch notice has been shown. */
-		public boolean noticeShown = false;
-	}
-
-	/** Watching the other players for what only a cheat makes possible ({@code de.raindancer118.cheatwatch.CheatWatch}). */
-	public static final class Cheats {
-		public boolean enabled = true;
-		/** A line in the player's own chat when somebody is flagged. Never sent to anybody. */
-		public boolean chatAlerts = true;
-		/** A warning sign on the flagged player's nametag and in every list of players. */
-		public boolean mark = true;
-		/** Percent: 100 as designed, higher flags on fewer sightings. */
-		public int sensitivity = 100;
-		/** Every sighting, flag and verdict into a local file, to tune the checks by. */
-		public boolean log = false;
-		/**
-		 * Every round recorded for CheatWatch's replay (a {@code .cwrec} in the log folder, player
-		 * names replaced by {@code actor_N}): what the detector was told, so a false positive can be
-		 * replayed and fixed. Local only; off until the player turns it on.
-		 */
-		public boolean record = false;
-		/** Percent per check, by its name, on top of {@link #sensitivity}; a check not in here is at 100. */
-		public Map<String, Integer> checkSensitivity = new LinkedHashMap<>();
-		/** The limits, in the units a player thinks in. */
-		public double reachStanding = 3.2;
-		public double reachMoving = 3.8;
-		public double speedPerSecond = 12.4;
-		public int fastPlacePerSecond = 13;
-		/** Walking on the Speed II potion Bedwars sells is 6.0; see {@link #limitsRevision}. */
-		public double bridgePerSecond = DEFAULT_BRIDGE_PER_SECOND;
-		/**
-		 * Which revision of the default limits a saved file has seen; {@code null} in a file from before
-		 * the bridge default went from 5.0 to 6.5 (0.20.0). Such a file still at 5.0 moves up once.
-		 */
-		public Integer limitsRevision;
-		public Hud hud = new Hud();
-
-		public int sensitivityOf(de.raindancer118.cheatwatch.Check check) {
-			return checkSensitivity.getOrDefault(check.name(), 100);
-		}
-
-		public void setSensitivity(de.raindancer118.cheatwatch.Check check, int percent) {
-			if (percent == 100) {
-				checkSensitivity.remove(check.name());
-			} else {
-				checkSensitivity.put(check.name(), Math.max(MIN_CHEAT_SENSITIVITY, Math.min(MAX_CHEAT_SENSITIVITY, percent)));
-			}
-		}
-
-		public de.raindancer118.cheatwatch.CheatWatch.Tuning tuning() {
-			return new de.raindancer118.cheatwatch.CheatWatch.Tuning(reachStanding, reachMoving,
-					speedPerSecond / 20, fastPlacePerSecond, bridgePerSecond / 20);
-		}
-
-		/** The checks switched off, one by one; everything else is watched. */
-		public List<de.raindancer118.cheatwatch.Check> off = new ArrayList<>();
-
-		public boolean isOn(de.raindancer118.cheatwatch.Check check) {
-			return !off.contains(check);
-		}
-
-		public void set(de.raindancer118.cheatwatch.Check check, boolean on) {
-			off.remove(check);
-			if (!on) {
-				off.add(check);
-			}
-		}
-	}
-
 	/** What each player card shows, and how big it is drawn. */
 	public static final class Cards {
 		public Card tooltip = Card.of(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
@@ -379,22 +290,6 @@ public final class ScoutSettings {
 		public boolean pace = true;
 		public boolean socials = true;
 	}
-
-	/** The suspects in a corner of the screen. */
-	public static final class Hud {
-		public boolean enabled = true;
-		/** Only players with a flag; otherwise everybody from {@link #minPercent} up. */
-		public boolean onlyFlagged = false;
-		public int minPercent = 50;
-		public int maxRows = 5;
-		/** The checks behind each name, not just the confidence. */
-		public boolean showChecks = true;
-		public double scale = 1.0;
-		public TablePlacement placement = DEFAULT_SUSPECTS_PLACEMENT;
-	}
-
-	/** Bottom right, clear of the chat, the hotbar and the scoreboard. */
-	public static final TablePlacement DEFAULT_SUSPECTS_PLACEMENT = new TablePlacement(TableAnchor.BOTTOM_RIGHT, -0.006, -0.1);
 
 	/** Messages on hotkeys, filled in with whoever is aimed at ({@link de.raindancer118.hypixelscout.core.Callout}). */
 	public static final class Callouts {
@@ -540,36 +435,6 @@ public final class ScoutSettings {
 		cards.hover.sanitise(de.raindancer118.hypixelscout.core.CardLines.Layout.TOOLTIP);
 		cards.profile = cards.profile == null ? new Profile() : cards.profile;
 		cards.peekScale = finiteClamp(cards.peekScale, MIN_SCALE, MAX_SCALE, 1.0);
-
-		cheats = cheats == null ? new Cheats() : cheats;
-		telemetry = telemetry == null ? new Telemetry() : telemetry;
-		telemetry.endpoint = telemetry.endpoint == null ? "" : telemetry.endpoint.trim();
-		cheats.sensitivity = Math.max(MIN_CHEAT_SENSITIVITY, Math.min(MAX_CHEAT_SENSITIVITY, cheats.sensitivity));
-		// A check name this version does not know reads as null; a hand-edited list may repeat one.
-		cheats.checkSensitivity = cheats.checkSensitivity == null ? new LinkedHashMap<>() : new LinkedHashMap<>(cheats.checkSensitivity);
-		cheats.checkSensitivity.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null
-				|| java.util.Arrays.stream(de.raindancer118.cheatwatch.Check.values()).noneMatch(check -> check.name().equals(entry.getKey())));
-		cheats.checkSensitivity.replaceAll((check, percent) -> Math.max(MIN_CHEAT_SENSITIVITY, Math.min(MAX_CHEAT_SENSITIVITY, percent)));
-		cheats.reachStanding = finiteClamp(cheats.reachStanding, 3.0, 4.5, 3.2);
-		cheats.reachMoving = finiteClamp(cheats.reachMoving, 3.0, 5.0, 3.8);
-		cheats.speedPerSecond = finiteClamp(cheats.speedPerSecond, 8.0, 30.0, 12.4);
-		cheats.fastPlacePerSecond = Math.max(8, Math.min(30, cheats.fastPlacePerSecond));
-		if (cheats.limitsRevision == null || cheats.limitsRevision < LIMITS_REVISION) {
-			if (cheats.bridgePerSecond == 5.0) {
-				// The old default, below walking pace on a speed potion: a real round had thirteen
-				// backwards-bridging sightings of one player doing just that.
-				cheats.bridgePerSecond = DEFAULT_BRIDGE_PER_SECOND;
-			}
-			cheats.limitsRevision = LIMITS_REVISION;
-		}
-		cheats.bridgePerSecond = finiteClamp(cheats.bridgePerSecond, 3.0, 10.0, DEFAULT_BRIDGE_PER_SECOND);
-		cheats.hud = cheats.hud == null ? new Hud() : cheats.hud;
-		cheats.hud.minPercent = Math.max(1, Math.min(99, cheats.hud.minPercent));
-		cheats.hud.maxRows = Math.max(1, Math.min(12, cheats.hud.maxRows));
-		cheats.hud.scale = finiteClamp(cheats.hud.scale, MIN_SCALE, MAX_SCALE, 1.0);
-		cheats.hud.placement = cheats.hud.placement == null ? DEFAULT_SUSPECTS_PLACEMENT : cheats.hud.placement;
-		cheats.off = cheats.off == null ? new ArrayList<>()
-				: new ArrayList<>(new java.util.LinkedHashSet<>(cheats.off.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toList())));
 
 		callouts = callouts == null ? new Callouts() : callouts;
 		String[] messages = callouts.messages == null ? new String[0] : callouts.messages;

@@ -44,6 +44,8 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 
 	private static final List<String> EXPECTED_SUBCOMMANDS = List.of(
 			"game", "teams", "lookup", "queue", "settings", "move", "table", "party", "refresh", "status", "cheats", "suspects",
+			// Scout's, merged into the same /scout by Brigadier.
+			"options", "hud", "telemetry",
 			"testkey", "key", "player", "list", "requeue");
 
 	private record Seat(String team, HypixelStub.Player player) {
@@ -336,7 +338,6 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 				assertHazards(context, singleplayer, mod);
 				assertCallouts(context, mod);
 				assertCheats(context, mod);
-				assertTelemetry(context, mod);
 
 				// The threat report into team chat: one line per enemy team, most dangerous first.
 				context.runOnClient(client -> {
@@ -517,7 +518,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 					throw new AssertionError("Screens caused " + (stub.playerRequests.get() - requests) + " extra requests");
 				}
 
-				assertStoppingClosesTheRecording(context, mod);
+				assertLeavingEndsScoutsRound(context, mod);
 
 				// Leaving the game empties everything.
 				context.runOnClient(client -> {
@@ -917,77 +918,27 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 	}
 
 	/**
-	 * Telemetry, opt-out: the notice came with the first world, {@code /scout telemetry show} writes
-	 * exactly what would be sent — with nobody's name in it — and off keeps nothing.
-	 */
-	private static void assertTelemetry(ClientGameTestContext context, HypixelScout mod) {
-		context.runOnClient(client -> {
-			if (!mod.settings().telemetry.enabled || !mod.settings().telemetry.noticeShown) {
-				throw new AssertionError("Telemetry should be on and its notice shown by now");
-			}
-			// The fight just now, as telemetry has it — or had it, if the sender already went past it.
-			mod.telemetry().client().sighting(new de.raindancer118.cheatwatch.Violation("Sundial",
-					de.raindancer118.cheatwatch.Check.REACH, "4.2 blocks", 1));
-			client.player.connection.sendCommand("scout telemetry show");
-		});
-		context.waitTicks(5);
-		context.runOnClient(client -> {
-			java.nio.file.Path preview = mod.cheats().log().dir().resolve("telemetry-preview.json");
-			String text;
-			try {
-				text = java.nio.file.Files.readString(preview);
-			} catch (java.io.IOException e) {
-				throw new AssertionError("/scout telemetry show wrote no preview", e);
-			}
-			if (text.contains("Sundial") || text.contains(client.player.getScoreboardName())) {
-				throw new AssertionError("The telemetry preview names a player:\n" + text);
-			}
-			client.player.connection.sendCommand("scout telemetry off");
-		});
-		context.waitTicks(3);
-		context.runOnClient(client -> {
-			if (mod.settings().telemetry.enabled || mod.telemetry().client().enabled()
-					|| mod.telemetry().client().pending() != 0) {
-				throw new AssertionError("Telemetry off still keeps something");
-			}
-			client.player.connection.sendCommand("scout telemetry on");
-		});
-		context.waitTicks(3);
-		context.runOnClient(client -> {
-			if (!mod.telemetry().client().enabled()) {
-				throw new AssertionError("Telemetry on did not come back on");
-			}
-		});
-	}
-
-	/**
-	 * Cheat detection on a fight the player is not part of: Sundial hits Ashenvale from 4.2 blocks,
-	 * again and again, through the real packet handlers — flagged for Reach, marked on his nametag and
-	 * in the lists. Then blocks appear behind him while he looks the other way: Scaffold. Both go
+	 * Scout, the bundled cheat detector, on a fight the player is not part of: Sundial hits Ashenvale
+	 * from 4.2 blocks, again and again, through the real packet handlers — flagged for Reach, marked in
+	 * this mod's lists. Then blocks appear behind him while he looks the other way: Scaffold. Both go
 	 * back where they stood, and the blocks go again.
+	 *
+	 * <p>What Scout does on its own — its log, recordings, telemetry, popup, nametag mark — is tested in
+	 * its own repository; here it is what this mod adds: that it is Scout's host (the round begins with
+	 * the Bedwars game, the teams and the roster decide who is watched), the reports to party and team,
+	 * the marks in the lists, and Scout's page and screens inside this mod's.
 	 */
 	private static void assertCheats(ClientGameTestContext context, HypixelScout mod) {
 		double[][] before = new double[2][];
 		int[] base = new int[3];
-		// The sighting log, fresh for this run: everything below should land in it.
-		java.nio.file.Path logDir = mod.cheats().log().dir();
-		try (var old = java.nio.file.Files.exists(logDir) ? java.nio.file.Files.list(logDir) : java.util.stream.Stream.<java.nio.file.Path>empty()) {
-			for (java.nio.file.Path file : old.toList()) {
-				java.nio.file.Files.delete(file);
-			}
-		} catch (java.io.IOException e) {
-			throw new AssertionError("Could not empty the log directory of an earlier run", e);
-		}
-		context.runOnClient(client -> mod.settings().cheats.log = true);
-		// And a CheatWatch recording of the round, which only ever starts with a round.
+		de.raindancer118.scout.api.ScoutView scout = de.raindancer118.scout.api.ScoutApi.get();
 		context.runOnClient(client -> {
-			mod.settings().cheats.record = true;
-			mod.cheats().newRound();
-			if (mod.cheats().recorder() == null) {
-				throw new AssertionError("Recording is on, but the new round has no recording");
+			if (!de.raindancer118.scout.api.ScoutApi.hosts().names().contains("Hypixel Scout")) {
+				throw new AssertionError("Hypixel Scout is not Scout's host: " + de.raindancer118.scout.api.ScoutApi.hosts().names());
 			}
-		});
-		context.runOnClient(client -> {
+			if (!scout.enabled()) {
+				throw new AssertionError("Scout's detection is off");
+			}
 			var sundial = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_242);
 			var mate = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_243);
 			before[0] = new double[] {sundial.getX(), sundial.getY(), sundial.getZ(), sundial.getYRot(), sundial.getXRot()};
@@ -1015,29 +966,33 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			context.waitTicks(10);
 		}
 		context.runOnClient(client -> {
-			var flags = mod.cheats().flags("Sundial").stream().map(f -> f.check()).toList();
+			var flags = scout.flags("Sundial").stream().map(f -> f.check()).toList();
 			if (!flags.contains(de.raindancer118.cheatwatch.Check.REACH)) {
 				throw new AssertionError("Hits from 4.2 blocks between two other players are not Reach: " + flags);
 			}
-			var sundial = (net.minecraft.world.entity.player.Player) client.level.getEntity(424_242);
-			String tag = de.raindancer118.hypixelscout.game.Nametags.decorate(sundial,
-					net.minecraft.network.chat.Component.literal("Sundial")).getString();
-			if (!tag.contains("\u26a0") || !tag.contains("%")) {
-				throw new AssertionError("The flagged player's nametag is not marked: " + tag);
-			}
-			if (!de.raindancer118.hypixelscout.ui.Suspects.mark("Sundial").equals(de.raindancer118.hypixelscout.ui.Suspects.MARK)
+			if (!de.raindancer118.hypixelscout.ui.Suspects.mark("Sundial").equals(de.raindancer118.scout.hud.Marks.MARK)
 					|| !de.raindancer118.hypixelscout.ui.Suspects.mark("Ashenvale").isEmpty()
-							&& mod.cheats().flags("Ashenvale").isEmpty()) {
+							&& scout.flags("Ashenvale").isEmpty()) {
 				throw new AssertionError("The lists do not mark exactly the flagged players");
 			}
-			if (mod.cheats().flags("Ashenvale").stream().anyMatch(f -> f.check() == de.raindancer118.cheatwatch.Check.REACH)) {
+			if (!de.raindancer118.hypixelscout.ui.Suspects.cardExtras("Sundial")
+					.containsKey(de.raindancer118.hypixelscout.core.CardField.CHEATS)) {
+				throw new AssertionError("The cards have no cheat field for Sundial");
+			}
+			if (scout.flags("Ashenvale").stream().anyMatch(f -> f.check() == de.raindancer118.cheatwatch.Check.REACH)) {
 				throw new AssertionError("The victim was flagged for Reach");
 			}
+			// The flag in this mod's own marks follows Scout's switch for them.
+			scout.config().mark = false;
+			if (!de.raindancer118.hypixelscout.ui.Suspects.mark("Sundial").isEmpty()) {
+				throw new AssertionError("Marks switched off in Scout still show in the lists");
+			}
+			scout.config().mark = true;
 		});
 
 		// A swing and a push arriving together off the network name the attacker without any damage
 		// event: sent from another thread, the way the network thread hands packets to the client.
-		int reachBefore = mod.cheats().suspicion().count("Sundial", de.raindancer118.cheatwatch.Check.REACH);
+		int reachBefore = scout.suspicion().count("Sundial", de.raindancer118.cheatwatch.Check.REACH);
 		context.runOnClient(client -> {
 			var connection = client.getConnection();
 			var sundial = client.level.getEntity(424_242);
@@ -1062,7 +1017,7 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		});
 		context.waitTicks(4);
 		context.runOnClient(client -> {
-			int reachAfter = mod.cheats().suspicion().count("Sundial", de.raindancer118.cheatwatch.Check.REACH);
+			int reachAfter = scout.suspicion().count("Sundial", de.raindancer118.cheatwatch.Check.REACH);
 			if (reachAfter <= reachBefore) {
 				throw new AssertionError("A swing and push arriving together did not count as Sundial's hit: " + reachAfter);
 			}
@@ -1095,17 +1050,15 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 			});
 			context.waitTicks(2);
 		}
-		// Scaffold placements are now judged only once their burst-and-look window has resolved (a
-		// pop-up tower needs its later blocks to tell it apart from a hand) - give the last one's
-		// window time to close before checking for the flag.
+		// Scaffold placements are judged only once their burst-and-look window has resolved.
 		context.waitTicks(20);
 		context.runOnClient(client -> {
-			var flags = mod.cheats().flags("Sundial").stream().map(f -> f.check()).toList();
+			var flags = scout.flags("Sundial").stream().map(f -> f.check()).toList();
 			if (!flags.contains(de.raindancer118.cheatwatch.Check.SCAFFOLD)) {
 				throw new AssertionError("Blocks placed behind somebody looking away are not Scaffold: " + flags);
 			}
-			// A check switched off forgets what it saw, flags and all; on again, it watches afresh.
-			mod.settings().cheats.set(de.raindancer118.cheatwatch.Check.SCAFFOLD, false);
+			// A check switched off in Scout forgets what it saw, flags and all; on again, it watches afresh.
+			scout.config().set(de.raindancer118.cheatwatch.Check.SCAFFOLD, false);
 			((net.minecraft.world.entity.player.Player) client.level.getEntity(424_242))
 					.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, held[0]);
 			var mate = client.level.getEntity(424_243);
@@ -1113,22 +1066,25 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		});
 		context.waitTicks(2);
 		context.runOnClient(client -> {
-			if (mod.cheats().flags("Sundial").stream().anyMatch(f -> f.check() == de.raindancer118.cheatwatch.Check.SCAFFOLD)) {
+			if (scout.flags("Sundial").stream().anyMatch(f -> f.check() == de.raindancer118.cheatwatch.Check.SCAFFOLD)) {
 				throw new AssertionError("A switched-off check still shows its flag");
 			}
-			mod.settings().cheats.set(de.raindancer118.cheatwatch.Check.SCAFFOLD, true);
+			scout.config().set(de.raindancer118.cheatwatch.Check.SCAFFOLD, true);
 		});
-		context.setScreen(() -> new de.raindancer118.hypixelscout.ui.screen.CheatChecksScreen(mod, null));
+		// Scout's options, reached from this mod's settings.
+		context.setScreen(() -> new de.raindancer118.scout.fabric.ui.screen.SettingsScreen(null));
 		context.waitTicks(3);
-		context.takeScreenshot("scout_cheat_checks");
+		context.takeScreenshot("scout_cheat_options");
 		context.setScreen(() -> null);
 		context.runOnClient(client -> {
+			client.gui.hud.getChat().clearMessages(false);
+			// Scout's own command, under the same /scout as this mod's.
 			client.player.connection.sendCommand("scout cheats");
 
 			// Reported to the party only when asked: one plain line per flagged player, surest first.
-			mod.partyReport().sendCheats(de.raindancer118.hypixelscout.game.PartyReport.Channel.PARTY, mod.cheats().suspicion());
+			mod.partyReport().sendCheats(de.raindancer118.hypixelscout.game.PartyReport.Channel.PARTY, scout.suspicion());
 			var lines = mod.partyReport().pendingLines();
-			int sure = (int) Math.round(mod.cheats().confidence("Sundial") * 100);
+			int sure = (int) Math.round(scout.confidence("Sundial") * 100);
 			if (lines.stream().noneMatch(line -> line.startsWith("CHEATER? YELLOW Sundial " + sure + "% sure - ")
 					&& line.contains("Reach x"))) {
 				throw new AssertionError("No cheat report line for Sundial: " + lines);
@@ -1141,7 +1097,8 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		context.waitTicks(3);
 		context.takeScreenshot("scout_cheat_flags");
 
-		// The cheats tab lists the suspects with the surest chosen; the HUD card shows them in game.
+		// The cheats tab is Scout's suspects page inside this mod's screen, the surest chosen; Scout's
+		// card shows them in game.
 		context.setScreen(() -> {
 			var screen = mod.scoutScreen(null);
 			screen.showPage(ScoutScreen.Page.CHEATS);
@@ -1157,76 +1114,24 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 		context.setScreen(() -> null);
 		context.waitTicks(3);
 		context.runOnClient(client -> {
-			var shown = de.raindancer118.hypixelscout.ui.hud.SuspectsHud.shown(mod.cheats().suspects(), mod.settings().cheats.hud);
+			var shown = de.raindancer118.scout.hud.Marks.shown(scout.suspects(), scout.config().hud);
 			if (shown.stream().noneMatch(suspect -> suspect.player().equals("Sundial"))) {
 				throw new AssertionError("The suspects card does not show Sundial: " + shown);
 			}
 		});
 		context.takeScreenshot("scout_suspects_hud");
-		context.setScreen(() -> new de.raindancer118.hypixelscout.ui.hud.SuspectsEditorScreen(mod::settings, mod.cheats(),
-				mod::saveSettings, null));
+		context.setScreen(() -> new de.raindancer118.scout.fabric.ui.hud.HudEditorScreen(null));
 		context.waitTicks(3);
 		context.takeScreenshot("scout_suspects_editor");
 		context.setScreen(() -> null);
 
-		// A wrong flag, cleared by the player: gone from the mark, written down as a false one.
-		context.runOnClient(client -> client.player.connection.sendCommand("scout cheats wrong Ashenvale velocity"));
+		// A wrong flag, cleared by the player through Scout's command.
+		context.runOnClient(client -> client.player.connection.sendCommand("scout cheats wrong Sundial scaffold"));
 		context.waitTicks(10);
 		context.runOnClient(client -> {
-			if (mod.cheats().flags("Ashenvale").stream().anyMatch(f -> f.check() == de.raindancer118.cheatwatch.Check.VELOCITY)) {
+			if (scout.flags("Sundial").stream().anyMatch(f -> f.check() == de.raindancer118.cheatwatch.Check.SCAFFOLD)) {
 				throw new AssertionError("/scout cheats wrong did not clear the flag");
 			}
-			String written;
-			try (var files = java.nio.file.Files.list(logDir)) {
-				StringBuilder all = new StringBuilder();
-				for (java.nio.file.Path file : files.toList()) {
-					if (file.toString().endsWith(".jsonl")) {
-						all.append(java.nio.file.Files.readString(file));
-					}
-				}
-				written = all.toString();
-			} catch (java.io.IOException e) {
-				throw new AssertionError("The sighting log was not written", e);
-			}
-			for (String expected : new String[] {"\"event\":\"round\"", "\"event\":\"sighting\",", "\"player\":\"Sundial\",\"check\":\"REACH\"",
-					"\"event\":\"flag\"", "\"event\":\"verdict\"", "\"player\":\"Ashenvale\",\"check\":\"VELOCITY\",\"cheating\":false"}) {
-				if (!written.contains(expected)) {
-					throw new AssertionError("The sighting log lacks " + expected + ":\n" + written);
-				}
-			}
-			mod.settings().cheats.log = false;
-
-			// The round's recording: closed with the round, a real CheatWatch stream of this very fight,
-			// and nobody's name in it.
-			mod.cheats().endRound();
-			mod.settings().cheats.record = false;
-			String recorded;
-			try (var files = java.nio.file.Files.list(logDir)) {
-				java.nio.file.Path recording = files.filter(file -> file.toString().endsWith(".cwrec")).findFirst()
-						.orElseThrow(() -> new AssertionError("No .cwrec was written"));
-				try (var in = new java.util.zip.GZIPInputStream(java.nio.file.Files.newInputStream(recording))) {
-					recorded = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-				}
-			} catch (java.io.IOException e) {
-				throw new AssertionError("The recording could not be read", e);
-			}
-			for (String expected : new String[] {"\"type\":\"header\"", "\"anonymised\":true", "\"t\":\"frame\"",
-					"\"t\":\"hurt\"", "\"t\":\"endTick\"", "\"check\":\"REACH\"", "\"class\":\"custom\""}) {
-				if (!recorded.contains(expected)) {
-					throw new AssertionError("The recording lacks " + expected);
-				}
-			}
-			for (String name : new String[] {"Sundial", "Ashenvale", client.player.getScoreboardName()}) {
-				if (recorded.contains(name)) {
-					throw new AssertionError("The recording names " + name);
-				}
-			}
-			if (mod.cheats().recorder() != null) {
-				throw new AssertionError("The recording outlived its round");
-			}
-		});
-
-		context.runOnClient(client -> {
 			for (int i = 0; i < 8; i++) {
 				client.getConnection().handleBlockUpdate(new net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket(
 						new net.minecraft.core.BlockPos(base[0] - 2, base[1] + 3, base[2] - 3 + i),
@@ -1239,35 +1144,15 @@ public class HypixelScoutStartupTest implements FabricClientGameTest {
 	}
 
 	/**
-	 * Quitting the game mid-round: the disconnect's queued work never runs once the client stops, so
-	 * stopping itself has to close the round's recording, or its gzip stays without an end. Ends the
-	 * game, so it comes last.
+	 * Leaving the game ends Scout's round with it — Hypixel Scout drives the rounds, so Scout does not
+	 * keep watching a lobby. Ends the game, so it comes last.
 	 */
-	private static void assertStoppingClosesTheRecording(ClientGameTestContext context, HypixelScout mod) {
+	private static void assertLeavingEndsScoutsRound(ClientGameTestContext context, HypixelScout mod) {
 		context.runOnClient(client -> {
-			java.nio.file.Path logDir = mod.cheats().log().dir();
-			try (var old = java.nio.file.Files.list(logDir)) {
-				for (java.nio.file.Path file : old.filter(file -> file.toString().endsWith(".cwrec")).toList()) {
-					java.nio.file.Files.delete(file);
-				}
-			} catch (java.io.IOException e) {
-				throw new AssertionError("Could not remove the first recording", e);
-			}
-			mod.settings().cheats.record = true;
-			mod.cheats().newRound();
-			mod.settings().cheats.record = false;
 			mod.clientStopping();
-			if (mod.cheats().recorder() != null) {
-				throw new AssertionError("The recording outlived the client stopping");
-			}
-			try (var files = java.nio.file.Files.list(logDir)) {
-				java.nio.file.Path recording = files.filter(file -> file.toString().endsWith(".cwrec")).findFirst()
-						.orElseThrow(() -> new AssertionError("No .cwrec for the round the client stopped in"));
-				try (var in = new java.util.zip.GZIPInputStream(java.nio.file.Files.newInputStream(recording))) {
-					in.readAllBytes();
-				}
-			} catch (java.io.IOException e) {
-				throw new AssertionError("The recording of the round the client stopped in is not complete", e);
+			if (!de.raindancer118.scout.api.ScoutApi.get().suspects().isEmpty()
+					&& de.raindancer118.scout.api.ScoutApi.hosts().watching()) {
+				throw new AssertionError("Scout still watches after the game ended");
 			}
 		});
 	}

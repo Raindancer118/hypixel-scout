@@ -1,5 +1,6 @@
 package de.raindancer118.hypixelscout;
 
+import de.raindancer118.scout.api.ScoutApi;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -42,7 +43,6 @@ public final class ScoutCommands {
 				.then(ClientCommands.literal("teams").executes(context -> openTab(mod, ScoutScreen.Page.TEAMS)))
 				.then(ClientCommands.literal("lookup").executes(context -> openTab(mod, ScoutScreen.Page.LOOKUP)))
 				.then(ClientCommands.literal("queue").executes(context -> openTab(mod, ScoutScreen.Page.QUEUE)))
-				.then(ClientCommands.literal("suspects").executes(context -> openTab(mod, ScoutScreen.Page.CHEATS)))
 				.then(ClientCommands.literal("settings").executes(context -> {
 					HypixelScout.open(mod.settingsScreen(null));
 					return 1;
@@ -88,30 +88,17 @@ public final class ScoutCommands {
 					return 1;
 				}))
 				.then(ClientCommands.literal("status").executes(context -> status(context, mod)))
-				.then(ClientCommands.literal("cheats").executes(context -> cheats(context, mod))
+				// Scout owns "cheats" (the list, the verdicts), "suspects" and "telemetry"; Brigadier merges this
+				// node with its own, so only the reports that need Hypixel's party and team chat are here.
+				.then(ClientCommands.literal("cheats")
 						.then(ClientCommands.literal("party").executes(context -> {
-							mod.partyReport().sendCheats(PartyReport.Channel.PARTY, mod.cheats().suspicion());
+							mod.partyReport().sendCheats(PartyReport.Channel.PARTY, ScoutApi.get().suspicion());
 							return 1;
 						}))
 						.then(ClientCommands.literal("team").executes(context -> {
-							mod.partyReport().sendCheats(PartyReport.Channel.TEAM, mod.cheats().suspicion());
+							mod.partyReport().sendCheats(PartyReport.Channel.TEAM, ScoutApi.get().suspicion());
 							return 1;
-						}))
-						.then(ClientCommands.literal("wrong")
-								.then(ClientCommands.argument("player", StringArgumentType.word())
-										.suggests((context, builder) -> SharedSuggestionProvider.suggest(flaggedPlayers(mod), builder))
-										.executes(context -> verdict(context, mod, false, false))
-										.then(ClientCommands.argument("check", StringArgumentType.word())
-												.suggests((context, builder) -> SharedSuggestionProvider.suggest(checkNames(), builder))
-												.executes(context -> verdict(context, mod, false, true)))))
-						.then(ClientCommands.literal("right")
-								.then(ClientCommands.argument("player", StringArgumentType.word())
-										.suggests((context, builder) -> SharedSuggestionProvider.suggest(flaggedPlayers(mod), builder))
-										.executes(context -> verdict(context, mod, true, false)))))
-				.then(ClientCommands.literal("telemetry").executes(context -> telemetryShow(context, mod))
-						.then(ClientCommands.literal("on").executes(context -> telemetrySwitch(context, mod, true)))
-						.then(ClientCommands.literal("off").executes(context -> telemetrySwitch(context, mod, false)))
-						.then(ClientCommands.literal("show").executes(context -> telemetryShow(context, mod))))
+						})))
 				.then(ClientCommands.literal("testkey").executes(context -> {
 					context.getSource().sendFeedback(Chat.prefixed(
 							Component.translatable("message.hypixelscout.key.checking")));
@@ -192,108 +179,9 @@ public final class ScoutCommands {
 		return 1;
 	}
 
-	/** Everybody flagged this round, one line per player with each check, how often and the latest evidence. */
-	private static int cheats(CommandContext<FabricClientCommandSource> context, HypixelScout mod) {
-		var source = context.getSource();
-		if (!mod.settings().cheats.enabled) {
-			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.off")));
-			return 1;
-		}
-		var flags = mod.cheats().suspicion().flagged();
-		if (flags.isEmpty()) {
-			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.none")));
-			return 1;
-		}
-		java.util.Map<String, java.util.List<de.raindancer118.cheatwatch.Suspicion.Flag>> byPlayer =
-				new java.util.LinkedHashMap<>();
-		for (var flag : flags) {
-			byPlayer.computeIfAbsent(flag.player(), name -> new java.util.ArrayList<>()).add(flag);
-		}
-		java.util.List<String> players = new java.util.ArrayList<>(byPlayer.keySet());
-		players.sort(java.util.Comparator.comparingDouble((String name) -> mod.cheats().confidence(name)).reversed());
-		for (String player : players) {
-			StringBuilder line = new StringBuilder("\u00a7c\u26a0 \u00a7f").append(player).append(" ")
-					.append(de.raindancer118.hypixelscout.ui.Suspects.percent(mod.cheats().confidence(player)))
-					.append("\u00a77:");
-			for (var flag : byPlayer.get(player)) {
-				line.append(" \u00a7c").append(flag.check().label()).append(" \u00a77\u00d7").append(flag.count())
-						.append(" \u00a78(").append(flag.detail()).append(", ").append(flag.percent()).append("%)");
-			}
-			source.sendFeedback(Chat.prefixed(Component.literal(line.toString())));
-		}
-		source.sendFeedback(Chat.prefixed(de.raindancer118.hypixelscout.game.CheatSensor.reportLinks()));
-		return 1;
-	}
-
-	private static java.util.stream.Stream<String> flaggedPlayers(HypixelScout mod) {
-		return mod.cheats().suspicion().flagged().stream().map(flag -> flag.player()).distinct();
-	}
-
-	private static java.util.stream.Stream<String> checkNames() {
-		return java.util.Arrays.stream(de.raindancer118.cheatwatch.Check.values())
-				.map(check -> check.name().toLowerCase(Locale.ROOT));
-	}
-
-	/** {@code /scout cheats wrong <player> [check]} and {@code /scout cheats right <player>}. */
-	private static int verdict(CommandContext<FabricClientCommandSource> context, HypixelScout mod, boolean cheating,
-			boolean withCheck) {
-		var source = context.getSource();
-		String player = StringArgumentType.getString(context, "player");
-		de.raindancer118.cheatwatch.Check check = null;
-		if (withCheck) {
-			String name = StringArgumentType.getString(context, "check");
-			try {
-				check = de.raindancer118.cheatwatch.Check.valueOf(name.toUpperCase(Locale.ROOT));
-			} catch (IllegalArgumentException e) {
-				source.sendError(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.unknown_check", name)));
-				return 0;
-			}
-		}
-
-		var flags = mod.cheats().verdict(player, check, cheating);
-		if (flags.isEmpty()) {
-			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.not_flagged", player)));
-		} else {
-			String checks = flags.stream().map(flag -> flag.check().label()).collect(java.util.stream.Collectors.joining(", "));
-			source.sendFeedback(Chat.prefixed(Component.translatable(cheating
-					? "message.hypixelscout.cheat.confirmed" : "message.hypixelscout.cheat.cleared", player, checks)));
-		}
-		if (!mod.settings().cheats.log) {
-			source.sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.cheat.not_logged")));
-		}
-		return 1;
-	}
-
 	/** What a key check found, as one line. Shared with the settings screen. */
 	public static net.minecraft.network.chat.MutableComponent describe(KeyCheck.Result result) {
 		String key = "message.hypixelscout.key.result." + result.outcome().name().toLowerCase(Locale.ROOT);
 		return Component.translatable(key, result.detail());
-	}
-
-	private static int telemetrySwitch(com.mojang.brigadier.context.CommandContext<FabricClientCommandSource> context,
-			HypixelScout mod, boolean on) {
-		mod.settings().telemetry.enabled = on;
-		mod.saveSettings();
-		mod.telemetry().client().setEnabled(on);
-		context.getSource().sendFeedback(Chat.prefixed(Component.translatable(
-				on ? "message.hypixelscout.telemetry.on" : "message.hypixelscout.telemetry.off")));
-		return 1;
-	}
-
-	/** {@code /scout telemetry [show]}: whether it is on, what it did, and the file with exactly what goes out. */
-	private static int telemetryShow(com.mojang.brigadier.context.CommandContext<FabricClientCommandSource> context,
-			HypixelScout mod) {
-		var settings = mod.settings().telemetry;
-		var stats = mod.telemetry().client().stats();
-		String state = !settings.enabled ? "off" : settings.endpoint.isEmpty() ? "idle" : "on";
-		context.getSource().sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.telemetry.state." + state,
-				stats.sentBatches(), mod.telemetry().client().pending(), stats.droppedEvents())));
-		java.nio.file.Path file = mod.telemetry().writePreview();
-		if (file != null) {
-			context.getSource().sendFeedback(Chat.prefixed(Component.translatable("message.hypixelscout.telemetry.preview",
-					Component.literal(file.getFileName().toString()).withStyle(style -> style.withUnderlined(true)
-							.withClickEvent(new net.minecraft.network.chat.ClickEvent.OpenFile(file))))));
-		}
-		return 1;
 	}
 }
